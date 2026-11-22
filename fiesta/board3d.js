@@ -200,6 +200,7 @@ function init() {
   canvas = document.createElement('canvas'); canvas.id = 'scene3d';
   Object.assign(canvas.style, { position: 'fixed', inset: '0', width: '100%', height: '100%', display: 'none', zIndex: '0', touchAction: 'none' });
   document.body.prepend(canvas);
+  canvas.addEventListener('pointerdown', () => window.dispatchEvent(new Event('board-tap')));
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -302,9 +303,14 @@ function makeAvatar(p) {
   // Mientras carga: ficha simple
   const ph = mesh(new THREE.CapsuleGeometry(0.3, 0.5, 4, 10), mat(p.color, { flatShading: false })); ph.position.y = 0.6; g.add(ph); av.placeholder = ph;
   av.label = labelFor(p); g.add(av.label);
-  const cid = (window.FIESTA_CHARS.find(c => c.emoji === p.emoji) || {}).id;
+  attachModel(g, p.emoji, ph, (m, mixer, walk) => { if (!avatars.has(av.id)) return false; av.model = m; av.mixer = mixer; av.walk = walk; return true; });
+  snapAvatar(av); return av;
+}
+// Carga el personaje 3D dentro del grupo g (reemplaza el marcador provisional ph)
+function attachModel(g, emoji, ph, onReady) {
+  const cid = (window.FIESTA_CHARS.find(c => c.emoji === emoji) || {}).id;
   if (cid) loadModel(cid).then(gltf => {
-    if (!gltf || !avatars.has(av.id)) return;
+    if (!gltf) return;
     const m = SkeletonUtils.clone(gltf.scene);
     m.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; if (o.material) { o.material.side = THREE.FrontSide; } } });
     m.updateMatrixWorld(true);
@@ -313,13 +319,26 @@ function makeAvatar(p) {
     if (!(h > 0.01 && h < 1000)) { box.setFromObject(m); h = box.max.y - box.min.y || 1; }
     const s = CHAR_H / h;
     m.scale.setScalar(s); m.position.y = -box.min.y * s;
-    g.remove(ph); disposeTree(ph); g.add(m); av.model = m;
+    let mixer = null, walk = null;
     if (gltf.animations && gltf.animations.length) {
-      av.mixer = new THREE.AnimationMixer(m);
-      av.walk = av.mixer.clipAction(gltf.animations[0]); av.walk.play(); av.walk.paused = true; av.walk.time = 0; av.walk.weight = 1;
+      mixer = new THREE.AnimationMixer(m);
+      walk = mixer.clipAction(gltf.animations[0]); walk.play(); walk.paused = true; walk.time = 0; walk.weight = 1;
     }
+    if (onReady(m, mixer, walk) === false) return;
+    if (ph) { g.remove(ph); disposeTree(ph); } g.add(m);
   });
-  snapAvatar(av); return av;
+}
+// Personaje suelto para los minijuegos 3D
+function spawnChar(emoji, color, name) {
+  const g = new THREE.Group();
+  const ph = mesh(new THREE.CapsuleGeometry(0.3, 0.5, 4, 10), mat(color, { flatShading: false })); ph.position.y = 0.6; g.add(ph);
+  const ring = mesh(new THREE.TorusGeometry(0.42, 0.06, 6, 24), new THREE.MeshBasicMaterial({ color }), { cast: false }); ring.rotation.x = Math.PI / 2; ring.position.y = 0.03; g.add(ring);
+  const ch = { g, ring, model: null, mixer: null, walk: null,
+    setWalking(on) { if (!ch.walk) return; if (on && ch.walk.paused) ch.walk.paused = false; if (!on && !ch.walk.paused) { ch.walk.paused = true; ch.walk.time = 0; ch.mixer.update(0); } },
+    update(dt) { if (ch.mixer) ch.mixer.update(dt * 1.6); } };
+  if (name) { const l = textSprite(name, { bg: color, stroke: null, h: 0.32, font: 800 }); l.position.y = CHAR_H + 0.4; g.add(l); ch.label = l; }
+  attachModel(g, emoji, ph, (m, mixer, walk) => { ch.model = m; ch.mixer = mixer; ch.walk = walk; return true; });
+  return ch;
 }
 function slotOffset(av) {
   const same = [...avatars.values()].filter(o => o.tile === av.tile && !o.anim && !o.queue.length);
@@ -374,26 +393,53 @@ function update(S, me) {
     crown.userData.to.copy(to); crown.userData.idx = S.crown;
   }
   // Dado
-  if (S.phase === 'rolling') { dice.visible = true; if (diceNum) { scene.remove(diceNum); diceNum = null; } }
-  else {
-    dice.visible = false;
-    const showNum = (S.phase === 'moving' || S.phase === 'crown') && S.dice;
-    if (showNum && (!diceNum || diceNum.userData.v !== S.dice + '-' + S.rollId)) { if (diceNum) scene.remove(diceNum); diceNum = textSprite(String(S.dice), { color: '#fff', h: 1.1 }); diceNum.userData.v = S.dice + '-' + S.rollId; scene.add(diceNum); }
-    if (!showNum && diceNum) { scene.remove(diceNum); diceNum = null; }
+  const key = S.round + '-' + S.turn;
+  if (S.phase === 'turn') { if (dfx.key !== key) { dfx.key = key; dfx.mode = 'hover'; dfx.rollId = null; setNum(null); } }
+  else if (S.phase === 'rolling') {
+    if (dfx.rollId !== S.rollId) { dfx.rollId = S.rollId; dfx.value = S.dice; dfx.remaining = S.dice;
+      if (!(dfx.mode === 'hit' && dfx.key === key)) startHit(key); }
+  } else if (S.phase === 'moving' || S.phase === 'crown') {
+    if (dfx.rollId !== S.rollId) { dfx.rollId = S.rollId; dfx.value = S.dice; dfx.remaining = 0; dfx.mode = 'num'; }
+    else if (dfx.mode === 'hit') { dfx.mode = 'num'; burstAt(dice.position); } // por si el celular va lento
+  } else { dfx.mode = 'idle'; setNum(null); }
+}
+const dfx = { mode: 'idle', key: null, rollId: null, value: 0, remaining: 0, hitT: 0, numShown: null, burst: [] };
+function startHit(key) {
+  const S = lastS; const cur = S && S.players[S.turn]; const av = cur && avatars.get(cur.id);
+  dfx.mode = 'hit'; dfx.key = key; dfx.hitT = 0; dfx.hitStart = performance.now(); dfx.contact = false;
+  if (av && !av.anim) av.jump = { t: 0 };
+}
+function setNum(n) {
+  if (dfx.numShown === n) return;
+  if (diceNum) { scene.remove(diceNum); diceNum.material.map.dispose(); diceNum.material.dispose(); diceNum = null; }
+  dfx.numShown = n;
+  if (n != null && n > 0) { diceNum = textSprite(String(n), { color: '#fff', stroke: '#e8590c', h: 1.2 }); diceNum.userData.pop = 0; scene.add(diceNum); }
+}
+function burstAt(pos) {
+  const cols = [0xffd43b, 0xff6b6b, 0x4dabf7, 0x51cf66, 0xffffff];
+  for (let i = 0; i < 16; i++) {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.12), new THREE.MeshBasicMaterial({ color: cols[i % cols.length] }));
+    m.position.copy(pos); const a = Math.random() * Math.PI * 2, up = 2 + Math.random() * 3;
+    m.userData.v = new THREE.Vector3(Math.cos(a) * (1.5 + Math.random() * 2), up, Math.sin(a) * (1.5 + Math.random() * 2)); m.userData.t = 0;
+    scene.add(m); dfx.burst.push(m);
   }
 }
 
 /* ---------------- Bucle ---------------- */
-const tmp = new THREE.Vector3();
+const tmp = new THREE.Vector3(), focusSm = new THREE.Vector3();
+let camYaw = null, camJump = true, overlay = null, _frames = 0;
 function frame() {
+  _frames++;
   const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
+  if (visible && overlay) { const v = overlay.frame(dt, t); if (v) { renderer.render(v[0], v[1]); } return; }
   if (!visible || !lastS) return;
   const S = lastS, cur = S.players[S.turn], curAv = cur && avatars.get(cur.id);
   avatars.forEach(av => {
     if (!av.anim && av.queue.length) {
       const step = av.queue.shift();
-      av.anim = { ...step, t: 0, from: av.g.position.clone(), dur: step.type === 'hop' ? 0.33 : 0.8, fromTile: av.tile };
+      av.anim = { ...step, t: 0, from: av.g.position.clone(), dur: step.type === 'hop' ? 0.3 : 0.8, fromTile: av.tile };
       av.tile = step.to; if (step.type === 'hop') setWalking(av, true);
+      if (step.type === 'hop' && cur && av.id === cur.id && dfx.mode === 'num' && dfx.remaining > 0) dfx.remaining--;
     }
     if (av.anim) {
       const a = av.anim; a.t += dt / a.dur; const k = Math.min(1, a.t);
@@ -409,7 +455,11 @@ function frame() {
       if (a.t >= 1) { av.anim = null; av.g.scale.setScalar(1); if (!av.queue.length) { setWalking(av, false); av.facing = faceDir(av.tile); } }
     } else {
       const goal = tilePos(av.tile).add(slotOffset(av));
+      av.g.position.y -= av.jumpY || 0;
       av.g.position.lerp(goal, 1 - Math.exp(-dt * 10));
+      av.jumpY = 0;
+      if (av.jump) { av.jump.t += dt / 0.5; const k = Math.min(1, av.jump.t); av.jumpY = Math.sin(Math.PI * k) * 1.15; if (k >= 1) av.jump = null; }
+      av.g.position.y += av.jumpY;
       // Mirar hacia la cámara suavemente cuando está quieto
       const want = Math.atan2(camera.position.x - av.g.position.x, camera.position.z - av.g.position.z);
       let diff = want - av.g.rotation.y; diff = Math.atan2(Math.sin(diff), Math.cos(diff)); av.g.rotation.y += diff * (1 - Math.exp(-dt * 4));
@@ -420,10 +470,33 @@ function frame() {
     av.ring.scale.setScalar(isCur ? 1.25 + Math.sin(t * 6) * 0.12 : 1);
   });
   // Flecha sobre el jugador actual
-  if (curAv) { arrow.visible = S.phase === 'turn'; arrow.position.copy(curAv.g.position).add(tmp.set(0, CHAR_H + 1.25 + Math.sin(t * 5) * 0.12, 0)); arrow.rotation.y += dt * 3; }
-  // Dado y número
-  if (dice.visible && curAv) { dice.position.copy(curAv.g.position).add(tmp.set(0, CHAR_H + 1.5, 0)); dice.rotation.x += dt * 11; dice.rotation.y += dt * 8; dice.rotation.z += dt * 5; }
-  if (diceNum && curAv) diceNum.position.copy(curAv.g.position).add(tmp.set(0, CHAR_H + 1.5, 0));
+  if (curAv) { arrow.visible = false; arrow.position.copy(curAv.g.position).add(tmp.set(0, CHAR_H + 1.25 + Math.sin(t * 5) * 0.12, 0)); arrow.rotation.y += dt * 3; }
+  // Dado: flota sobre la cabeza, el personaje salta y lo golpea, sale el número
+  const head = curAv ? tmp.copy(curAv.g.position).setY(curAv.g.position.y - (curAv.jumpY || 0)) : null;
+  dice.visible = !!head && (dfx.mode === 'hover' || dfx.mode === 'hit');
+  if (dice.visible) {
+    dice.position.copy(head).add(new THREE.Vector3(0, CHAR_H + 1.55 + Math.sin(t * 3) * 0.1, 0));
+    if (dfx.mode === 'hover') { dice.rotation.y += dt * 1.6; dice.rotation.x += dt * 0.7; dice.scale.setScalar(1); }
+    else {
+      dfx.hitT = (performance.now() - dfx.hitStart) / 1000;
+      if (!dfx.contact && dfx.hitT > 0.22) { dfx.contact = true; dfx.contactT = dfx.hitT; }
+      if (dfx.contact) {
+        const since = dfx.hitT - dfx.contactT;
+        dice.position.y += Math.sin(Math.min(1, since / 0.25) * Math.PI) * 0.35;
+        dice.rotation.x += dt * 16; dice.rotation.y += dt * 13; dice.scale.setScalar(1 + Math.max(0, 0.35 - since) * 0.8);
+        if (since > 0.5 && dfx.rollId != null) { dfx.mode = 'num'; burstAt(dice.position); }
+      } else { dice.rotation.y += dt * 4; }
+    }
+  }
+  if (dfx.mode === 'num') setNum(dfx.remaining > 0 ? dfx.remaining : (curAv && curAv.anim ? 0 : null)); 
+  if (diceNum && head) {
+    diceNum.position.copy(head).add(new THREE.Vector3(0, CHAR_H + 1.6, 0));
+    diceNum.userData.pop = Math.min(1, diceNum.userData.pop + dt / 0.35); const k = diceNum.userData.pop;
+    const sc = k < 0.6 ? k / 0.6 * 1.3 : 1.3 - (k - 0.6) / 0.4 * 0.3; const base = diceNum.userData.base || (diceNum.userData.base = diceNum.scale.clone());
+    diceNum.scale.set(base.x * sc, base.y * sc, 1);
+  }
+  for (let i = dfx.burst.length - 1; i >= 0; i--) { const m = dfx.burst[i]; m.userData.t += dt; m.userData.v.y -= 12 * dt; m.position.addScaledVector(m.userData.v, dt); m.rotation.x += dt * 8;
+    if (m.userData.t > 1.1) { scene.remove(m); m.geometry.dispose(); m.material.dispose(); dfx.burst.splice(i, 1); } }
   // Corona
   const cu = crown.userData;
   if (cu.t < 1) { cu.t = Math.min(1, cu.t + dt / 1.4); const k = cu.t; crown.position.lerpVectors(cu.from, cu.to, k); crown.position.y += Math.sin(Math.PI * k) * 6; }
@@ -438,14 +511,25 @@ function frame() {
     a.needsUpdate = true; }
   if (world) world.userData.pulse.forEach(f => f(t));
   // Cámara
-  const focus = curAv ? curAv.g.position : tmp.set(0, 0, 0);
+  let kPos = 1 - Math.exp(-dt * 2.6), kLook = kPos;
   if (camMode === 'overview' || !curAv) {
     const R = (world && world.userData.R) || 12; const far = camera.aspect < 1 ? 1.35 / camera.aspect : 1.4; camGoal.set(0, R * 1.9 * far, R * 1.25 * far); lookGoal.set(0, 0, 1.0);
   } else {
-    const out = new THREE.Vector3(focus.x, 0, focus.z); if (out.lengthSq() < 0.01) out.set(0, 0, 1); out.normalize();
-    camGoal.copy(focus).addScaledVector(out, 7.2).add(tmp.set(0, 6.2, 0)); lookGoal.copy(focus).addScaledVector(out, -1.5).add(tmp.set(0, 0.4, 0));
+    // Foco sin el salto (para que la cámara no rebote) y suavizado
+    focusSm.lerp(new THREE.Vector3(curAv.g.position.x, curAv.g.position.y - (curAv.jumpY || 0), curAv.g.position.z), 1 - Math.exp(-dt * 12));
+    const tileNow = curAv.anim ? curAv.anim.to : curAv.tile;
+    const y1 = faceDir(tileNow), y0 = faceDir(tileNow - 1), yawGoal = Math.atan2(Math.sin(y1) + Math.sin(y0), Math.cos(y1) + Math.cos(y0));
+    if (camYaw === null || camJump) camYaw = yawGoal;
+    let dy = yawGoal - camYaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); camYaw += dy * (1 - Math.exp(-dt * 2.2));
+    const moving = S.phase === 'moving', close = S.phase === 'turn' || S.phase === 'rolling';
+    const dist = close ? 6.2 : moving ? 6.8 : 6.2, h = close ? 3.2 : moving ? 4.4 : 4.0;
+    const fx = Math.sin(camYaw), fz = Math.cos(camYaw);
+    camGoal.set(focusSm.x - fx * dist, focusSm.y + h, focusSm.z - fz * dist);
+    lookGoal.set(focusSm.x + fx * (close ? 0.6 : 1.8), focusSm.y + (close ? 1.9 : 1.0), focusSm.z + fz * (close ? 0.6 : 1.8));
+    kPos = 1 - Math.exp(-dt * 4.2); kLook = 1 - Math.exp(-dt * 7);
+    if (camJump) { camera.position.copy(camGoal); look.copy(lookGoal); camJump = false; }
   }
-  const kk = 1 - Math.exp(-dt * 2.6); camera.position.lerp(camGoal, kk); look.lerp(lookGoal, kk); camera.lookAt(look);
+  camera.position.lerp(camGoal, kPos); look.lerp(lookGoal, kLook); camera.lookAt(look);
   if (scene.fog && scene.fog.userData.far) { const extra = Math.max(0, camera.position.distanceTo(look) - 10); scene.fog.near = scene.fog.userData.near + extra; scene.fog.far = scene.fog.userData.far + extra * 1.2; }
   sun.position.set(look.x + 12, 22, look.z + 8); sun.target.position.copy(look);
   renderer.render(scene, camera);
@@ -456,7 +540,11 @@ let ok = true;
 try { init(); } catch (e) { console.warn('3D no disponible', e); ok = false; }
 window.Board3D = {
   ok,
-  show(on) { if (!ok) return; visible = on; canvas.style.display = on ? 'block' : 'none'; if (on) { clock.getDelta(); } },
+  show(on) { if (!ok) return; if (on && !visible) camJump = true; visible = on; canvas.style.display = on ? 'block' : 'none'; if (on) { clock.getDelta(); } },
+  localHit() { if (!lastS || dfx.mode !== 'hover') return; startHit(lastS.round + '-' + lastS.turn); },
+  setOverlay(o) { overlay = o; camJump = true; },
+  get _dice() { return { mode: dfx.mode, num: dfx.numShown, hitT: +dfx.hitT.toFixed(2), rid: dfx.rollId, vis: dice.visible, fr: _frames }; },
+  spawnChar, textSprite, disposeTree, get renderer() { return renderer; }, get canvas() { return canvas; }, CHAR_H,
   update,
   toggleView() { camMode = camMode === 'follow' ? 'overview' : 'follow'; return camMode; },
   preload(ids) { ids.forEach(loadModel); },

@@ -154,9 +154,14 @@ const MG = {
   math:   {name:'Cuentas Rápidas',icon:'🧮', desc:'Resuelve todas las cuentas que puedas. Si fallas, te congelas 1 segundo.', dur:15000, lower:false},
   clock:  {name:'Reloj Ciego',    icon:'⏱️', desc:'Detén el cronómetro lo más cerca posible de 5.00 s. ¡Se oculta a los 2 segundos!', dur:10000, lower:true},
   color:  {name:'Colores Locos',  icon:'🎨', desc:'Toca el nombre del COLOR DE LA TINTA, no lo que dice la palabra.', dur:15000, lower:false},
+  piso:   {name:'Piso Traicionero', icon:'🟨', td:true, dur:30000, lower:false, desc:'Las baldosas parpadean en rojo y se caen a la lava. ¡Muévete a tiempo y aguanta hasta el final!'},
+  monedas:{name:'Lluvia de Monedas', icon:'🪙', td:true, dur:25000, lower:false, desc:'Caen monedas del cielo: corre a agarrarlas antes que los demás. Las grandes valen 3. ¡Cuidado con las bombas!'},
+  barra:  {name:'Salta la Barra', icon:'🌀', td:true, dur:30000, lower:false, desc:'Una barra gira cada vez más rápido: toca SALTA justo cuando pase. A los 15 s aparece otra.'},
+  bolas:  {name:'Avalancha', icon:'⛄', td:true, dur:30000, lower:false, desc:'Bolas de nieve gigantes ruedan hacia ti. ¡Esquívalas moviéndote de lado a lado!'},
+  carrera:{name:'Carrera Loca', icon:'🏁', td:true, dur:18000, lower:true, desc:'Toca IZQ y DER alternando lo más rápido que puedas. ¡El primero en llegar a la meta gana!'},
   balloon:{name:'Globo Valiente', icon:'🎈', desc:'Infla el globo y guárdalo antes de que explote. Más bombeos = más puntos. Si explota: 0.', dur:12000, lower:false},
 };
-const MG_KEYS = Object.keys(MG);
+const MG_KEYS = Object.keys(MG).filter(k => MG[k].td); // minijuegos 3D
 // Bots (modo vs IA): qué tan bien juegan cada minijuego según la dificultad
 const BOT_LEVELS = { facil:{name:'Fácil', k:0}, normal:{name:'Normal', k:1}, dificil:{name:'Difícil', k:2} };
 function botScore(type, lvl, seed){
@@ -296,6 +301,7 @@ function sendJoin(){ net.conn.send({t:'join', id:myId, name:me.name, emoji:me.em
 function clientRecv(d){
   if (!d) return;
   if (d.t === 'state') { clearTimeout(net.to); setBanner(''); onState(d.s); }
+  else if (d.t === 'mgp') { if (window.MG3D) MG3D.net(d); }
   else if (d.t === 'reject') { fail(d.reason); }
 }
 function lost(){ if (role !== 'client') return;
@@ -349,7 +355,16 @@ function hostAction(pid, msg){
     case 'crown': if (s.phase === 'crown' && cur().id === pid && H.crownResolve) H.crownResolve(!!msg.buy); break;
     case 'score':
       if (s.phase === 'mg-play' && s.mg && msg.key === s.mg.key && !(pid in s.mg.scores) && Number.isFinite(+msg.v)) {
-        s.mg.scores[pid] = +msg.v; broadcast(); checkMgDone(); }
+        s.mg.scores[pid] = s.mg.type === 'monedas' && H.mgNet ? (H.mgNet.counts[pid] || 0) : +msg.v; broadcast(); checkMgDone(); }
+      break;
+    case 'mgpos':
+      if (s.phase === 'mg-play' && s.mg && msg.key === s.mg.key && H.mgNet && Array.isArray(msg.a)) H.mgNet.pos[pid] = msg.a.slice(0, 7).map(Number);
+      break;
+    case 'mggrab':
+      if (s.phase === 'mg-play' && s.mg && s.mg.type === 'monedas' && msg.key === s.mg.key && H.mgCtx && H.mgNet.taken[msg.id] == null) {
+        const c = H.mgCtx.coins[msg.id], now = performance.now() - H.mgT0;
+        if (c && c.kind !== 'bomb' && now >= c.t + 600 && now < c.t + 900 + 4300 + 400) { H.mgNet.taken[msg.id] = pid; H.mgNet.counts[pid] = (H.mgNet.counts[pid] || 0) + (c.kind === 'big' ? 3 : 1); }
+      }
       break;
     case 'again': if (isHost && s.phase === 'end') { s.phase = 'lobby'; s.bonus = null; s.mg = null; broadcast(); } break;
   }
@@ -375,10 +390,10 @@ async function doRoll(){
   const s = H.state, p = cur(); H.turnToken++;
   s.phase = 'rolling'; s.dice = 1 + Math.floor(Math.random() * 6); s.rollId++;
   s.msg = `${p.name} tira el dado…`; broadcast();
-  await sleep(1400);
+  await sleep(1100);
   s.phase = 'moving'; s.msg = `${p.name} saca un ${s.dice}`;
   for (let steps = s.dice; steps > 0; steps--) {
-    await sleep(380);
+    await sleep(340);
     p.pos = (p.pos + 1) % N; broadcast();
     if (p.pos === s.crown) await crownStop(p);
   }
@@ -430,16 +445,43 @@ function randomEvent(p){
 function startMinigame(){
   const s = H.state;
   let type; do { type = pick(MG_KEYS); } while (type === s.lastMg);
+  if (MG_KEYS.includes(params.get('mg'))) type = params.get('mg'); // para pruebas
   s.lastMg = type;
   s.mg = {type, key: s.round + '-' + rid(), seed: (Math.random() * 1e9) | 0, scores:{}, ranking:null};
   s.phase = 'mg-intro'; s.msg = ''; broadcast();
   setTimeout(() => {
     s.phase = 'mg-play'; broadcast(); H.mgTimer = setTimeout(finishMinigame, MG[type].dur + 3500);
     const key = s.mg.key, dur = MG[type].dur;
+    if (MG[type].td) {
+      H.mgNet = {pos:{}, taken:{}, counts:{}}; H.mgT0 = performance.now(); H.mgLast = 0;
+      H.mgCtx = window.MG3D ? MG3D.host.init(type, s.mg.seed, s.players, dur) : null;
+      clearInterval(H.mgLoop); H.mgLoop = setInterval(hostMgTick, 100);
+      return;
+    }
     s.players.filter(p => p.bot).forEach(b => setTimeout(() => {
       if (s.phase === 'mg-play' && s.mg.key === key && !(b.id in s.mg.scores)) { s.mg.scores[b.id] = botScore(type, b.lvl, s.mg.seed); broadcast(); checkMgDone(); }
     }, dur * (0.55 + Math.random() * 0.4)));
   }, 6000);
+}
+function hostMgTick(){
+  const s = H.state;
+  if (s.phase !== 'mg-play' || !s.mg || !MG[s.mg.type].td) { clearInterval(H.mgLoop); return; }
+  const now = performance.now() - H.mgT0, total = Math.min(2, (now - H.mgLast) / 1000); H.mgLast = now;
+  let changed = false;
+  if (H.mgCtx) {
+    // si el celular se atrasó, simular en pasos pequeños para ponerse al día
+    const n = Math.max(1, Math.ceil(total / 0.1));
+    for (let i = 1; i <= n; i++) {
+      const got = MG3D.host.step(H.mgCtx, total / n, now - (n - i) * total / n * 1000, H.mgNet);
+      for (const [id, v] of Object.entries(got)) if (!(id in s.mg.scores)) { s.mg.scores[id] = v; changed = true; }
+    }
+    Object.assign(H.mgNet.pos, MG3D.host.pos(H.mgCtx));
+    if (now >= MG[s.mg.type].dur) for (const id of Object.keys(H.mgCtx.bots)) if (!(id in s.mg.scores)) { s.mg.scores[id] = MG3D.host.final(H.mgCtx, id, H.mgNet); changed = true; }
+  }
+  const msg = {t:'mgp', key:s.mg.key, p:H.mgNet.pos, taken:H.mgNet.taken, counts:H.mgNet.counts};
+  for (const c of H.conns.values()) { try { c.send(msg); } catch(e){} }
+  if (window.MG3D) MG3D.net(msg);
+  if (changed) { broadcast(); checkMgDone(); }
 }
 function checkMgDone(){
   const s = H.state; if (s.phase !== 'mg-play') return;
@@ -447,6 +489,9 @@ function checkMgDone(){
 }
 function finishMinigame(){
   const s = H.state; if (s.phase !== 'mg-play') return;
+  clearInterval(H.mgLoop);
+  if (MG[s.mg.type].td && H.mgCtx) for (const id of Object.keys(H.mgCtx.bots)) if (!(id in s.mg.scores)) s.mg.scores[id] = MG3D.host.final(H.mgCtx, id, H.mgNet);
+  if (s.mg.type === 'monedas' && H.mgNet) s.players.forEach(p => { if (p.id in s.mg.scores) s.mg.scores[p.id] = H.mgNet.counts[p.id] || 0; });
   const lower = MG[s.mg.type].lower;
   const arr = s.players.map(p => ({id:p.id, v: p.id in s.mg.scores ? s.mg.scores[p.id] : null}));
   arr.sort((a, b) => a.v === null ? 1 : b.v === null ? -1 : lower ? a.v - b.v : b.v - a.v);
@@ -489,13 +534,19 @@ function render(){
   if (ui.viewKey && ui.viewKey !== key && ui.mgCleanup) { ui.mgCleanup(); ui.mgCleanup = null; }
   ui.viewKey = key;
   const boardPhase = ['turn', 'rolling', 'moving', 'crown', 'event'].includes(ph);
-  const use3d = boardPhase && has3D();
+  const mg3d = (ph === 'mg-intro' || ph === 'mg-play') && S.mg && MG[S.mg.type].td && has3D() && !!window.MG3D;
+  if (!mg3d && window.MG3D) MG3D.stop();
+  const use3d = (boardPhase && has3D()) || mg3d;
   document.body.classList.toggle('b3d', use3d);
   if (window.Board3D && Board3D.ok) Board3D.show(use3d);
   if (!use3d) window.scrollTo(0, 0);
   if (ph === 'lobby') app.innerHTML = viewLobby();
-  else if (ph === 'mg-intro') { app.innerHTML = viewIntro(); runCountdown(); }
-  else if (ph === 'mg-play') { app.innerHTML = '<div class="mg" id="mg"></div>'; runMinigame(); }
+  else if (ph === 'mg-intro') { if (mg3d) prepMg3d(); app.innerHTML = mg3d ? viewIntro3D() : viewIntro(); runCountdown(); }
+  else if (ph === 'mg-play') {
+    if (mg3d) { prepMg3d(); app.innerHTML = ''; let sent = false;
+      MG3D.start({ send, done: v => { if (sent) return; sent = true; send({t:'score', key:S.mg.key, v}); } }); }
+    else { app.innerHTML = '<div class="mg" id="mg"></div>'; runMinigame(); }
+  }
   else if (ph === 'mg-results') app.innerHTML = viewMgResults();
   else if (ph === 'end') app.innerHTML = viewEnd();
   else { app.innerHTML = use3d ? viewBoard3D() : viewBoard(); afterBoard(); }
@@ -595,9 +646,16 @@ function viewBoard(){
     <div class="action">${action}</div>
     <div class="card" style="padding:10px">${standings().map(p => plRow(p, p === c ? 'cur' : '')).join('')}</div>`;
 }
+function myRoll(){
+  if (!S || S.phase !== 'turn' || !S.players[S.turn] || S.players[S.turn].id !== myId || ui.rolled === S.round + '-' + S.turn) return;
+  ui.rolled = S.round + '-' + S.turn;
+  if (has3D()) Board3D.localHit(); // el personaje salta y golpea el dado al instante
+  send({t:'roll'});
+}
+window.addEventListener('board-tap', myRoll);
 function boardAction(){
   const s = S, c = s.players[s.turn], myTurn = c && c.id === myId;
-  if (s.phase === 'turn' && myTurn) return `<button class="big" data-act="roll">🎲 ¡Tirar dado!</button>`;
+  if (s.phase === 'turn' && myTurn) return ui.rolled === s.round + '-' + s.turn ? '' : `<button class="big" data-act="roll">👊 ¡Golpear el dado!</button><div class="note" style="margin-top:6px">o toca la pantalla</div>`;
   if (s.phase === 'crown' && myTurn) return `<div class="row"><button data-act="buy">👑 Comprar (${CROWN_COST} 🪙)</button><button class="no" data-act="nobuy">No, gracias</button></div>`;
   if (s.phase === 'turn') return `<div class="wait">Esperando a que ${esc(c.name)} tire el dado…</div>`;
   return '';
@@ -631,6 +689,14 @@ function afterBoard(){
   if (S.phase === 'turn' && c && c.id === myId && ui.buzz !== k) { ui.buzz = k; try { if (APP) APP.vibrate(250); else if (navigator.vibrate) navigator.vibrate([80, 60, 80]); } catch(e){} }
 }
 
+function prepMg3d(){ MG3D.prepare({ type:S.mg.type, seed:S.mg.seed, players:S.players, myId, dur:MG[S.mg.type].dur, key:S.mg.key }); }
+function viewIntro3D(){
+  const d = MG[S.mg.type];
+  return `<div class="hud"><div></div><div class="hud-bottom glass" style="text-align:center">
+    <div class="note">¡MINIJUEGO!</div><div class="mgname">${d.icon} ${d.name}</div>
+    <div style="margin:8px 0">${d.desc}</div>
+    <div class="note">Premios: 🥇 +10 · 🥈 +6 · 🥉 +3 · 4º +1</div><div class="cd" id="cd">5</div></div></div>`;
+}
 function viewIntro(){
   const d = MG[S.mg.type];
   return `<div class="mg"><div class="note">¡MINIJUEGO!</div><div style="font-size:4rem">${d.icon}</div>
@@ -646,6 +712,9 @@ function runCountdown(){
 function fmtScore(type, v){
   if (v === null || v === undefined) return 'sin resultado';
   switch (type) {
+    case 'piso': case 'barra': case 'bolas': return v >= MG[type].dur ? '💪 ¡aguantó hasta el final!' : 'aguantó ' + (v / 1000).toFixed(1) + ' s';
+    case 'monedas': return v + ' monedas';
+    case 'carrera': return v < 100000 ? '🏁 ' + (v / 1000).toFixed(2) + ' s' : 'no llegó (faltaron ' + Math.round((v - 100000) / 1000) + ' m)';
     case 'taps': return v + ' toques';
     case 'reflex': return v >= 9999 ? '❌ falló' : v + ' ms';
     case 'clock': return v >= 9999 ? '❌ no lo detuvo' : '±' + (v / 1000).toFixed(2) + ' s';
@@ -676,6 +745,8 @@ function viewEnd(){
 /* ================= Minijuegos ================= */
 function runMinigame(){
   const m = S.mg, def = MG[m.type], root = $('#mg'), rng = mulberry32(m.seed);
+  if (def.td) { root.innerHTML = '<div class="card">Tu celular no puede mostrar este minijuego 3D 😢<br>Mira la tabla al terminar.</div>';
+    send({t:'score', key:m.key, v: def.lower ? 999999 : 0}); return; }
   const timers = []; let finished = false;
   const later = (f, ms) => timers.push(setTimeout(f, ms));
   const every = (f, ms) => timers.push(setInterval(f, ms));
@@ -795,7 +866,7 @@ document.addEventListener('click', async e => {
   else if (act === 'theme') send({t:'theme', v:b.dataset.v});
   else if (act === 'view') { ui.cam = Board3D.toggleView(); b.textContent = ui.cam === 'overview' ? '🎥' : '🗺️'; }
   else if (act === 'start') send({t:'start'});
-  else if (act === 'roll') { b.disabled = true; send({t:'roll'}); }
+  else if (act === 'roll') { b.disabled = true; myRoll(); }
   else if (act === 'buy' || act === 'nobuy') { b.parentNode.querySelectorAll('button').forEach(x => x.disabled = true); send({t:'crown', buy: act === 'buy'}); }
   else if (act === 'again') send({t:'again'});
   else if (act === 'reconnect') { setBanner('Reconectando…'); startClient(ui.code); }
@@ -821,5 +892,6 @@ const prevCode = ss.get('fcode');
 if (prevCode && me.name) startClient(prevCode); else render();
 </script>
 <script type="module" src="board3d.js"></script>
+<script type="module" src="mg3d.js"></script>
 </body>
 </html>
