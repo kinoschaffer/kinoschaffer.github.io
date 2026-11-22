@@ -112,6 +112,8 @@ body.b3d #app{max-width:none;padding:0}
 .hud-bottom .msg{text-align:center;min-height:1.3em;margin-bottom:4px}
 .hud-bottom .wait{padding:6px}
 .viewbtn{position:fixed;right:10px;top:calc(env(safe-area-inset-top) + 56px);width:48px;height:48px;padding:0;font-size:1.4rem;border-radius:50%;z-index:6;margin:0}
+.tag{font-size:.75rem;background:#7c5cc4;padding:2px 6px;border-radius:999px;font-weight:700;white-space:nowrap}
+.pl button.x{width:34px;height:34px;padding:0;margin:0;font-size:.9rem;background:#64748b;color:#fff;box-shadow:none}
 #banner{position:fixed;left:0;right:0;top:0;z-index:50;background:#b91c1c;color:#fff;text-align:center;padding:10px;font-weight:700;display:none}
 #banner button{width:auto;padding:6px 14px;margin:0 0 0 8px;font-size:.95rem}
 .podium{font-size:3.5rem;text-align:center}
@@ -155,6 +157,25 @@ const MG = {
   balloon:{name:'Globo Valiente', icon:'🎈', desc:'Infla el globo y guárdalo antes de que explote. Más bombeos = más puntos. Si explota: 0.', dur:12000, lower:false},
 };
 const MG_KEYS = Object.keys(MG);
+// Bots (modo vs IA): qué tan bien juegan cada minijuego según la dificultad
+const BOT_LEVELS = { facil:{name:'Fácil', k:0}, normal:{name:'Normal', k:1}, dificil:{name:'Difícil', k:2} };
+function botScore(type, lvl, seed){
+  const k = (BOT_LEVELS[lvl] || BOT_LEVELS.normal).k, r = Math.random, between = ([a, b]) => a + r() * (b - a);
+  switch (type) {
+    case 'taps':   return Math.round(between([[18, 30], [28, 40], [38, 52]][k]));
+    case 'reflex': return r() < [0.12, 0.06, 0.03][k] ? 9999 : Math.round(between([[360, 560], [270, 400], [205, 300]][k]));
+    case 'math':   return Math.round(between([[2, 5], [5, 8], [8, 12]][k]));
+    case 'color':  return Math.round(between([[3, 6], [6, 9], [9, 13]][k]));
+    case 'clock':  return r() < 0.03 ? 9999 : Math.round(between([[150, 700], [50, 320], [8, 140]][k]));
+    case 'balloon': {
+      const limit = 10 + Math.floor(mulberry32(seed)() * 25); // mismo globo que ven los humanos
+      const want = Math.round(between([[6, 18], [10, 24], [14, 30]][k]));
+      if (k === 2 && want >= limit && r() < 0.6) return Math.max(1, limit - 1 - Math.floor(r() * 3)); // la IA difícil "intuye" el límite
+      return want >= limit ? 0 : want;
+    }
+  }
+  return 0;
+}
 const WEB_URL = 'https://kinoschaffer.github.io/fiesta/';
 const APP = window.AndroidBridge || null; // existe cuando corre dentro de la app de Android
 
@@ -183,11 +204,16 @@ const H = { state:null, conns:new Map(), turnToken:0, crownResolve:null, mgTimer
 
 function makeCode(){ const A='ABCDEFGHJKLMNPQRSTUVWXYZ'; let c=''; for(let i=0;i<4;i++) c+=A[Math.floor(Math.random()*A.length)]; return c; }
 
-function startHost(){
+function startHost(solo){
   role = 'host';
   const code = makeCode();
   H.state = newState(code);
   addPlayer(myId, me.name, me.emoji);
+  if (solo) { // vs IA: no hace falta internet
+    H.state.solo = true;
+    for (let i = 0; i < 3; i++) addBot(ui.botLvl || 'normal');
+    broadcast(); return;
+  }
   ui.screen = 'connecting'; render();
   if (LOCAL) { localHost(code); broadcast(); return; }
   const peer = new Peer(PREFIX + code, {debug:0});
@@ -296,6 +322,13 @@ function addPlayer(id, name, emoji){
   H.state.players.push({id, name:String(name||'Jugador').slice(0,12), emoji:EMOJIS.includes(emoji)?emoji:pick(EMOJIS),
     color:COLORS.find(c => !used.includes(c)), pos:0, coins:10, crowns:0, wins:0, connected:true});
 }
+function addBot(lvl){
+  const s = H.state; if (s.players.length >= 6) return;
+  const used = s.players.map(p => p.emoji);
+  const c = CHARS.find(c => !used.includes(c.emoji)) || pick(CHARS);
+  addPlayer('bot-' + rid(), c.name + ' IA', c.emoji);
+  const b = s.players[s.players.length - 1]; b.bot = true; b.lvl = BOT_LEVELS[lvl] ? lvl : 'normal';
+}
 function joinPlayer(msg){
   const p = findP(msg.id);
   if (p) { p.connected = true; if (H.state.phase === 'lobby') { p.name = String(msg.name||p.name).slice(0,12); if (EMOJIS.includes(msg.emoji)) p.emoji = msg.emoji; } return true; }
@@ -309,6 +342,8 @@ function hostAction(pid, msg){
   switch (msg.t) {
     case 'rounds': if (isHost && s.phase === 'lobby') { s.maxRounds = Math.max(3, Math.min(20, msg.n|0)); broadcast(); } break;
     case 'theme': if (isHost && s.phase === 'lobby' && THEMES[msg.v]) { s.theme = msg.v; s.board = THEMES[msg.v].board.split(''); broadcast(); } break;
+    case 'addbot': if (isHost && s.phase === 'lobby') { addBot(msg.lvl); broadcast(); } break;
+    case 'delbot': if (isHost && s.phase === 'lobby') { s.players = s.players.filter(x => !(x.bot && x.id === msg.id)); broadcast(); } break;
     case 'start': if (isHost && s.phase === 'lobby' && s.players.length >= 2) startGame(); break;
     case 'roll': if (s.phase === 'turn' && cur().id === pid) doRoll(); break;
     case 'crown': if (s.phase === 'crown' && cur().id === pid && H.crownResolve) H.crownResolve(!!msg.buy); break;
@@ -333,7 +368,7 @@ function beginTurn(){
   if (s.turn === 0 && s.round === s.maxRounds) s.msg = '🔥 ¡ÚLTIMA RONDA! ' + s.msg;
   broadcast();
   const tok = ++H.turnToken;
-  setTimeout(() => { if (H.turnToken === tok && s.phase === 'turn') doRoll(); }, p.connected ? 30000 : 2500);
+  setTimeout(() => { if (H.turnToken === tok && s.phase === 'turn') doRoll(); }, p.bot ? 1300 + Math.random() * 900 : p.connected ? 30000 : 2500);
 }
 
 async function doRoll(){
@@ -357,7 +392,9 @@ async function crownStop(p){
   const s = H.state;
   if (p.coins < CROWN_COST) { s.msg = `${p.name} no tiene ${CROWN_COST} 🪙 para la corona 👑`; broadcast(); await sleep(1600); s.phase = 'moving'; return; }
   s.phase = 'crown'; s.msg = `¿${p.name} compra la corona por ${CROWN_COST} 🪙?`; broadcast();
-  const buy = await new Promise(res => { H.crownResolve = res; setTimeout(() => res(true), p.connected ? 20000 : 1500); });
+  const buy = await new Promise(res => { H.crownResolve = res;
+    if (p.bot) setTimeout(() => res(p.lvl !== 'facil' || Math.random() < 0.6), 1300);
+    else setTimeout(() => res(true), p.connected ? 20000 : 1500); });
   H.crownResolve = null;
   if (buy) { p.coins -= CROWN_COST; p.crowns++; s.msg = `👑 ¡${p.name} consigue una corona! La corona se mueve…`; s.crown = randSpot(s.crown, s.players); }
   else s.msg = `${p.name} deja pasar la corona`;
@@ -396,7 +433,13 @@ function startMinigame(){
   s.lastMg = type;
   s.mg = {type, key: s.round + '-' + rid(), seed: (Math.random() * 1e9) | 0, scores:{}, ranking:null};
   s.phase = 'mg-intro'; s.msg = ''; broadcast();
-  setTimeout(() => { s.phase = 'mg-play'; broadcast(); H.mgTimer = setTimeout(finishMinigame, MG[type].dur + 3500); }, 6000);
+  setTimeout(() => {
+    s.phase = 'mg-play'; broadcast(); H.mgTimer = setTimeout(finishMinigame, MG[type].dur + 3500);
+    const key = s.mg.key, dur = MG[type].dur;
+    s.players.filter(p => p.bot).forEach(b => setTimeout(() => {
+      if (s.phase === 'mg-play' && s.mg.key === key && !(b.id in s.mg.scores)) { s.mg.scores[b.id] = botScore(type, b.lvl, s.mg.seed); broadcast(); checkMgDone(); }
+    }, dur * (0.55 + Math.random() * 0.4)));
+  }, 6000);
 }
 function checkMgDone(){
   const s = H.state; if (s.phase !== 'mg-play') return;
@@ -470,6 +513,7 @@ function viewHome(){
     <label>Tu personaje</label>
     <div class="chars">${CHARS.map(c => `<button data-act="emoji" data-v="${c.emoji}" class="${c.emoji === me.emoji ? 'sel' : ''}"><img src="models/${c.id}.jpg" alt="">${c.name}</button>`).join('')}</div>
     <button class="big" data-act="create">Crear sala</button>
+    <button class="sec" data-act="solo">🤖 Jugar contra la IA</button>
     <div class="or">— o únete a la sala de un amigo —</div>
     <input id="code" class="codeinput" maxlength="4" placeholder="CÓDIGO" value="${esc(ui.code)}" autocomplete="off">
     <button class="sec" data-act="join">Unirse</button>
@@ -489,25 +533,30 @@ function viewHome(){
 }
 function plRow(p, extra){
   return `<div class="pl ${p.connected ? '' : 'off'} ${extra||''}"><div class="av" style="border-color:${p.color};background:#fff">${avImg(p)}</div>
-    <div class="nm">${esc(p.name)}${p.id === myId ? ' (tú)' : ''}${p.id === S.hostId ? ' ⭐' : ''}${p.connected ? '' : ' · desconectado'}</div>
-    <div class="st">${S.phase === 'lobby' ? '' : `👑 ${p.crowns} · 🪙 ${p.coins}`}</div></div>`;
+    <div class="nm">${esc(p.name)}${p.id === myId ? ' (tú)' : ''}${p.id === S.hostId ? ' ⭐' : ''}${p.bot ? ` <span class="tag">🤖 ${BOT_LEVELS[p.lvl].name}</span>` : ''}${p.connected ? '' : ' · desconectado'}</div>
+    <div class="st">${S.phase === 'lobby' ? (p.bot && role === 'host' ? `<button class="x" data-act="delbot" data-v="${p.id}">✖</button>` : '') : `👑 ${p.crowns} · 🪙 ${p.coins}`}</div></div>`;
 }
 function viewLobby(){
   const host = role === 'host';
   const n = S.players.length;
-  return `<h1>🎲 Sala</h1>
-  <div class="card">
+  const lvl = ui.botLvl || 'normal';
+  return `<h1>${S.solo ? '🤖 Modo vs IA' : '🎲 Sala'}</h1>
+  ${S.solo ? '' : `<div class="card">
     <div class="note">Código de la sala</div>
     <div class="codebig">${S.code}</div>
     <button class="sec" data-act="share">📤 Invitar amigos</button>
+  </div>`}
+  <div class="card"><b>Jugadores (${n}/6)</b>${S.players.map(p => plRow(p)).join('')}
+    ${host ? `<div class="note" style="margin-top:10px;text-align:left"><b>Dificultad de la IA</b></div>
+      <div class="row">${Object.entries(BOT_LEVELS).map(([k, v]) => `<button data-act="botlvl" data-v="${k}" class="${lvl === k ? '' : 'sec'}" style="margin-top:6px">${v.name}</button>`).join('')}</div>
+      <button class="sec" data-act="addbot" ${n >= 6 ? 'disabled' : ''}>🤖 Agregar bot (${BOT_LEVELS[lvl].name})</button>` : ''}
   </div>
-  <div class="card"><b>Jugadores (${n}/6)</b>${S.players.map(p => plRow(p)).join('')}</div>
   <div class="card">
     ${host ? `<b>Mundo</b><div class="themes">${Object.entries(THEMES).map(([k, t]) => `<button data-act="theme" data-v="${k}" class="${S.theme === k ? '' : 'sec'}"><b>${t.icon}</b>${t.name}</button>`).join('')}</div>
       <p class="note">${THEMES[S.theme].desc}</p>
       <b>Rondas</b><div class="row">${[5, 8, 12].map(r => `<button data-act="rounds" data-v="${r}" class="${S.maxRounds === r ? '' : 'sec'}">${r}</button>`).join('')}</div>
       <button class="big" data-act="start" ${n < 2 ? 'disabled' : ''}>${n < 2 ? 'Esperando jugadores…' : '¡Empezar partida!'}</button>
-      <p class="note">⚠️ Tu celular es el anfitrión: no cierres esta página ni bloquees la pantalla durante la partida.</p>`
+      ${S.solo ? '' : '<p class="note">⚠️ Tu celular es el anfitrión: no cierres esta página ni bloquees la pantalla durante la partida.</p>'}`
     : `<div class="wait">${THEMES[S.theme].icon} ${THEMES[S.theme].name} · ${S.maxRounds} rondas.<br>Esperando a que el anfitrión empiece…</div>`}
   </div>`;
 }
@@ -636,7 +685,7 @@ function runMinigame(){
   const done = v => {
     if (finished) return; finished = true;
     send({t:'score', key:m.key, v});
-    later(() => { ui.mgCleanup(); root.innerHTML = `<div style="font-size:3rem">✅</div><div class="mgname">¡Listo!</div>
+    later(() => { if (!root.isConnected) return; timers.forEach(t => { clearTimeout(t); clearInterval(t); }); root.innerHTML = `<div style="font-size:3rem">✅</div><div class="mgname">¡Listo!</div>
       <div class="card">Tu resultado: <b>${fmtScore(m.type, v)}</b></div><div class="note">Esperando a los demás…</div>`; }, 900);
   };
   const header = `<div class="mgname" style="font-size:1.4rem">${def.icon} ${def.name}</div><div class="bar"><div id="tb"></div></div>`;
@@ -722,11 +771,15 @@ document.addEventListener('click', async e => {
   const act = b.dataset.act;
   if (act === 'emoji') { me.emoji = b.dataset.v; ls.set('femoji', me.emoji);
     document.querySelectorAll('.chars button').forEach(x => x.classList.toggle('sel', x === b)); }
-  else if (act === 'create' || act === 'join') {
+  else if (act === 'botlvl') { ui.botLvl = b.dataset.v; render(); }
+  else if (act === 'addbot') send({t:'addbot', lvl: ui.botLvl || 'normal'});
+  else if (act === 'delbot') send({t:'delbot', id: b.dataset.v});
+  else if (act === 'create' || act === 'join' || act === 'solo') {
     me.name = ($('#name').value || '').trim().slice(0, 12);
     if (!me.name) { ui.error = 'Escribe tu nombre primero'; render(); return; }
     ls.set('fname', me.name);
     if (act === 'create') startHost();
+    else if (act === 'solo') startHost(true);
     else { const code = ($('#code').value || '').trim().toUpperCase();
       if (!/^[A-Z]{4}$/.test(code)) { ui.error = 'El código tiene 4 letras'; ui.code = code; render(); return; }
       startClient(code); }
