@@ -414,7 +414,7 @@ K.laberinto = {
     if (dark) { sc.lamp = new THREE.PointLight(0xffe8a1, 40, 6, 1.5); sc.scene.add(sc.lamp); } },
   move(m, dx, dz) { [m.x, m.z] = L.mazeMove(G.sc.mz, m.x, m.z, dx, dz); },
   tick(dt, now, m) { if (m.st === 0 && G.sc.mz.cellAt(m.x, m.z) === G.sc.mz.exit) { m.st = 3; done(Math.round(now), '🏁 ¡Saliste!'); } if (G.sc.lamp) G.sc.lamp.position.set(m.x, 2, m.z); },
-  camPos() { const m = G.me || { x: 0, z: 0 }; return [[m.x, 11, m.z + 6], [m.x, 0, m.z]]; },
+  camPos() { const m = G.me || { x: 0, z: 0 }, f = Math.max(1, 0.62 / (innerWidth / innerHeight)); return [[m.x, 9 * f, m.z + 4.5 * f], [m.x, 0, m.z]]; },
   hud: () => '🏁 Busca la bandera verde (abajo a la derecha)',
   final: () => L.MISS + 1000 * G.sc.mz.path(Math.max(0, G.sc.mz.cellAt(G.me.x, G.me.z))).length,
 };
@@ -673,14 +673,14 @@ function frame(dt, t) {
     else { const a = G.net[p.id];
       if (a) { [x, z, y, ry, st, , mv] = a; if (off) { const o = off(p.id); x += o[0]; z += o[1]; } const kk = 1 - Math.exp(-dt * 12); ch.g.position.x += (x - ch.g.position.x) * kk; ch.g.position.z += (z - ch.g.position.z) * kk; ch.g.position.y += (y - ch.g.position.y) * kk; }
       else { st = 0; mv = 0; ry = ch.g.rotation.y; } }
-    if (k.stage && G.kind !== 'cuerda') ry = G.kind === 'torre' ? 0.6 : 0;
+    if (k.stage && G.kind !== 'cuerda') ry = G.kind === 'torre' ? 0.6 : G.kind === 'reflejo' ? (ch.g.position.x < 0 ? Math.PI / 2 : -Math.PI / 2) : 0;
     const d = L.wrap((ry || 0) - ch.g.rotation.y); ch.g.rotation.y += d * Math.min(1, dt * 14);
     ch.setWalking(!!mv || (G.kind === 'cuerda' && G.started && now < G.dur)); ch.update(dt);
     const cs = ['carrera', 'corredor', 'laberinto'].includes(G.kind) ? 1 : 1.3;
     if (st === 1 && ['bolas', 'meteoros', 'canon'].includes(G.kind)) ch.g.scale.set(cs * 1.3, cs * 0.15, cs * 1.3); else ch.g.scale.setScalar(cs);
     if (st === 2 && ['monedas', 'meteoros'].includes(G.kind)) ch.g.rotation.y += dt * 12;
     if (st === 1 && ['cazador', 'papa'].includes(G.kind)) { ch.g.rotation.x = -1.4; ch.g.position.y = 0.2; } else ch.g.rotation.x = 0;
-    ch.g.visible = !(st === 1 && ch.g.position.y < -6);
+    ch.g.visible = G.kind !== 'tiro' && !(st === 1 && ch.g.position.y < -6);
     if (ch.label) ch.label.material.opacity = st === 1 ? 0.35 : 1;
   });
   for (let i = G.fx.length - 1; i >= 0; i--) { const f = G.fx[i]; f.t += dt; f.o.position.y += dt; f.o.material.opacity = 1 - f.t; if (f.t > 1) { sc.scene.remove(f.o); G.fx.splice(i, 1); } }
