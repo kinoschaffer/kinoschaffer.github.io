@@ -116,6 +116,8 @@ const MG = {
   balloon:{name:'Globo Valiente', icon:'🎈', desc:'Infla el globo y guárdalo antes de que explote. Más bombeos = más puntos. Si explota: 0.', dur:12000, lower:false},
 };
 const MG_KEYS = Object.keys(MG);
+const WEB_URL = 'https://kinoschaffer.github.io/fiesta/';
+const APP = window.AndroidBridge || null; // existe cuando corre dentro de la app de Android
 
 /* ================= Utils ================= */
 const $ = s => document.querySelector(s);
@@ -435,7 +437,9 @@ function viewHome(){
     4. Junta 🪙 monedas y compra 👑 coronas (${CROWN_COST} 🪙).<br>
     5. Al final de cada ronda, ¡minijuego para todos!<br>
     Gana quien tenga más 👑 (empate: más 🪙).
-  </div>`;
+  </div>
+  ${APP ? '' : `<a href="fiesta-tablero.apk" download><button class="sec">📱 Descargar app para Android</button></a>
+    <p class="note">Quien no tenga la app puede jugar igual desde el navegador.</p>`}`;
 }
 function plRow(p, extra){
   return `<div class="pl ${p.connected ? '' : 'off'} ${extra||''}"><div class="av" style="border-color:${p.color};background:#fff">${p.emoji}</div>
@@ -500,7 +504,7 @@ function afterBoard(){
     const t = setInterval(() => { const d = $('#dice'); if (!d || S.phase !== 'rolling') return clearInterval(t); d.textContent = 1 + Math.floor(Math.random() * 6); }, 90);
   }
   const c = S.players[S.turn], k = S.round + '-' + S.turn;
-  if (S.phase === 'turn' && c && c.id === myId && ui.buzz !== k) { ui.buzz = k; try { navigator.vibrate && navigator.vibrate([80, 60, 80]); } catch(e){} }
+  if (S.phase === 'turn' && c && c.id === myId && ui.buzz !== k) { ui.buzz = k; try { if (APP) APP.vibrate(250); else if (navigator.vibrate) navigator.vibrate([80, 60, 80]); } catch(e){} }
 }
 
 function viewIntro(){
@@ -653,9 +657,10 @@ document.addEventListener('click', async e => {
       startClient(code); }
   }
   else if (act === 'share') {
-    const url = location.origin + location.pathname + '?sala=' + S.code + (LOCAL ? '&local' : '');
+    const url = (APP ? WEB_URL : location.origin + location.pathname) + '?sala=' + S.code + (LOCAL ? '&local' : '');
     const text = `¡Únete a mi partida de Fiesta Tablero! Código: ${S.code}`;
-    if (navigator.share) { try { await navigator.share({title:'Fiesta Tablero', text, url}); } catch(err){} }
+    if (APP) APP.share(text + '\n' + url);
+    else if (navigator.share) { try { await navigator.share({title:'Fiesta Tablero', text, url}); } catch(err){} }
     else { try { await navigator.clipboard.writeText(text + ' ' + url); b.textContent = '✅ Enlace copiado'; } catch(err){ prompt('Copia este enlace:', url); } }
   }
   else if (act === 'rounds') send({t:'rounds', n:+b.dataset.v});
