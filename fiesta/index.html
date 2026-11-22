@@ -124,6 +124,8 @@ body.b3d #app{max-width:none;padding:0}
 <div id="app"></div>
 <script type="importmap">{"imports":{"three":"./lib/three.module.min.js"}}</script>
 <script src="lib/peerjs.min.js"></script>
+<script src="boards.js"></script>
+<script src="minigames.js"></script>
 <script>
 'use strict';
 /* ================= Config ================= */
@@ -140,28 +142,17 @@ const charOf = e => CHARS.find(c => c.emoji === e) || CHARS[0];
 const avImg = p => `<img src="models/${charOf(p.emoji).id}.jpg" alt="${p.emoji}" onerror="this.outerHTML='${p.emoji}'">`;
 // Mundos temáticos: cada uno con su propia distribución de casillas
 const THEMES = {
-  isla:   {name:'Isla Tropical',   icon:'🏝️', board:'SBBEBRBBEBRBEBBRBEBBRBEB', desc:'Palmeras, playa y un volcán dormido'},
-  dulces: {name:'Reino de Dulces', icon:'🍭', board:'SBEBBEBRBEBBEBRBEBBEBRBE', desc:'Más casillas sorpresa ❓'},
-  lava:   {name:'Volcán de Lava',  icon:'🌋', board:'SBRBEBRBBEBRBRBEBBRBEBRB', desc:'Peligroso: muchas casillas rojas'},
-  nieve:  {name:'Pueblo Nevado',   icon:'❄️', board:'SBBEBBRBEBBEBRBBEBRBBEBR', desc:'Tranquilo, con más azules'},
+  isla:   {name:'Isla Tropical',   icon:'🏝️', desc:'Atajo por el medio de la isla y un desvío por la playa'},
+  dulces: {name:'Reino de Dulces', icon:'🍭', desc:'Camino en zigzag con muchas casillas rojas en el atajo'},
+  lava:   {name:'Volcán de Lava',  icon:'🌋', desc:'Atajo cruzando la lava y un rodeo largo por las rocas'},
+  nieve:  {name:'Pueblo Nevado',   icon:'❄️', desc:'Gran atajo por el centro y desvío al lago helado'},
 };
 // S=salida, B=azul(+3), R=roja(-3), E=evento
-const N = 24; // casillas del recorrido
+const graph = () => BOARDS.build((S && S.theme) || (H.state && H.state.theme) || 'isla');
 const PRIZES = [10, 6, 3, 1, 0, 0];
-const MG = {
-  taps:   {name:'Dedo Veloz',     icon:'👆', desc:'¡Toca el botón tantas veces como puedas!', dur:6000, lower:false},
-  reflex: {name:'Desenfunda',     icon:'🤠', desc:'Toca cuando la pantalla se ponga VERDE. Si tocas antes, ¡pierdes!', dur:8000, lower:true},
-  math:   {name:'Cuentas Rápidas',icon:'🧮', desc:'Resuelve todas las cuentas que puedas. Si fallas, te congelas 1 segundo.', dur:15000, lower:false},
-  clock:  {name:'Reloj Ciego',    icon:'⏱️', desc:'Detén el cronómetro lo más cerca posible de 5.00 s. ¡Se oculta a los 2 segundos!', dur:10000, lower:true},
-  color:  {name:'Colores Locos',  icon:'🎨', desc:'Toca el nombre del COLOR DE LA TINTA, no lo que dice la palabra.', dur:15000, lower:false},
-  piso:   {name:'Piso Traicionero', icon:'🟨', td:true, dur:30000, lower:false, desc:'Las baldosas parpadean en rojo y se caen a la lava. ¡Muévete a tiempo y aguanta hasta el final!'},
-  monedas:{name:'Lluvia de Monedas', icon:'🪙', td:true, dur:25000, lower:false, desc:'Caen monedas del cielo: corre a agarrarlas antes que los demás. Las grandes valen 3. ¡Cuidado con las bombas!'},
-  barra:  {name:'Salta la Barra', icon:'🌀', td:true, dur:30000, lower:false, desc:'Una barra gira cada vez más rápido: toca SALTA justo cuando pase. A los 15 s aparece otra.'},
-  bolas:  {name:'Avalancha', icon:'⛄', td:true, dur:30000, lower:false, desc:'Bolas de nieve gigantes ruedan hacia ti. ¡Esquívalas moviéndote de lado a lado!'},
-  carrera:{name:'Carrera Loca', icon:'🏁', td:true, dur:18000, lower:true, desc:'Toca IZQ y DER alternando lo más rápido que puedas. ¡El primero en llegar a la meta gana!'},
-  balloon:{name:'Globo Valiente', icon:'🎈', desc:'Infla el globo y guárdalo antes de que explote. Más bombeos = más puntos. Si explota: 0.', dur:12000, lower:false},
-};
-const MG_KEYS = Object.keys(MG).filter(k => MG[k].td); // minijuegos 3D
+// Catálogo de minijuegos 3D (minigames.js)
+const MG = Object.fromEntries(MGCAT.map(m => [m.id, { ...m, td: true }]));
+const MG_KEYS = Object.keys(MG);
 // Bots (modo vs IA): qué tan bien juegan cada minijuego según la dificultad
 const BOT_LEVELS = { facil:{name:'Fácil', k:0}, normal:{name:'Normal', k:1}, dificil:{name:'Difícil', k:2} };
 function botScore(type, lvl, seed){
@@ -313,14 +304,14 @@ function setBanner(html){ const b = $('#banner'); b.innerHTML = html; b.style.di
 /* ================= Lógica (sólo anfitrión) ================= */
 function newState(code){
   return {code, phase:'lobby', round:0, maxRounds:8, players:[], turn:0, crown:randSpot(-1, []), dice:null, rollId:0,
-    msg:'', hostId:myId, mg:null, lastMg:null, seq:0, bonus:null, theme:'isla', board:THEMES.isla.board.split('')};
+    msg:'', hostId:myId, mg:null, mgHist:[], seq:0, bonus:null, theme:'isla', fork:null, duelPick:null};
 }
 const findP = id => H.state.players.find(p => p.id === id);
 const cur = () => H.state.players[H.state.turn];
 function randSpot(exclude, players){
-  const occ = new Set((players||[]).map(p => p.pos));
-  let opts = []; for (let i = 1; i < N; i++) if (i !== exclude && !occ.has(i)) opts.push(i);
-  if (!opts.length) for (let i = 1; i < N; i++) if (i !== exclude) opts.push(i);
+  const nodes = graph().nodes, occ = new Set((players||[]).map(p => p.pos));
+  let opts = nodes.filter(n => n.id !== 0 && n.id !== exclude && !occ.has(n.id) && n.type !== 'D').map(n => n.id);
+  if (!opts.length) opts = nodes.filter(n => n.id !== 0 && n.id !== exclude).map(n => n.id);
   return pick(opts);
 }
 function addPlayer(id, name, emoji){
@@ -347,7 +338,9 @@ function hostAction(pid, msg){
   const isHost = pid === s.hostId;
   switch (msg.t) {
     case 'rounds': if (isHost && s.phase === 'lobby') { s.maxRounds = Math.max(3, Math.min(20, msg.n|0)); broadcast(); } break;
-    case 'theme': if (isHost && s.phase === 'lobby' && THEMES[msg.v]) { s.theme = msg.v; s.board = THEMES[msg.v].board.split(''); broadcast(); } break;
+    case 'theme': if (isHost && s.phase === 'lobby' && THEMES[msg.v]) { s.theme = msg.v; broadcast(); } break;
+    case 'fork': if (s.phase === 'fork' && cur().id === pid && s.fork && s.fork.opts.includes(msg.to) && H.forkResolve) H.forkResolve(msg.to); break;
+    case 'duel': if (s.phase === 'duel-pick' && cur().id === pid && H.duelResolve && findP(msg.id) && msg.id !== pid) H.duelResolve(msg.id); break;
     case 'addbot': if (isHost && s.phase === 'lobby') { addBot(msg.lvl); broadcast(); } break;
     case 'delbot': if (isHost && s.phase === 'lobby') { s.players = s.players.filter(x => !(x.bot && x.id === msg.id)); broadcast(); } break;
     case 'start': if (isHost && s.phase === 'lobby' && s.players.length >= 2) startGame(); break;
@@ -360,11 +353,9 @@ function hostAction(pid, msg){
     case 'mgpos':
       if (s.phase === 'mg-play' && s.mg && msg.key === s.mg.key && H.mgNet && Array.isArray(msg.a)) H.mgNet.pos[pid] = msg.a.slice(0, 7).map(Number);
       break;
-    case 'mggrab':
-      if (s.phase === 'mg-play' && s.mg && s.mg.type === 'monedas' && msg.key === s.mg.key && H.mgCtx && H.mgNet.taken[msg.id] == null) {
-        const c = H.mgCtx.coins[msg.id], now = performance.now() - H.mgT0;
-        if (c && c.kind !== 'bomb' && now >= c.t + 600 && now < c.t + 900 + 4300 + 400) { H.mgNet.taken[msg.id] = pid; H.mgNet.counts[pid] = (H.mgNet.counts[pid] || 0) + (c.kind === 'big' ? 3 : 1); }
-      }
+    case 'mggrab': case 'mgact':
+      if (s.phase === 'mg-play' && s.mg && msg.key === s.mg.key && H.mgCtx && s.mg.players.includes(pid))
+        MGL.host.action(H.mgCtx, pid, msg, performance.now() - H.mgT0, H.mgNet);
       break;
     case 'again': if (isHost && s.phase === 'end') { s.phase = 'lobby'; s.bonus = null; s.mg = null; broadcast(); } break;
   }
@@ -372,8 +363,8 @@ function hostAction(pid, msg){
 
 function startGame(){
   const s = H.state;
-  s.players.forEach(p => { p.pos = 0; p.coins = 10; p.crowns = 0; p.wins = 0; });
-  s.round = 1; s.turn = 0; s.crown = randSpot(-1, s.players); s.lastMg = null;
+  s.players.forEach(p => { p.pos = 0; p.dir = 1; p.color = p.color; p.tile = null; p.coins = 10; p.crowns = 0; p.wins = 0; });
+  s.round = 1; s.turn = 0; s.crown = randSpot(-1, s.players); s.mgHist = [];
   beginTurn();
 }
 
@@ -392,15 +383,33 @@ async function doRoll(){
   s.msg = `${p.name} tira el dado…`; broadcast();
   await sleep(1100);
   s.phase = 'moving'; s.msg = `${p.name} saca un ${s.dice}`;
+  const g = graph();
   for (let steps = s.dice; steps > 0; steps--) {
     await sleep(340);
-    p.pos = (p.pos + 1) % N; broadcast();
+    const node = g.nodes[p.pos], opts = (p.dir < 0 ? node.prev : node.next);
+    let to = opts[0];
+    if (opts.length > 1) to = await chooseFork(p, opts, steps);
+    p.pos = to; s.steps = steps - 1; broadcast();
     if (p.pos === s.crown) await crownStop(p);
   }
   await sleep(450);
   await landOn(p);
   s.turn++;
-  if (s.turn >= s.players.length) { s.turn = 0; startMinigame(); } else beginTurn();
+  if (s.turn >= s.players.length) { s.turn = 0; await roundMinigame(); nextRound(); } else beginTurn();
+}
+function nextRound(){ const s = H.state; if (s.round >= s.maxRounds) endGame(); else { s.round++; s.turn = 0; beginTurn(); } }
+
+async function chooseFork(p, opts, stepsLeft){
+  const s = H.state, g = graph();
+  s.phase = 'fork'; s.fork = {opts, steps: stepsLeft}; s.msg = `${p.name} elige por dónde seguir`; broadcast();
+  const to = await new Promise(res => { H.forkResolve = res;
+    if (p.bot) { const k = BOT_LEVELS[p.lvl].k;
+      const best = opts.slice().sort((a, b) => BOARDS.dist(g, a, s.crown, p.dir) - BOARDS.dist(g, b, s.crown, p.dir))[0];
+      setTimeout(() => res(Math.random() < [0.4, 0.7, 0.9][k] && p.coins >= CROWN_COST - 6 ? best : pick(opts)), 900); }
+    else setTimeout(() => res(pick(opts)), p.connected ? 15000 : 1500); });
+  H.forkResolve = null; s.fork = null; s.phase = 'moving';
+  const n = g.nodes[to]; s.msg = n.branch === 'atajo' ? `⚡ ${p.name} toma el atajo` : n.branch === 'desvio' ? `🌴 ${p.name} se va por el desvío` : `${p.name} sigue por el camino principal`;
+  broadcast(); return to;
 }
 
 async function crownStop(p){
@@ -417,12 +426,26 @@ async function crownStop(p){
 }
 
 async function landOn(p){
-  const s = H.state, t = s.board[p.pos];
-  s.phase = 'event';
+  const s = H.state, t = graph().nodes[p.pos].type;
+  s.phase = 'event'; p.tile = t === 'S' ? 'B' : t;
   if (t === 'B' || t === 'S') { p.coins += 3; s.msg = `🔵 ${p.name} gana 3 🪙`; }
   else if (t === 'R') { const l = Math.min(3, p.coins); p.coins -= l; s.msg = `🔴 ${p.name} pierde ${l} 🪙`; }
+  else if (t === 'V') { p.dir = -(p.dir || 1); s.msg = p.dir < 0 ? `🔄 ¡Cambio de sentido! ${p.name} ahora avanza hacia atrás` : `🔄 ¡Cambio de sentido! ${p.name} vuelve a avanzar hacia adelante`; }
+  else if (t === 'D') { broadcast(); await duelTile(p); return; }
   else s.msg = randomEvent(p);
   broadcast(); await sleep(2300);
+}
+async function duelTile(p){
+  const s = H.state, rivals = s.players.filter(x => x !== p);
+  if (!rivals.length) return;
+  s.phase = 'duel-pick'; s.duelPick = {pid: p.id}; s.msg = `⚔️ ¡Casilla de duelo! ${p.name} elige a quién retar`; broadcast();
+  const oppId = await new Promise(res => { H.duelResolve = res;
+    if (p.bot) setTimeout(() => res((rivals.slice().sort((a, b) => b.coins - a.coins)[Math.random() < 0.6 ? 0 : Math.floor(Math.random() * rivals.length)]).id), 1300);
+    else setTimeout(() => res(pick(rivals).id), p.connected ? 20000 : 1500); });
+  H.duelResolve = null; s.duelPick = null;
+  const opp = findP(oppId);
+  s.phase = 'event'; s.msg = `⚔️ ${p.name} reta a ${opp.name}. ¡El ganador se lleva hasta 10 🪙!`; broadcast(); await sleep(2000);
+  await playMinigame({ players: [p.id, opp.id], format: 'duel', teams: {A: [p.id], B: [opp.id]}, wager: 10 });
 }
 
 function randomEvent(p){
@@ -442,23 +465,37 @@ function randomEvent(p){
   return '❓ ' + pick(evs)();
 }
 
-function startMinigame(){
+// Equipos según el color de la última casilla: azul vs rojo (las demás se sortean)
+function roundMinigame(){
+  const s = H.state, A = [], B = [];
+  s.players.forEach(p => { const c = p.tile === 'B' || p.tile === 'R' ? p.tile : (Math.random() < 0.5 ? 'B' : 'R'); (c === 'B' ? A : B).push(p.id); p.team = c; });
+  let format = 'ffa';
+  if (s.players.length >= 3 && A.length && B.length) format = (A.length === 1 || B.length === 1) ? '1vN' : 'team';
+  const teams = format === 'ffa' ? null : {A, B};
+  return playMinigame({ players: s.players.map(p => p.id), format, teams });
+}
+function playMinigame(opts){ return new Promise(res => { H.mgResolve = res; startMinigame(opts); }); }
+function startMinigame(opts){
   const s = H.state;
-  let type; do { type = pick(MG_KEYS); } while (type === s.lastMg);
+  let pool = MG_KEYS.filter(k => (MG[k].formats || ['ffa', 'team', '1vN', 'duel']).includes(opts.format));
+  const fresh = pool.filter(k => !s.mgHist.includes(k)); if (fresh.length) pool = fresh;
+  let type = pick(pool);
   if (MG_KEYS.includes(params.get('mg'))) type = params.get('mg'); // para pruebas
-  s.lastMg = type;
-  s.mg = {type, key: s.round + '-' + rid(), seed: (Math.random() * 1e9) | 0, scores:{}, ranking:null};
+  s.mgHist.push(type); if (s.mgHist.length > Math.min(30, MG_KEYS.length - 3)) s.mgHist.shift();
+  s.mg = {type, key: s.round + '-' + rid(), seed: (Math.random() * 1e9) | 0, scores:{}, ranking:null,
+    players: opts.players, format: opts.format, teams: opts.teams || null, wager: opts.wager || 0, result: null};
   s.phase = 'mg-intro'; s.msg = ''; broadcast();
   setTimeout(() => {
     s.phase = 'mg-play'; broadcast(); H.mgTimer = setTimeout(finishMinigame, MG[type].dur + 3500);
     const key = s.mg.key, dur = MG[type].dur;
     if (MG[type].td) {
-      H.mgNet = {pos:{}, taken:{}, counts:{}}; H.mgT0 = performance.now(); H.mgLast = 0;
-      H.mgCtx = window.MG3D ? MG3D.host.init(type, s.mg.seed, s.players, dur) : null;
+      H.mgNet = {pos:{}, taken:{}, counts:{}, ev:[], team:null}; H.mgT0 = performance.now(); H.mgLast = 0;
+      const ps = s.mg.players.map(findP);
+      H.mgCtx = MGL.host.init(type, s.mg.seed, ps, dur, s.mg.teams, s.mg.format);
       clearInterval(H.mgLoop); H.mgLoop = setInterval(hostMgTick, 100);
       return;
     }
-    s.players.filter(p => p.bot).forEach(b => setTimeout(() => {
+    s.mg.players.map(findP).filter(p => p.bot).forEach(b => setTimeout(() => {
       if (s.phase === 'mg-play' && s.mg.key === key && !(b.id in s.mg.scores)) { s.mg.scores[b.id] = botScore(type, b.lvl, s.mg.seed); broadcast(); checkMgDone(); }
     }, dur * (0.55 + Math.random() * 0.4)));
   }, 6000);
@@ -472,36 +509,50 @@ function hostMgTick(){
     // si el celular se atrasó, simular en pasos pequeños para ponerse al día
     const n = Math.max(1, Math.ceil(total / 0.1));
     for (let i = 1; i <= n; i++) {
-      const got = MG3D.host.step(H.mgCtx, total / n, now - (n - i) * total / n * 1000, H.mgNet);
+      const got = MGL.host.step(H.mgCtx, total / n, now - (n - i) * total / n * 1000, H.mgNet);
       for (const [id, v] of Object.entries(got)) if (!(id in s.mg.scores)) { s.mg.scores[id] = v; changed = true; }
     }
-    Object.assign(H.mgNet.pos, MG3D.host.pos(H.mgCtx));
-    if (now >= MG[s.mg.type].dur) for (const id of Object.keys(H.mgCtx.bots)) if (!(id in s.mg.scores)) { s.mg.scores[id] = MG3D.host.final(H.mgCtx, id, H.mgNet); changed = true; }
+    Object.assign(H.mgNet.pos, MGL.host.pos(H.mgCtx));
+    if (now >= MG[s.mg.type].dur) for (const id of Object.keys(H.mgCtx.bots)) if (!(id in s.mg.scores)) { s.mg.scores[id] = MGL.host.final(H.mgCtx, id, H.mgNet); changed = true; }
   }
-  const msg = {t:'mgp', key:s.mg.key, p:H.mgNet.pos, taken:H.mgNet.taken, counts:H.mgNet.counts};
+  const msg = {t:'mgp', key:s.mg.key, p:H.mgNet.pos, taken:H.mgNet.taken, counts:H.mgNet.counts, ev:H.mgNet.ev, x:H.mgNet.x, over:!!H.mgNet.over};
   for (const c of H.conns.values()) { try { c.send(msg); } catch(e){} }
   if (window.MG3D) MG3D.net(msg);
-  if (changed) { broadcast(); checkMgDone(); }
+  if (changed || H.mgNet.over) { if (changed) broadcast(); checkMgDone(); }
 }
 function checkMgDone(){
   const s = H.state; if (s.phase !== 'mg-play') return;
-  if (s.players.filter(p => p.connected).every(p => p.id in s.mg.scores)) { clearTimeout(H.mgTimer); finishMinigame(); }
+  if (s.mg.players.map(findP).filter(p => p.connected).every(p => p.id in s.mg.scores) || (H.mgNet && H.mgNet.over)) { clearTimeout(H.mgTimer); finishMinigame(); }
 }
 function finishMinigame(){
   const s = H.state; if (s.phase !== 'mg-play') return;
   clearInterval(H.mgLoop);
-  if (MG[s.mg.type].td && H.mgCtx) for (const id of Object.keys(H.mgCtx.bots)) if (!(id in s.mg.scores)) s.mg.scores[id] = MG3D.host.final(H.mgCtx, id, H.mgNet);
-  if (s.mg.type === 'monedas' && H.mgNet) s.players.forEach(p => { if (p.id in s.mg.scores) s.mg.scores[p.id] = H.mgNet.counts[p.id] || 0; });
-  const lower = MG[s.mg.type].lower;
-  const arr = s.players.map(p => ({id:p.id, v: p.id in s.mg.scores ? s.mg.scores[p.id] : null}));
+  if (MG[s.mg.type].td && H.mgCtx) for (const id of Object.keys(H.mgCtx.bots)) if (!(id in s.mg.scores)) s.mg.scores[id] = MGL.host.final(H.mgCtx, id, H.mgNet);
+  if (H.mgCtx) MGL.host.override(H.mgCtx, s.mg.scores, H.mgNet);
+  const m = s.mg, lower = MG[m.type].lower;
+  const arr = m.players.map(id => ({id, v: id in m.scores ? m.scores[id] : null}));
   arr.sort((a, b) => a.v === null ? 1 : b.v === null ? -1 : lower ? a.v - b.v : b.v - a.v);
-  arr.forEach((e, i) => {
-    e.rank = (i > 0 && e.v === arr[i-1].v) ? arr[i-1].rank : i;
-    e.prize = e.v === null ? 0 : PRIZES[e.rank];
-    const p = findP(e.id); p.coins += e.prize; if (e.rank === 0 && e.v !== null) p.wins++;
-  });
-  s.mg.ranking = arr; s.phase = 'mg-results'; broadcast();
-  setTimeout(() => { if (s.round >= s.maxRounds) endGame(); else { s.round++; s.turn = 0; beginTurn(); } }, 7000);
+  arr.forEach((e, i) => { e.rank = (i > 0 && e.v === arr[i-1].v) ? arr[i-1].rank : i; e.prize = 0; });
+  const P = id => findP(id), win = ids => ids.forEach(id => P(id).wins++);
+  if (m.format === 'ffa') {
+    arr.forEach(e => { e.prize = e.v === null ? 0 : PRIZES[e.rank]; P(e.id).coins += e.prize; if (e.rank === 0 && e.v !== null) P(e.id).wins++; });
+  } else {
+    // equipos: gana el equipo con mejor promedio (o lo que decida el propio minijuego)
+    const worst = lower ? 1e9 : -1e9, val = id => (id in m.scores ? m.scores[id] : worst);
+    const avg = ids => ids.reduce((a, id) => a + val(id), 0) / ids.length;
+    let winner = H.mgNet && H.mgNet.team;
+    if (!winner) { const a = avg(m.teams.A), b = avg(m.teams.B); winner = a === b ? 'tie' : (lower ? a < b : a > b) ? 'A' : 'B'; }
+    m.result = {winner};
+    if (winner !== 'tie') {
+      const W = m.teams[winner], L = m.teams[winner === 'A' ? 'B' : 'A'];
+      if (m.format === 'duel') { const l = P(L[0]), take = Math.min(m.wager, l.coins); l.coins -= take; P(W[0]).coins += take; m.result.take = take;
+        arr.forEach(e => e.prize = e.id === W[0] ? take : -take); }
+      else { W.forEach(id => { P(id).coins += 10; }); arr.forEach(e => e.prize = W.includes(e.id) ? 10 : 0); }
+      win(W);
+    }
+  }
+  m.ranking = arr; s.phase = 'mg-results'; broadcast();
+  setTimeout(() => { const r = H.mgResolve; H.mgResolve = null; if (r) r(); }, 7000);
 }
 function endGame(){
   const s = H.state;
@@ -533,7 +584,7 @@ function render(){
   if (key && key === ui.viewKey) return;
   if (ui.viewKey && ui.viewKey !== key && ui.mgCleanup) { ui.mgCleanup(); ui.mgCleanup = null; }
   ui.viewKey = key;
-  const boardPhase = ['turn', 'rolling', 'moving', 'crown', 'event'].includes(ph);
+  const boardPhase = ['turn', 'rolling', 'moving', 'crown', 'event', 'fork', 'duel-pick'].includes(ph);
   const mg3d = (ph === 'mg-intro' || ph === 'mg-play') && S.mg && MG[S.mg.type].td && has3D() && !!window.MG3D;
   if (!mg3d && window.MG3D) MG3D.stop();
   const use3d = (boardPhase && has3D()) || mg3d;
@@ -574,9 +625,10 @@ function viewHome(){
     <b>¿Cómo se juega?</b><br>
     1. Una persona crea la sala y comparte el código.<br>
     2. Los demás se unen desde su celular.<br>
-    3. Por turnos tiran el dado y avanzan por el tablero.<br>
+    3. Por turnos golpean el dado y avanzan. En las bifurcaciones eliges: ⚡ atajo o 🌴 desvío.<br>
     4. Junta 🪙 monedas y compra 👑 coronas (${CROWN_COST} 🪙).<br>
-    5. Al final de cada ronda, ¡minijuego para todos!<br>
+    5. Casillas: 🔵 +3 · 🔴 −3 · ❓ sorpresa · ⇄ cambio de sentido · ⚔️ duelo.<br>
+    6. Al final de cada ronda hay minijuego (${MG_KEYS.length} distintos): todos contra todos, 2 contra 2 o 1 contra 3, según el color de tu última casilla.<br>
     Gana quien tenga más 👑 (empate: más 🪙).
   </div>
   ${APP ? '' : `<a href="fiesta-tablero.apk" download><button class="sec">📱 Descargar app para Android</button></a>
@@ -611,40 +663,14 @@ function viewLobby(){
     : `<div class="wait">${THEMES[S.theme].icon} ${THEMES[S.theme].name} · ${S.maxRounds} rondas.<br>Esperando a que el anfitrión empiece…</div>`}
   </div>`;
 }
-function cellRC(i){
-  if (i <= 6) return [0, i];
-  if (i <= 12) return [i - 6, 6];
-  if (i <= 18) return [6, 6 - (i - 12)];
-  return [6 - (i - 18), 0];
-}
-const ICON = {S:'🏁', B:'', R:'', E:'❓'};
+const TILE_NAME = {S:'🏁 Salida', B:'🔵 Azul', R:'🔴 Roja', E:'❓ Sorpresa', V:'🔄 Cambio de sentido', D:'⚔️ Duelo'};
 function viewBoard(){
-  const s = S, mp = meP(), c = s.players[s.turn], myTurn = c && c.id === myId;
-  let cells = '';
-  for (let i = 0; i < N; i++) {
-    const [r, col] = cellRC(i);
-    const toks = s.players.filter(p => p.pos === i).map(p =>
-      `<div class="tok ${p.id === myId ? 'me' : ''} ${p === c ? 'act' : ''}" style="border-color:${p.color}">${p.emoji}</div>`).join('');
-    cells += `<div class="cell ${s.board[i]} ${s.crown === i ? 'crown' : ''}" style="grid-row:${r+1};grid-column:${col+1}">
-      <div class="ic">${ICON[s.board[i]]}</div>${s.crown === i ? '<div class="cr">👑</div>' : ''}${toks}</div>`;
-  }
-  const rolling = s.phase === 'rolling';
-  cells += `<div class="center">
-    <div class="note">Ronda ${s.round} de ${s.maxRounds}</div>
-    <div style="font-weight:800">${c ? c.emoji + ' ' + esc(c.name) : ''}</div>
-    <div class="dice ${rolling ? 'spin' : ''}" id="dice">${s.dice && !rolling ? s.dice : '🎲'}</div>
-    <div class="msg">${esc(s.msg)}</div></div>`;
-  let action = '';
-  if (s.phase === 'turn' && myTurn) action = `<button class="big" data-act="roll">🎲 ¡Tirar dado!</button>`;
-  else if (s.phase === 'crown' && myTurn) action = `<div class="row"><button data-act="buy">👑 Comprar (${CROWN_COST} 🪙)</button><button class="no" data-act="nobuy">No, gracias</button></div>`;
-  else if (s.phase === 'turn') action = `<div class="wait">Esperando a que ${esc(c.name)} tire el dado…</div>`;
-  else action = `<div class="wait">&nbsp;</div>`;
-  return `<div class="top"><span class="pill">${mp ? mp.emoji + ' ' + esc(mp.name) : ''}</span><span class="pill">👑 ${mp ? mp.crowns : 0} · 🪙 ${mp ? mp.coins : 0}</span></div>
-    <div class="board">${cells}</div>
-    <div class="legend"><span><i style="background:var(--blue)"></i>+3 🪙</span><span><i style="background:var(--red)"></i>−3 🪙</span>
-      <span><i style="background:var(--ev)"></i>Sorpresa</span><span>👑 Corona: ${CROWN_COST} 🪙</span></div>
-    <div class="action">${action}</div>
-    <div class="card" style="padding:10px">${standings().map(p => plRow(p, p === c ? 'cur' : '')).join('')}</div>`;
+  const s = S, mp = meP(), c = s.players[s.turn], g = graph();
+  return `<div class="top"><span class="pill">${mp ? esc(mp.name) : ''}</span><span class="pill">👑 ${mp ? mp.crowns : 0} · 🪙 ${mp ? mp.coins : 0}</span></div>
+    <div class="card"><div class="note">Ronda ${s.round} de ${s.maxRounds} · tu celular no muestra 3D</div><h2>${c ? esc(c.name) : ''}</h2>
+    <div class="msg" style="text-align:center">${esc(s.msg)}</div>${s.dice ? `<div class="dice" style="margin:8px auto">${s.dice}</div>` : ''}</div>
+    <div class="action">${boardAction()}</div>
+    <div class="card" style="padding:10px">${standings().map(p => plRow(p, p === c ? 'cur' : '') + `<div class="note" style="text-align:left;margin:2px 0 6px 50px">${TILE_NAME[g.nodes[p.pos].type]}${g.nodes[p.pos].branch ? ' · ' + g.nodes[p.pos].branch : ''}${p.dir < 0 ? ' · ⬅ hacia atrás' : ''}${s.crown === p.pos ? ' · 👑' : ''}</div>`).join('')}</div>`;
 }
 function myRoll(){
   if (!S || S.phase !== 'turn' || !S.players[S.turn] || S.players[S.turn].id !== myId || ui.rolled === S.round + '-' + S.turn) return;
@@ -658,6 +684,18 @@ function boardAction(){
   if (s.phase === 'turn' && myTurn) return ui.rolled === s.round + '-' + s.turn ? '' : `<button class="big" data-act="roll">👊 ¡Golpear el dado!</button><div class="note" style="margin-top:6px">o toca la pantalla</div>`;
   if (s.phase === 'crown' && myTurn) return `<div class="row"><button data-act="buy">👑 Comprar (${CROWN_COST} 🪙)</button><button class="no" data-act="nobuy">No, gracias</button></div>`;
   if (s.phase === 'turn') return `<div class="wait">Esperando a que ${esc(c.name)} tire el dado…</div>`;
+  if (s.phase === 'fork' && myTurn && s.fork) {
+    const g = graph(), here = g.nodes[c.pos], from = g.nodes[(c.dir < 0 ? here.next : here.prev)[0]] || here;
+    const hx = here.x - from.x, hz = here.z - from.z;
+    return `<div class="note" style="margin-bottom:4px">Te quedan ${s.fork.steps} pasos. ¿Por dónde vas?</div><div class="row">${s.fork.opts.map(id => { const n = g.nodes[id];
+      const cr = hx * (n.z - here.z) - hz * (n.x - here.x), arrow = cr > 0.8 ? '↘️' : cr < -0.8 ? '↙️' : '⬆️';
+      const lbl = n.branch === 'atajo' ? '⚡ Atajo' : n.branch === 'desvio' ? '🌴 Desvío' : 'Camino principal';
+      const d = BOARDS.dist(g, id, s.crown, c.dir); return `<button data-act="fork" data-v="${id}" class="${n.branch ? '' : 'sec'}">${lbl}<div style="font-size:.75rem;font-weight:600">👑 a ${d + 1} pasos</div></button>`; }).join('')}</div>`;
+  }
+  if (s.phase === 'fork') return `<div class="wait">${esc(c.name)} está eligiendo camino…</div>`;
+  if (s.phase === 'duel-pick' && myTurn) return `<div class="note" style="margin-bottom:4px">⚔️ Elige a tu rival. El ganador del duelo se lleva hasta 10 🪙.</div>${s.players.filter(p => p.id !== myId).map(p =>
+    `<button class="sec" data-act="duel" data-v="${p.id}" style="display:flex;align-items:center;gap:10px;margin-top:6px"><span class="av" style="border:2px solid ${p.color};width:30px;height:30px;border-radius:50%;display:inline-block">${avImg(p)}</span>${esc(p.name)} · 🪙 ${p.coins}</button>`).join('')}`;
+  if (s.phase === 'duel-pick') return `<div class="wait">${esc(c.name)} está eligiendo rival… ⚔️</div>`;
   return '';
 }
 function viewBoard3D(){
@@ -689,13 +727,23 @@ function afterBoard(){
   if (S.phase === 'turn' && c && c.id === myId && ui.buzz !== k) { ui.buzz = k; try { if (APP) APP.vibrate(250); else if (navigator.vibrate) navigator.vibrate([80, 60, 80]); } catch(e){} }
 }
 
-function prepMg3d(){ MG3D.prepare({ type:S.mg.type, seed:S.mg.seed, players:S.players, myId, dur:MG[S.mg.type].dur, key:S.mg.key }); }
+function prepMg3d(){ MG3D.prepare({ type:S.mg.type, seed:S.mg.seed, players:S.mg.players.map(id => S.players.find(p => p.id === id)), myId, dur:MG[S.mg.type].dur, key:S.mg.key, teams:S.mg.teams, format:S.mg.format }); }
+const FORMAT_NAME = { ffa: 'Todos contra todos', team: 'Equipos', '1vN': 'Uno contra todos', duel: '⚔️ Duelo' };
+function teamLine(ids, col){ return ids.map(id => { const p = S.players.find(x => x.id === id); return p ? `<span class="av" style="display:inline-block;width:28px;height:28px;border:2px solid ${col};border-radius:50%;vertical-align:middle">${avImg(p)}</span>` : ''; }).join(''); }
+function formatBanner(m){
+  if (!m.teams) return `<div class="note">Todos contra todos · Premios: 🥇 +10 · 🥈 +6 · 🥉 +3 · 4º +1</div>`;
+  const a = m.teams.A, b = m.teams.B, lbl = m.format === 'duel' ? '⚔️ DUELO' : `${a.length} contra ${b.length}`;
+  return `<div style="font-weight:900;margin:4px 0">${lbl}</div>
+    <div style="display:flex;justify-content:center;align-items:center;gap:8px">${teamLine(a, '#4dabf7')}<b>VS</b>${teamLine(b, '#ff6b6b')}</div>
+    <div class="note">${m.format === 'duel' ? `El ganador se lleva hasta ${m.wager} 🪙 del otro` : 'Cada ganador del equipo +10 🪙'}</div>
+    ${m.players.includes(myId) ? '' : '<div class="note">👀 No juegas este: ¡mira!</div>'}`;
+}
 function viewIntro3D(){
   const d = MG[S.mg.type];
   return `<div class="hud"><div></div><div class="hud-bottom glass" style="text-align:center">
     <div class="note">¡MINIJUEGO!</div><div class="mgname">${d.icon} ${d.name}</div>
     <div style="margin:8px 0">${d.desc}</div>
-    <div class="note">Premios: 🥇 +10 · 🥈 +6 · 🥉 +3 · 4º +1</div><div class="cd" id="cd">5</div></div></div>`;
+    ${formatBanner(S.mg)}<div class="cd" id="cd">5</div></div></div>`;
 }
 function viewIntro(){
   const d = MG[S.mg.type];
@@ -710,6 +758,7 @@ function runCountdown(){
   ui.mgCleanup = () => clearInterval(t);
 }
 function fmtScore(type, v){
+  if (MGL.BYID[type]) return MGL.fmtScore(type, v);
   if (v === null || v === undefined) return 'sin resultado';
   switch (type) {
     case 'piso': case 'barra': case 'bolas': return v >= MG[type].dur ? '💪 ¡aguantó hasta el final!' : 'aguantó ' + (v / 1000).toFixed(1) + ' s';
@@ -724,12 +773,19 @@ function fmtScore(type, v){
 }
 function viewMgResults(){
   const m = S.mg, medals = ['🥇', '🥈', '🥉', '4º', '5º', '6º'];
-  return `<div class="mg"><div class="mgname">${MG[m.type].icon} Resultados</div>
+  let head = '';
+  if (m.teams && m.result) {
+    const w = m.result.winner, names = ids => ids.map(id => esc((S.players.find(p => p.id === id) || {}).name || '')).join(' y ');
+    head = w === 'tie' ? '<div class="card">🤝 ¡Empate! Nadie gana monedas.</div>'
+      : m.format === 'duel' ? `<div class="card">⚔️ <b>${names(m.teams[w])}</b> gana el duelo y se lleva ${m.result.take} 🪙</div>`
+      : `<div class="card" style="border:3px solid ${w === 'A' ? '#4dabf7' : '#ff6b6b'}">${w === 'A' ? '🔵' : '🔴'} ¡Gana <b>${names(m.teams[w])}</b>!</div>`;
+  }
+  return `<div class="mg"><div class="mgname">${MG[m.type].icon} Resultados</div>${head}
     ${m.ranking.map(e => { const p = S.players.find(x => x.id === e.id);
       return `<div class="rank"><div class="pos">${medals[e.rank]}</div><div class="av" style="width:44px;height:44px;border:3px solid ${p.color};border-radius:50%">${avImg(p)}</div>
       <div style="flex:1"><b>${esc(p.name)}</b><div class="note" style="text-align:left">${fmtScore(m.type, e.v)}</div></div>
-      <div class="prize">+${e.prize} 🪙</div></div>`; }).join('')}
-    <div class="note">${S.round >= S.maxRounds ? 'Calculando ganador…' : 'Siguiente ronda en un momento…'}</div></div>`;
+      <div class="prize">${e.prize >= 0 ? '+' : ''}${e.prize} 🪙</div></div>`; }).join('')}
+    <div class="note">${m.format === 'duel' ? 'Volviendo al tablero…' : S.round >= S.maxRounds ? 'Calculando ganador…' : 'Siguiente ronda en un momento…'}</div></div>`;
 }
 function viewEnd(){
   const ranking = standings(), w = ranking[0];
@@ -745,6 +801,7 @@ function viewEnd(){
 /* ================= Minijuegos ================= */
 function runMinigame(){
   const m = S.mg, def = MG[m.type], root = $('#mg'), rng = mulberry32(m.seed);
+  if (!m.players.includes(myId)) { root.innerHTML = '<div class="card">👀 No juegas este minijuego. ¡Espera el resultado!</div>'; return; }
   if (def.td) { root.innerHTML = '<div class="card">Tu celular no puede mostrar este minijuego 3D 😢<br>Mira la tabla al terminar.</div>';
     send({t:'score', key:m.key, v: def.lower ? 999999 : 0}); return; }
   const timers = []; let finished = false;
@@ -864,6 +921,8 @@ document.addEventListener('click', async e => {
   }
   else if (act === 'rounds') send({t:'rounds', n:+b.dataset.v});
   else if (act === 'theme') send({t:'theme', v:b.dataset.v});
+  else if (act === 'fork') { b.parentNode.querySelectorAll('button').forEach(x => x.disabled = true); send({t:'fork', to:+b.dataset.v}); }
+  else if (act === 'duel') { b.parentNode.querySelectorAll('button').forEach(x => x.disabled = true); send({t:'duel', id:b.dataset.v}); }
   else if (act === 'view') { ui.cam = Board3D.toggleView(); b.textContent = ui.cam === 'overview' ? '🎥' : '🗺️'; }
   else if (act === 'start') send({t:'start'});
   else if (act === 'roll') { b.disabled = true; myRoll(); }
