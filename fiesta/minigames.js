@@ -312,7 +312,7 @@
     if (kind === 'carrera' || kind === 'corredor') return [(i - (n - 1) / 2) * (kind === 'corredor' ? 4.2 : 1.9), 0];
     if (kind === 'bolas') return [n > 1 ? -4 + 8 * i / (n - 1) : 0, 3];
     if (kind === 'laberinto') return [-0.5 * (n - 1) * 0.3 + i * 0.3 - 6.4, -6.4];
-    const STAGE_Z = { tiro: 3, memoria: -5, reflejo: -0.5, contar: -5.2, vasos: -2.6, ruleta: -1.6, pesca: 2.2, torre: -4, cuerda: 3 };
+    const STAGE_Z = { tiro: 3, memoria: -5, reflejo: -0.5, contar: -5.2, vasos: -2.6, ruleta: -1.6, pesca: -5.5, torre: -4, cuerda: 3 };
     if (kind in STAGE_Z) return [(i - (n - 1) / 2) * (kind === 'reflejo' ? 2.2 : 1.6), STAGE_Z[kind]];
     const rad = kind === 'barra' ? 4 : kind === 'pintar' ? 3.5 : 2.8, a = i / n * Math.PI * 2 + 0.4;
     return [Math.cos(a) * rad, Math.sin(a) * rad];
