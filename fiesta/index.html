@@ -1,0 +1,688 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#1e0b3a">
+<title>Fiesta Tablero</title>
+<style>
+:root{
+  --bg:#1e0b3a;--bg2:#2d1457;--card:#3a1d6e;--txt:#fff;--mut:#c9b8ee;
+  --blue:#3b82f6;--red:#ef4444;--ev:#a855f7;--start:#22c55e;--gold:#fcc419;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{background:radial-gradient(circle at 50% 0,#4b1f8f,var(--bg) 70%) fixed;color:var(--txt);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none}
+#app{max-width:520px;margin:0 auto;padding:12px 12px 32px;min-height:100%}
+h1{margin:8px 0 4px;font-size:2rem;text-align:center}
+h2{margin:6px 0 10px;text-align:center}
+.sub{color:var(--mut);text-align:center;margin:0 0 16px}
+.card{background:var(--card);border-radius:18px;padding:16px;margin-bottom:12px;box-shadow:0 6px 20px #0006}
+label{display:block;font-weight:700;margin:10px 0 6px}
+input{width:100%;font-size:1.2rem;padding:12px;border-radius:12px;border:2px solid #6d4bb3;background:#1c0b36;color:#fff;outline:none;user-select:text;-webkit-user-select:text}
+input:focus{border-color:var(--gold)}
+.codeinput{text-transform:uppercase;text-align:center;letter-spacing:.4em;font-weight:800;font-size:1.6rem}
+button{font:inherit;font-weight:800;border:0;border-radius:14px;padding:14px;width:100%;cursor:pointer;color:#1e0b3a;background:var(--gold);
+  box-shadow:0 4px 0 #b8860b;margin-top:10px;font-size:1.1rem;touch-action:manipulation}
+button:active{transform:translateY(3px);box-shadow:0 1px 0 #b8860b}
+button.sec{background:#7c5cc4;color:#fff;box-shadow:0 4px 0 #4c3388}
+button.no{background:#64748b;color:#fff;box-shadow:0 4px 0 #334155}
+button:disabled{opacity:.45}
+.big{font-size:1.4rem;padding:18px}
+.or{text-align:center;color:var(--mut);margin:16px 0 6px}
+.err{color:#ff8fa3;text-align:center;font-weight:700;min-height:1.2em}
+.emojis{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.emojis button{font-size:1.6rem;padding:6px;margin:0;background:#1c0b36;box-shadow:none;border:2px solid transparent}
+.emojis button.sel{border-color:var(--gold);background:#4b2a86}
+.codebig{font-size:3rem;font-weight:900;letter-spacing:.3em;text-align:center;color:var(--gold);margin:4px 0}
+.row{display:flex;gap:8px}
+.row>*{flex:1}
+.pl{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;background:#24104a;margin-top:6px}
+.pl .av{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:1.3rem;border:3px solid}
+.pl .nm{flex:1;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl.cur{outline:3px solid var(--gold)}
+.pl.off{opacity:.45}
+.pl .st{font-weight:800;white-space:nowrap}
+.note{color:var(--mut);font-size:.9rem;text-align:center}
+.top{display:flex;justify-content:space-between;align-items:center;font-weight:800;margin-bottom:8px}
+.pill{background:var(--card);padding:6px 12px;border-radius:999px}
+.board{display:grid;grid-template-columns:repeat(7,1fr);grid-template-rows:repeat(7,1fr);gap:3px;aspect-ratio:1;width:100%;
+  background:#13062a;border-radius:16px;padding:6px}
+.cell{position:relative;border-radius:8px;display:flex;flex-wrap:wrap;align-content:center;justify-content:center;gap:1px;
+  box-shadow:inset 0 -3px 0 #0005}
+.cell.B{background:var(--blue)}.cell.R{background:var(--red)}.cell.E{background:var(--ev)}.cell.S{background:var(--start)}
+.cell .ic{position:absolute;inset:0;display:grid;place-items:center;font-size:.9rem;opacity:.55;pointer-events:none}
+.cell.crown{outline:3px solid var(--gold);animation:glow 1.2s infinite alternate}
+.cell .cr{position:absolute;top:-10px;right:-6px;font-size:1.1rem;z-index:3;filter:drop-shadow(0 2px 2px #000)}
+@keyframes glow{to{box-shadow:0 0 14px var(--gold)}}
+.tok{width:46%;aspect-ratio:1;border-radius:50%;display:grid;place-items:center;font-size:clamp(.6rem,2.6vw,.95rem);background:#fff;border:2px solid;z-index:2;line-height:1}
+.tok.me{box-shadow:0 0 0 2px #fff}
+.tok.act{animation:hop .5s infinite alternate}
+@keyframes hop{to{transform:translateY(-4px)}}
+.center{grid-column:2/7;grid-row:2/7;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:8px;gap:6px}
+.dice{width:64px;height:64px;border-radius:14px;background:#fff;color:#1e0b3a;font-size:2.4rem;font-weight:900;display:grid;place-items:center;box-shadow:0 5px 0 #aaa}
+.dice.spin{animation:shake .15s infinite}
+@keyframes shake{25%{transform:rotate(-12deg)}75%{transform:rotate(12deg)}}
+.msg{font-weight:700;font-size:1rem;min-height:2.4em}
+.legend{display:flex;justify-content:center;gap:10px;font-size:.75rem;color:var(--mut);margin-top:6px;flex-wrap:wrap}
+.legend span{display:inline-flex;align-items:center;gap:4px}
+.legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.action{margin:10px 0}
+.wait{text-align:center;color:var(--mut);font-weight:700;padding:14px}
+.mg{min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:12px}
+.mgname{font-size:2rem;font-weight:900;color:var(--gold)}
+.cd{font-size:4rem;font-weight:900}
+.tapbtn{width:220px;height:220px;border-radius:50%;font-size:2.2rem;margin:0 auto}
+.reflex{width:100%;height:60vh;border-radius:20px;display:grid;place-items:center;font-size:2.4rem;font-weight:900;touch-action:manipulation}
+.opts{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%}
+.opts button{margin:0;font-size:1.5rem;padding:18px}
+.problem{font-size:3rem;font-weight:900}
+.timer{font-weight:800;color:var(--mut)}
+.bar{width:100%;height:10px;background:#0005;border-radius:99px;overflow:hidden}
+.bar>div{height:100%;background:var(--gold);width:100%}
+.flash-bad{animation:bad .4s}
+@keyframes bad{0%,100%{transform:none}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+.balloon{border-radius:50% 50% 48% 48%;background:radial-gradient(circle at 35% 30%,#ffb3c1,#ff4d6d);transition:width .1s,height .1s;margin:0 auto}
+.rank{display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;background:#24104a;margin-top:6px;width:100%;text-align:left}
+.rank .pos{font-size:1.4rem;width:34px;text-align:center}
+.rank .prize{color:var(--gold);font-weight:900}
+#banner{position:fixed;left:0;right:0;top:0;z-index:50;background:#b91c1c;color:#fff;text-align:center;padding:10px;font-weight:700;display:none}
+#banner button{width:auto;padding:6px 14px;margin:0 0 0 8px;font-size:.95rem}
+.podium{font-size:3.5rem;text-align:center}
+</style>
+</head>
+<body>
+<div id="banner"></div>
+<div id="app"></div>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+'use strict';
+/* ================= Config ================= */
+const PREFIX = 'fiestatablero-v1-';
+const CROWN_COST = 20;
+const COLORS = ['#ff4d6d','#4dabf7','#51cf66','#fcc419','#b197fc','#ff922b'];
+const EMOJIS = ['🐸','🐱','🐼','🦊','🐵','🐧','🐷','🦄','🐙','🐯','🐨','🐻'];
+// S=salida, B=azul(+3), R=roja(-3), E=evento
+const BOARD = 'SBBEBRBBEBRBEBBRBEBBRBEB'.split('');
+const N = BOARD.length; // 24 = perímetro de una cuadrícula 7x7
+const PRIZES = [10, 6, 3, 1, 0, 0];
+const MG = {
+  taps:   {name:'Dedo Veloz',     icon:'👆', desc:'¡Toca el botón tantas veces como puedas!', dur:6000, lower:false},
+  reflex: {name:'Desenfunda',     icon:'🤠', desc:'Toca cuando la pantalla se ponga VERDE. Si tocas antes, ¡pierdes!', dur:8000, lower:true},
+  math:   {name:'Cuentas Rápidas',icon:'🧮', desc:'Resuelve todas las cuentas que puedas. Si fallas, te congelas 1 segundo.', dur:15000, lower:false},
+  clock:  {name:'Reloj Ciego',    icon:'⏱️', desc:'Detén el cronómetro lo más cerca posible de 5.00 s. ¡Se oculta a los 2 segundos!', dur:10000, lower:true},
+  color:  {name:'Colores Locos',  icon:'🎨', desc:'Toca el nombre del COLOR DE LA TINTA, no lo que dice la palabra.', dur:15000, lower:false},
+  balloon:{name:'Globo Valiente', icon:'🎈', desc:'Infla el globo y guárdalo antes de que explote. Más bombeos = más puntos. Si explota: 0.', dur:12000, lower:false},
+};
+const MG_KEYS = Object.keys(MG);
+
+/* ================= Utils ================= */
+const $ = s => document.querySelector(s);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const rid = () => Math.random().toString(36).slice(2, 10);
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function st(kind){ const s = kind==='l'?'localStorage':'sessionStorage';
+  return {get:k=>{try{return window[s].getItem(k)}catch(e){return null}}, set:(k,v)=>{try{window[s].setItem(k,v)}catch(e){}}}; }
+const ss = st('s'), ls = st('l');
+const params = new URLSearchParams(location.search);
+const LOCAL = params.has('local'); // modo prueba: varias pestañas del mismo navegador
+
+let myId = ss.get('fid') || rid(); ss.set('fid', myId);
+const me = { name: ls.get('fname') || '', emoji: ls.get('femoji') || pick(EMOJIS) };
+let role = null;     // 'host' | 'client'
+let S = null;        // último estado del juego
+const ui = { screen:'home', error:'', code:(params.get('sala')||'').toUpperCase(), viewKey:null, mgCleanup:null };
+const net = {};
+
+/* ================= Red ================= */
+const H = { state:null, conns:new Map(), turnToken:0, crownResolve:null, mgTimer:null };
+
+function makeCode(){ const A='ABCDEFGHJKLMNPQRSTUVWXYZ'; let c=''; for(let i=0;i<4;i++) c+=A[Math.floor(Math.random()*A.length)]; return c; }
+
+function startHost(){
+  role = 'host';
+  const code = makeCode();
+  H.state = newState(code);
+  addPlayer(myId, me.name, me.emoji);
+  ui.screen = 'connecting'; render();
+  if (LOCAL) { localHost(code); broadcast(); return; }
+  const peer = new Peer(PREFIX + code, {debug:0});
+  H.peer = peer;
+  peer.on('open', () => broadcast());
+  peer.on('connection', conn => {
+    conn.on('data', d => hostRecv(conn, d));
+    conn.on('close', () => hostConnClosed(conn));
+    conn.on('error', () => hostConnClosed(conn));
+  });
+  peer.on('disconnected', () => { setTimeout(() => { try { if (!peer.destroyed) peer.reconnect(); } catch(e){} }, 1000); });
+  peer.on('error', err => {
+    if (err.type === 'unavailable-id') { peer.destroy(); startHost(); }
+    else if (!S) fail('No se pudo crear la sala (' + err.type + '). Revisa tu internet.');
+  });
+}
+
+function localHost(code){
+  const ch = new BroadcastChannel('fiesta-' + code), conns = {};
+  ch.onmessage = e => { const m = e.data; if (m.to !== 'host') return;
+    let c = conns[m.from]; if (!c) c = conns[m.from] = { send: d => ch.postMessage({to:m.from, data:d}) };
+    if (m.kind === 'close') { hostConnClosed(c); delete conns[m.from]; return; }
+    hostRecv(c, m.data); };
+}
+
+function hostRecv(conn, msg){
+  if (!msg || typeof msg !== 'object') return;
+  if (msg.t === 'join') {
+    if (typeof msg.id !== 'string') return;
+    const ok = joinPlayer(msg);
+    if (!ok) { try { conn.send({t:'reject', reason: H.state.phase === 'lobby' ? 'La sala está llena (máx. 6).' : 'La partida ya empezó.'}); } catch(e){} return; }
+    conn._pid = msg.id; H.conns.set(msg.id, conn); broadcast(); return;
+  }
+  if (conn._pid) hostAction(conn._pid, msg);
+}
+
+function hostConnClosed(conn){
+  const pid = conn._pid;
+  if (pid && H.conns.get(pid) === conn) {
+    H.conns.delete(pid);
+    const p = findP(pid); if (p) { p.connected = false; broadcast(); }
+    if (H.state.phase === 'mg-play') checkMgDone();
+  }
+}
+
+function broadcast(){
+  const s = H.state; s.seq++;
+  for (const c of H.conns.values()) { try { c.send({t:'state', s}); } catch(e){} }
+  onState(s);
+}
+
+function startClient(code){
+  role = 'client'; ui.code = code; ss.set('fcode', code);
+  ui.screen = 'connecting'; ui.error = ''; render();
+  clearTimeout(net.to);
+  net.to = setTimeout(() => { if (!S) fail('No se pudo conectar a la sala ' + code + '.'); }, 15000);
+  if (LOCAL) {
+    const ch = new BroadcastChannel('fiesta-' + code);
+    ch.onmessage = e => { if (e.data.to === myId) clientRecv(e.data.data); };
+    net.conn = { send: d => ch.postMessage({to:'host', from:myId, data:d}) };
+    addEventListener('beforeunload', () => ch.postMessage({to:'host', from:myId, kind:'close'}));
+    sendJoin(); return;
+  }
+  try { net.peer && net.peer.destroy(); } catch(e){}
+  const peer = new Peer({debug:0}); net.peer = peer;
+  peer.on('open', () => {
+    const conn = peer.connect(PREFIX + code, {reliable:true}); net.conn = conn;
+    conn.on('open', sendJoin);
+    conn.on('data', clientRecv);
+    conn.on('close', lost);
+    conn.on('error', lost);
+  });
+  peer.on('error', err => {
+    if (err.type === 'peer-unavailable') fail('No existe la sala ' + code + '. Revisa el código.');
+    else if (!S) fail('Error de conexión (' + err.type + ').');
+    else lost();
+  });
+}
+function sendJoin(){ net.conn.send({t:'join', id:myId, name:me.name, emoji:me.emoji}); }
+function clientRecv(d){
+  if (!d) return;
+  if (d.t === 'state') { clearTimeout(net.to); setBanner(''); onState(d.s); }
+  else if (d.t === 'reject') { fail(d.reason); }
+}
+function lost(){ if (role !== 'client') return;
+  setBanner('Conexión perdida con el anfitrión <button data-act="reconnect">Reconectar</button>'); }
+function fail(text){ ss.set('fcode', ''); S = null; role = null; ui.screen = 'home'; ui.error = text; ui.viewKey = null; render(); }
+function send(msg){ if (role === 'host') hostAction(myId, msg); else if (net.conn) { try { net.conn.send(msg); } catch(e){ lost(); } } }
+function setBanner(html){ const b = $('#banner'); b.innerHTML = html; b.style.display = html ? 'block' : 'none'; }
+
+/* ================= Lógica (sólo anfitrión) ================= */
+function newState(code){
+  return {code, phase:'lobby', round:0, maxRounds:8, players:[], turn:0, crown:randSpot(-1, []), dice:null, rollId:0,
+    msg:'', hostId:myId, mg:null, lastMg:null, seq:0, bonus:null};
+}
+const findP = id => H.state.players.find(p => p.id === id);
+const cur = () => H.state.players[H.state.turn];
+function randSpot(exclude, players){
+  const occ = new Set((players||[]).map(p => p.pos));
+  let opts = []; for (let i = 1; i < N; i++) if (i !== exclude && !occ.has(i)) opts.push(i);
+  if (!opts.length) for (let i = 1; i < N; i++) if (i !== exclude) opts.push(i);
+  return pick(opts);
+}
+function addPlayer(id, name, emoji){
+  const used = H.state.players.map(p => p.color);
+  H.state.players.push({id, name:String(name||'Jugador').slice(0,12), emoji:EMOJIS.includes(emoji)?emoji:pick(EMOJIS),
+    color:COLORS.find(c => !used.includes(c)), pos:0, coins:10, crowns:0, wins:0, connected:true});
+}
+function joinPlayer(msg){
+  const p = findP(msg.id);
+  if (p) { p.connected = true; if (H.state.phase === 'lobby') { p.name = String(msg.name||p.name).slice(0,12); if (EMOJIS.includes(msg.emoji)) p.emoji = msg.emoji; } return true; }
+  if (H.state.phase !== 'lobby' || H.state.players.length >= 6) return false;
+  addPlayer(msg.id, msg.name, msg.emoji); return true;
+}
+
+function hostAction(pid, msg){
+  const s = H.state, p = findP(pid); if (!p) return;
+  const isHost = pid === s.hostId;
+  switch (msg.t) {
+    case 'rounds': if (isHost && s.phase === 'lobby') { s.maxRounds = Math.max(3, Math.min(20, msg.n|0)); broadcast(); } break;
+    case 'start': if (isHost && s.phase === 'lobby' && s.players.length >= 2) startGame(); break;
+    case 'roll': if (s.phase === 'turn' && cur().id === pid) doRoll(); break;
+    case 'crown': if (s.phase === 'crown' && cur().id === pid && H.crownResolve) H.crownResolve(!!msg.buy); break;
+    case 'score':
+      if (s.phase === 'mg-play' && s.mg && msg.key === s.mg.key && !(pid in s.mg.scores) && Number.isFinite(+msg.v)) {
+        s.mg.scores[pid] = +msg.v; broadcast(); checkMgDone(); }
+      break;
+    case 'again': if (isHost && s.phase === 'end') { s.phase = 'lobby'; s.bonus = null; s.mg = null; broadcast(); } break;
+  }
+}
+
+function startGame(){
+  const s = H.state;
+  s.players.forEach(p => { p.pos = 0; p.coins = 10; p.crowns = 0; p.wins = 0; });
+  s.round = 1; s.turn = 0; s.crown = randSpot(-1, s.players); s.lastMg = null;
+  beginTurn();
+}
+
+function beginTurn(){
+  const s = H.state, p = cur();
+  s.phase = 'turn'; s.dice = null; s.msg = `Turno de ${p.emoji} ${p.name}`;
+  if (s.turn === 0 && s.round === s.maxRounds) s.msg = '🔥 ¡ÚLTIMA RONDA! ' + s.msg;
+  broadcast();
+  const tok = ++H.turnToken;
+  setTimeout(() => { if (H.turnToken === tok && s.phase === 'turn') doRoll(); }, p.connected ? 30000 : 2500);
+}
+
+async function doRoll(){
+  const s = H.state, p = cur(); H.turnToken++;
+  s.phase = 'rolling'; s.dice = 1 + Math.floor(Math.random() * 6); s.rollId++;
+  s.msg = `${p.name} tira el dado…`; broadcast();
+  await sleep(1400);
+  s.phase = 'moving'; s.msg = `${p.name} saca un ${s.dice}`;
+  for (let steps = s.dice; steps > 0; steps--) {
+    await sleep(380);
+    p.pos = (p.pos + 1) % N; broadcast();
+    if (p.pos === s.crown) await crownStop(p);
+  }
+  await sleep(450);
+  await landOn(p);
+  s.turn++;
+  if (s.turn >= s.players.length) { s.turn = 0; startMinigame(); } else beginTurn();
+}
+
+async function crownStop(p){
+  const s = H.state;
+  if (p.coins < CROWN_COST) { s.msg = `${p.name} no tiene ${CROWN_COST} 🪙 para la corona 👑`; broadcast(); await sleep(1600); s.phase = 'moving'; return; }
+  s.phase = 'crown'; s.msg = `¿${p.name} compra la corona por ${CROWN_COST} 🪙?`; broadcast();
+  const buy = await new Promise(res => { H.crownResolve = res; setTimeout(() => res(true), p.connected ? 20000 : 1500); });
+  H.crownResolve = null;
+  if (buy) { p.coins -= CROWN_COST; p.crowns++; s.msg = `👑 ¡${p.name} consigue una corona! La corona se mueve…`; s.crown = randSpot(s.crown, s.players); }
+  else s.msg = `${p.name} deja pasar la corona`;
+  s.phase = 'moving'; broadcast(); await sleep(1900);
+}
+
+async function landOn(p){
+  const s = H.state, t = BOARD[p.pos];
+  s.phase = 'event';
+  if (t === 'B' || t === 'S') { p.coins += 3; s.msg = `🔵 ${p.name} gana 3 🪙`; }
+  else if (t === 'R') { const l = Math.min(3, p.coins); p.coins -= l; s.msg = `🔴 ${p.name} pierde ${l} 🪙`; }
+  else s.msg = randomEvent(p);
+  broadcast(); await sleep(2300);
+}
+
+function randomEvent(p){
+  const s = H.state, rivals = s.players.filter(x => x !== p);
+  const evs = [
+    () => { p.coins += 8; return `🎁 ¡Cofre! ${p.name} encuentra 8 🪙`; },
+    () => { const l = Math.min(5, p.coins); p.coins -= l; return `🕳️ Bolsillo roto: ${p.name} pierde ${l} 🪙`; },
+    () => { p.pos = randSpot(p.pos, []); return `🌀 ¡Remolino! ${p.name} sale volando a otra casilla`; },
+    () => { s.crown = randSpot(s.crown, s.players); return `💨 Una ráfaga de viento mueve la corona 👑`; },
+  ];
+  if (rivals.length) evs.push(
+    () => { const r = pick(rivals), l = Math.min(5, r.coins); r.coins -= l; p.coins += l; return `🦝 ${p.name} le roba ${l} 🪙 a ${r.name}`; },
+    () => { const r = pick(rivals); [p.pos, r.pos] = [r.pos, p.pos]; return `🔄 ${p.name} cambia de lugar con ${r.name}`; },
+    () => { let t = 0; rivals.forEach(r => { const g = Math.min(2, r.coins); r.coins -= g; t += g; }); p.coins += t; return `🎉 ¡Fiesta! Cada rival le regala 2 🪙 a ${p.name}`; },
+    () => { rivals.forEach(r => { const g = Math.min(2, p.coins); p.coins -= g; r.coins += g; }); return `🤲 ${p.name} se siente generoso y regala 2 🪙 a cada rival`; },
+  );
+  return '❓ ' + pick(evs)();
+}
+
+function startMinigame(){
+  const s = H.state;
+  let type; do { type = pick(MG_KEYS); } while (type === s.lastMg);
+  s.lastMg = type;
+  s.mg = {type, key: s.round + '-' + rid(), seed: (Math.random() * 1e9) | 0, scores:{}, ranking:null};
+  s.phase = 'mg-intro'; s.msg = ''; broadcast();
+  setTimeout(() => { s.phase = 'mg-play'; broadcast(); H.mgTimer = setTimeout(finishMinigame, MG[type].dur + 3500); }, 6000);
+}
+function checkMgDone(){
+  const s = H.state; if (s.phase !== 'mg-play') return;
+  if (s.players.filter(p => p.connected).every(p => p.id in s.mg.scores)) { clearTimeout(H.mgTimer); finishMinigame(); }
+}
+function finishMinigame(){
+  const s = H.state; if (s.phase !== 'mg-play') return;
+  const lower = MG[s.mg.type].lower;
+  const arr = s.players.map(p => ({id:p.id, v: p.id in s.mg.scores ? s.mg.scores[p.id] : null}));
+  arr.sort((a, b) => a.v === null ? 1 : b.v === null ? -1 : lower ? a.v - b.v : b.v - a.v);
+  arr.forEach((e, i) => {
+    e.rank = (i > 0 && e.v === arr[i-1].v) ? arr[i-1].rank : i;
+    e.prize = e.v === null ? 0 : PRIZES[e.rank];
+    const p = findP(e.id); p.coins += e.prize; if (e.rank === 0 && e.v !== null) p.wins++;
+  });
+  s.mg.ranking = arr; s.phase = 'mg-results'; broadcast();
+  setTimeout(() => { if (s.round >= s.maxRounds) endGame(); else { s.round++; s.turn = 0; beginTurn(); } }, 7000);
+}
+function endGame(){
+  const s = H.state;
+  const maxW = Math.max(...s.players.map(p => p.wins));
+  s.bonus = null;
+  if (maxW > 0) { const champs = s.players.filter(p => p.wins === maxW); champs.forEach(p => p.crowns++); s.bonus = {ids: champs.map(p => p.id), wins:maxW}; }
+  s.phase = 'end'; broadcast();
+}
+
+/* ================= Render ================= */
+function onState(s){
+  const prev = S && S.phase; S = s;
+  if (prev === 'lobby' && s.phase !== 'lobby') keepAwake();
+  render();
+}
+const meP = () => S && S.players.find(p => p.id === myId);
+function standings(){ return [...S.players].sort((a, b) => b.crowns - a.crowns || b.coins - a.coins); }
+
+function render(){
+  const app = $('#app');
+  if (!S) { ui.viewKey = null; app.innerHTML = ui.screen === 'connecting' ? viewConnecting() : viewHome(); return; }
+  const ph = S.phase;
+  // Vistas que no deben reconstruirse en cada actualización
+  let key = null;
+  if (ph === 'mg-intro') key = 'intro' + S.mg.key;
+  if (ph === 'mg-play') key = 'play' + S.mg.key;
+  if (key && key === ui.viewKey) return;
+  if (ui.viewKey && ui.viewKey !== key && ui.mgCleanup) { ui.mgCleanup(); ui.mgCleanup = null; }
+  ui.viewKey = key;
+  window.scrollTo(0, 0);
+  if (ph === 'lobby') app.innerHTML = viewLobby();
+  else if (ph === 'mg-intro') { app.innerHTML = viewIntro(); runCountdown(); }
+  else if (ph === 'mg-play') { app.innerHTML = '<div class="mg" id="mg"></div>'; runMinigame(); }
+  else if (ph === 'mg-results') app.innerHTML = viewMgResults();
+  else if (ph === 'end') app.innerHTML = viewEnd();
+  else { app.innerHTML = viewBoard(); afterBoard(); }
+}
+
+function viewConnecting(){
+  return `<h1>🎲 Fiesta Tablero</h1><div class="card"><h2>Conectando…</h2><p class="note">Un momento, por favor.</p></div>`;
+}
+function viewHome(){
+  return `<h1>🎲 Fiesta Tablero</h1>
+  <p class="sub">Juego de tablero y minijuegos para 2–6 jugadores.<br>Cada uno juega desde su celular.</p>
+  <div class="card">
+    <label for="name">Tu nombre</label>
+    <input id="name" maxlength="12" placeholder="Escribe tu nombre" value="${esc(me.name)}" autocomplete="off">
+    <label>Tu personaje</label>
+    <div class="emojis">${EMOJIS.map(e => `<button data-act="emoji" data-v="${e}" class="${e === me.emoji ? 'sel' : ''}">${e}</button>`).join('')}</div>
+    <button class="big" data-act="create">Crear sala</button>
+    <div class="or">— o únete a la sala de un amigo —</div>
+    <input id="code" class="codeinput" maxlength="4" placeholder="CÓDIGO" value="${esc(ui.code)}" autocomplete="off">
+    <button class="sec" data-act="join">Unirse</button>
+    <p class="err">${esc(ui.error)}</p>
+  </div>
+  <div class="card note" style="text-align:left">
+    <b>¿Cómo se juega?</b><br>
+    1. Una persona crea la sala y comparte el código.<br>
+    2. Los demás se unen desde su celular.<br>
+    3. Por turnos tiran el dado y avanzan por el tablero.<br>
+    4. Junta 🪙 monedas y compra 👑 coronas (${CROWN_COST} 🪙).<br>
+    5. Al final de cada ronda, ¡minijuego para todos!<br>
+    Gana quien tenga más 👑 (empate: más 🪙).
+  </div>`;
+}
+function plRow(p, extra){
+  return `<div class="pl ${p.connected ? '' : 'off'} ${extra||''}"><div class="av" style="border-color:${p.color};background:#fff">${p.emoji}</div>
+    <div class="nm">${esc(p.name)}${p.id === myId ? ' (tú)' : ''}${p.id === S.hostId ? ' ⭐' : ''}${p.connected ? '' : ' · desconectado'}</div>
+    <div class="st">${S.phase === 'lobby' ? '' : `👑 ${p.crowns} · 🪙 ${p.coins}`}</div></div>`;
+}
+function viewLobby(){
+  const host = role === 'host';
+  const n = S.players.length;
+  return `<h1>🎲 Sala</h1>
+  <div class="card">
+    <div class="note">Código de la sala</div>
+    <div class="codebig">${S.code}</div>
+    <button class="sec" data-act="share">📤 Invitar amigos</button>
+  </div>
+  <div class="card"><b>Jugadores (${n}/6)</b>${S.players.map(p => plRow(p)).join('')}</div>
+  <div class="card">
+    ${host ? `<b>Rondas</b><div class="row">${[5, 8, 12].map(r => `<button data-act="rounds" data-v="${r}" class="${S.maxRounds === r ? '' : 'sec'}">${r}</button>`).join('')}</div>
+      <button class="big" data-act="start" ${n < 2 ? 'disabled' : ''}>${n < 2 ? 'Esperando jugadores…' : '¡Empezar partida!'}</button>
+      <p class="note">⚠️ Tu celular es el anfitrión: no cierres esta página ni bloquees la pantalla durante la partida.</p>`
+    : `<div class="wait">Partida de ${S.maxRounds} rondas.<br>Esperando a que el anfitrión empiece…</div>`}
+  </div>`;
+}
+function cellRC(i){
+  if (i <= 6) return [0, i];
+  if (i <= 12) return [i - 6, 6];
+  if (i <= 18) return [6, 6 - (i - 12)];
+  return [6 - (i - 18), 0];
+}
+const ICON = {S:'🏁', B:'', R:'', E:'❓'};
+function viewBoard(){
+  const s = S, mp = meP(), c = s.players[s.turn], myTurn = c && c.id === myId;
+  let cells = '';
+  for (let i = 0; i < N; i++) {
+    const [r, col] = cellRC(i);
+    const toks = s.players.filter(p => p.pos === i).map(p =>
+      `<div class="tok ${p.id === myId ? 'me' : ''} ${p === c ? 'act' : ''}" style="border-color:${p.color}">${p.emoji}</div>`).join('');
+    cells += `<div class="cell ${BOARD[i]} ${s.crown === i ? 'crown' : ''}" style="grid-row:${r+1};grid-column:${col+1}">
+      <div class="ic">${ICON[BOARD[i]]}</div>${s.crown === i ? '<div class="cr">👑</div>' : ''}${toks}</div>`;
+  }
+  const rolling = s.phase === 'rolling';
+  cells += `<div class="center">
+    <div class="note">Ronda ${s.round} de ${s.maxRounds}</div>
+    <div style="font-weight:800">${c ? c.emoji + ' ' + esc(c.name) : ''}</div>
+    <div class="dice ${rolling ? 'spin' : ''}" id="dice">${s.dice && !rolling ? s.dice : '🎲'}</div>
+    <div class="msg">${esc(s.msg)}</div></div>`;
+  let action = '';
+  if (s.phase === 'turn' && myTurn) action = `<button class="big" data-act="roll">🎲 ¡Tirar dado!</button>`;
+  else if (s.phase === 'crown' && myTurn) action = `<div class="row"><button data-act="buy">👑 Comprar (${CROWN_COST} 🪙)</button><button class="no" data-act="nobuy">No, gracias</button></div>`;
+  else if (s.phase === 'turn') action = `<div class="wait">Esperando a que ${esc(c.name)} tire el dado…</div>`;
+  else action = `<div class="wait">&nbsp;</div>`;
+  return `<div class="top"><span class="pill">${mp ? mp.emoji + ' ' + esc(mp.name) : ''}</span><span class="pill">👑 ${mp ? mp.crowns : 0} · 🪙 ${mp ? mp.coins : 0}</span></div>
+    <div class="board">${cells}</div>
+    <div class="legend"><span><i style="background:var(--blue)"></i>+3 🪙</span><span><i style="background:var(--red)"></i>−3 🪙</span>
+      <span><i style="background:var(--ev)"></i>Sorpresa</span><span>👑 Corona: ${CROWN_COST} 🪙</span></div>
+    <div class="action">${action}</div>
+    <div class="card" style="padding:10px">${standings().map(p => plRow(p, p === c ? 'cur' : '')).join('')}</div>`;
+}
+function afterBoard(){
+  if (S.phase === 'rolling' && ui.animRoll !== S.rollId) {
+    ui.animRoll = S.rollId;
+    const t = setInterval(() => { const d = $('#dice'); if (!d || S.phase !== 'rolling') return clearInterval(t); d.textContent = 1 + Math.floor(Math.random() * 6); }, 90);
+  }
+  const c = S.players[S.turn], k = S.round + '-' + S.turn;
+  if (S.phase === 'turn' && c && c.id === myId && ui.buzz !== k) { ui.buzz = k; try { navigator.vibrate && navigator.vibrate([80, 60, 80]); } catch(e){} }
+}
+
+function viewIntro(){
+  const d = MG[S.mg.type];
+  return `<div class="mg"><div class="note">¡MINIJUEGO!</div><div style="font-size:4rem">${d.icon}</div>
+    <div class="mgname">${d.name}</div><div class="card">${d.desc}</div>
+    <div class="note">Premios: 🥇 +10 · 🥈 +6 · 🥉 +3 · 4º +1</div><div class="cd" id="cd">5</div></div>`;
+}
+function runCountdown(){
+  const end = Date.now() + 5600;
+  const t = setInterval(() => { const el = $('#cd'); if (!el) return clearInterval(t);
+    const r = Math.ceil((end - Date.now()) / 1000); el.textContent = r > 0 ? r : '¡YA!'; }, 100);
+  ui.mgCleanup = () => clearInterval(t);
+}
+function fmtScore(type, v){
+  if (v === null || v === undefined) return 'sin resultado';
+  switch (type) {
+    case 'taps': return v + ' toques';
+    case 'reflex': return v >= 9999 ? '❌ falló' : v + ' ms';
+    case 'clock': return v >= 9999 ? '❌ no lo detuvo' : '±' + (v / 1000).toFixed(2) + ' s';
+    case 'balloon': return v === 0 ? '💥 explotó' : v + ' bombeos';
+    default: return v + ' aciertos';
+  }
+}
+function viewMgResults(){
+  const m = S.mg, medals = ['🥇', '🥈', '🥉', '4º', '5º', '6º'];
+  return `<div class="mg"><div class="mgname">${MG[m.type].icon} Resultados</div>
+    ${m.ranking.map(e => { const p = S.players.find(x => x.id === e.id);
+      return `<div class="rank"><div class="pos">${medals[e.rank]}</div><div class="av" style="font-size:1.6rem">${p.emoji}</div>
+      <div style="flex:1"><b>${esc(p.name)}</b><div class="note" style="text-align:left">${fmtScore(m.type, e.v)}</div></div>
+      <div class="prize">+${e.prize} 🪙</div></div>`; }).join('')}
+    <div class="note">${S.round >= S.maxRounds ? 'Calculando ganador…' : 'Siguiente ronda en un momento…'}</div></div>`;
+}
+function viewEnd(){
+  const ranking = standings(), w = ranking[0];
+  const bonus = S.bonus ? `<div class="card note">🏅 Premio extra: ${S.bonus.ids.map(id => esc(S.players.find(p => p.id === id).name)).join(' y ')} gana${S.bonus.ids.length > 1 ? 'n' : ''} +1 👑 por ganar más minijuegos (${S.bonus.wins}).</div>` : '';
+  return `<h1>🏆 ¡Fin de la partida!</h1>
+    <div class="podium">${w.emoji}</div><h2>¡${esc(w.name)} gana!</h2>${bonus}
+    <div class="card">${ranking.map((p, i) => `<div class="pl"><div style="width:28px;font-weight:900">${i + 1}º</div>
+      <div class="av" style="border-color:${p.color};background:#fff">${p.emoji}</div><div class="nm">${esc(p.name)}</div>
+      <div class="st">👑 ${p.crowns} · 🪙 ${p.coins}</div></div>`).join('')}</div>
+    ${role === 'host' ? '<button class="big" data-act="again">Jugar otra vez</button>' : '<div class="wait">El anfitrión puede iniciar otra partida.</div>'}`;
+}
+
+/* ================= Minijuegos ================= */
+function runMinigame(){
+  const m = S.mg, def = MG[m.type], root = $('#mg'), rng = mulberry32(m.seed);
+  const timers = []; let finished = false;
+  const later = (f, ms) => timers.push(setTimeout(f, ms));
+  const every = (f, ms) => timers.push(setInterval(f, ms));
+  ui.mgCleanup = () => timers.forEach(t => { clearTimeout(t); clearInterval(t); });
+  const t0 = performance.now();
+  const left = () => Math.max(0, def.dur - (performance.now() - t0));
+  const done = v => {
+    if (finished) return; finished = true;
+    send({t:'score', key:m.key, v});
+    later(() => { ui.mgCleanup(); root.innerHTML = `<div style="font-size:3rem">✅</div><div class="mgname">¡Listo!</div>
+      <div class="card">Tu resultado: <b>${fmtScore(m.type, v)}</b></div><div class="note">Esperando a los demás…</div>`; }, 900);
+  };
+  const header = `<div class="mgname" style="font-size:1.4rem">${def.icon} ${def.name}</div><div class="bar"><div id="tb"></div></div>`;
+  const tick = () => { const b = $('#tb'); if (b) b.style.width = (left() / def.dur * 100) + '%'; };
+  every(tick, 100);
+  const on = (el, f) => el.addEventListener('pointerdown', e => { e.preventDefault(); if (!finished) f(e); });
+
+  if (m.type === 'taps') {
+    let n = 0;
+    root.innerHTML = header + `<div class="problem" id="n">0</div><button class="tapbtn" id="b">¡TOCA!</button>`;
+    on($('#b'), () => { n++; $('#n').textContent = n; });
+    later(() => done(n), def.dur);
+  }
+  else if (m.type === 'reflex') {
+    const greenAt = 1500 + rng() * 4000; let green = false, gt = 0;
+    root.innerHTML = header + `<div class="reflex" id="r" style="background:#b91c1c">Espera…</div>`;
+    const r = $('#r');
+    later(() => { if (finished) return; green = true; gt = performance.now(); r.style.background = '#16a34a'; r.textContent = '¡YA!'; }, greenAt);
+    on(r, () => { if (!green) { r.textContent = '¡Muy pronto! ❌'; done(9999); } else { const v = Math.round(performance.now() - gt); r.textContent = v + ' ms'; done(v); } });
+    later(() => done(9999), def.dur);
+  }
+  else if (m.type === 'math') {
+    let score = 0, locked = false;
+    root.innerHTML = header + `<div class="note">Aciertos: <b id="sc">0</b></div><div class="problem" id="p"></div><div class="opts" id="o"></div>`;
+    const next = () => {
+      const op = rng() < 0.5 ? '+' : '−', a = 2 + Math.floor(rng() * 18), b = 2 + Math.floor(rng() * 9);
+      const ans = op === '+' ? a + b : b; // resta: (a+b) − a = b
+      const opts = new Set([ans]); while (opts.size < 4) { const d = ans + Math.floor(rng() * 9) - 4; if (d >= 0 && d !== ans) opts.add(d); }
+      const arr = [...opts].sort(() => rng() - 0.5);
+      $('#p').textContent = op === '+' ? `${a} + ${b}` : `${a + b} − ${a}`;
+      $('#o').innerHTML = arr.map(v => `<button data-v="${v}">${v}</button>`).join('');
+      $('#o').querySelectorAll('button').forEach(btn => on(btn, () => {
+        if (locked) return;
+        if (+btn.dataset.v === ans) { score++; $('#sc').textContent = score; next(); }
+        else { locked = true; root.classList.add('flash-bad'); btn.style.background = '#ef4444';
+          later(() => { locked = false; root.classList.remove('flash-bad'); next(); }, 1000); }
+      }));
+    };
+    next(); later(() => done(score), def.dur);
+  }
+  else if (m.type === 'clock') {
+    root.innerHTML = header + `<div class="note">Objetivo: <b>5.00 s</b></div><div class="problem" id="t">0.00</div><button class="tapbtn" id="b">¡ALTO!</button>`;
+    every(() => { if (finished) return; const e = (performance.now() - t0) / 1000; $('#t').textContent = e < 2 ? e.toFixed(2) : '?.??'; }, 30);
+    on($('#b'), () => { const e = performance.now() - t0; $('#t').textContent = (e / 1000).toFixed(2); done(Math.round(Math.abs(e - 5000))); });
+    later(() => done(9999), def.dur);
+  }
+  else if (m.type === 'color') {
+    const C = [['ROJO', '#ef4444'], ['AZUL', '#3b82f6'], ['VERDE', '#22c55e'], ['AMARILLO', '#facc15']];
+    let score = 0, locked = false;
+    root.innerHTML = header + `<div class="note">Aciertos: <b id="sc">0</b></div>
+      <div class="problem" id="w" style="background:#fff;border-radius:16px;padding:10px 18px"></div><div class="opts" id="o"></div>`;
+    const next = () => {
+      const word = Math.floor(rng() * 4); let ink = Math.floor(rng() * 4); if (rng() < 0.75 && ink === word) ink = (ink + 1 + Math.floor(rng() * 3)) % 4;
+      const w = $('#w'); w.textContent = C[word][0]; w.style.color = C[ink][1];
+      const order = [0, 1, 2, 3].sort(() => rng() - 0.5);
+      $('#o').innerHTML = order.map(i => `<button class="sec" data-v="${i}" style="font-size:1.1rem">${C[i][0]}</button>`).join('');
+      $('#o').querySelectorAll('button').forEach(btn => on(btn, () => {
+        if (locked) return;
+        if (+btn.dataset.v === ink) { score++; $('#sc').textContent = score; next(); }
+        else { locked = true; root.classList.add('flash-bad'); btn.style.background = '#ef4444';
+          later(() => { locked = false; root.classList.remove('flash-bad'); next(); }, 1000); }
+      }));
+    };
+    next(); later(() => done(score), def.dur);
+  }
+  else if (m.type === 'balloon') {
+    const limit = 10 + Math.floor(rng() * 25); let n = 0;
+    root.innerHTML = header + `<div class="note">Bombeos: <b id="n">0</b></div>
+      <div style="height:240px;display:grid;place-items:center"><div class="balloon" id="bl" style="width:60px;height:70px"></div></div>
+      <div class="row" style="width:100%"><button class="big" id="pump">💨 Inflar</button><button class="big sec" id="save">💾 Guardar</button></div>`;
+    on($('#pump'), () => {
+      n++; $('#n').textContent = n; const sz = 60 + n * 5; const bl = $('#bl'); bl.style.width = sz + 'px'; bl.style.height = sz * 1.15 + 'px';
+      if (n >= limit) { bl.outerHTML = '<div style="font-size:6rem">💥</div>'; done(0); }
+    });
+    on($('#save'), () => done(n));
+    later(() => done(n), def.dur);
+  }
+}
+
+/* ================= Eventos ================= */
+document.addEventListener('click', async e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const act = b.dataset.act;
+  if (act === 'emoji') { me.emoji = b.dataset.v; ls.set('femoji', me.emoji);
+    document.querySelectorAll('.emojis button').forEach(x => x.classList.toggle('sel', x === b)); }
+  else if (act === 'create' || act === 'join') {
+    me.name = ($('#name').value || '').trim().slice(0, 12);
+    if (!me.name) { ui.error = 'Escribe tu nombre primero'; render(); return; }
+    ls.set('fname', me.name);
+    if (act === 'create') startHost();
+    else { const code = ($('#code').value || '').trim().toUpperCase();
+      if (!/^[A-Z]{4}$/.test(code)) { ui.error = 'El código tiene 4 letras'; ui.code = code; render(); return; }
+      startClient(code); }
+  }
+  else if (act === 'share') {
+    const url = location.origin + location.pathname + '?sala=' + S.code + (LOCAL ? '&local' : '');
+    const text = `¡Únete a mi partida de Fiesta Tablero! Código: ${S.code}`;
+    if (navigator.share) { try { await navigator.share({title:'Fiesta Tablero', text, url}); } catch(err){} }
+    else { try { await navigator.clipboard.writeText(text + ' ' + url); b.textContent = '✅ Enlace copiado'; } catch(err){ prompt('Copia este enlace:', url); } }
+  }
+  else if (act === 'rounds') send({t:'rounds', n:+b.dataset.v});
+  else if (act === 'start') send({t:'start'});
+  else if (act === 'roll') { b.disabled = true; send({t:'roll'}); }
+  else if (act === 'buy' || act === 'nobuy') { b.parentNode.querySelectorAll('button').forEach(x => x.disabled = true); send({t:'crown', buy: act === 'buy'}); }
+  else if (act === 'again') send({t:'again'});
+  else if (act === 'reconnect') { setBanner('Reconectando…'); startClient(ui.code); }
+});
+document.addEventListener('input', e => {
+  if (e.target.id === 'name') me.name = e.target.value;
+  if (e.target.id === 'code') { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, ''); ui.code = e.target.value; }
+});
+
+/* Mantener la pantalla encendida durante la partida */
+let wakeLock = null;
+async function keepAwake(){ try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch(e){} }
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && S && S.phase !== 'lobby') keepAwake();
+  if (document.visibilityState === 'visible' && role === 'client' && net.conn && net.conn.open === false) lost();
+});
+window.addEventListener('beforeunload', e => { if (role === 'host' && S && S.phase !== 'lobby' && S.phase !== 'end') { e.preventDefault(); e.returnValue = ''; } });
+
+if (typeof Peer === 'undefined' && !LOCAL) ui.error = 'No se pudo cargar el módulo de conexión. Revisa tu internet y recarga.';
+// Si veníamos de una partida como invitado (recarga de página), reconectar automáticamente
+const prevCode = ss.get('fcode');
+if (prevCode && me.name) startClient(prevCode); else render();
+</script>
+</body>
+</html>
