@@ -8,16 +8,9 @@ BT=$SDK/build-tools/35.0.0
 JAR=$SDK/platforms/android-35/android.jar
 OUT=build; rm -rf $OUT; mkdir -p $OUT/assets $OUT/classes $OUT/compiled
 
-# 1) Juego web con PeerJS incluido dentro (no depende de unpkg)
-curl -fsSL https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js -o $OUT/peerjs.min.js
-python3 - "$OUT" <<'PY'
-import sys; out=sys.argv[1]
-html=open('../fiesta/index.html',encoding='utf-8').read()
-tag='<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>'
-assert tag in html
-js=open(out+'/peerjs.min.js',encoding='utf-8').read().replace('</script','<\\/script')
-open(out+'/assets/index.html','w',encoding='utf-8').write(html.replace(tag,'<script>'+js+'</script>'))
-PY
+# 1) Juego web completo (con Three.js, PeerJS y modelos 3D incluidos)
+mkdir -p $OUT/assets/www
+(cd ../fiesta && tar --exclude='*.apk' -cf - .) | tar -xf - -C $OUT/assets/www
 
 # 2) Recursos, código y empaquetado
 $BT/aapt2 compile --dir res -o $OUT/compiled/res.zip

@@ -12,11 +12,17 @@ import android.os.Vibrator;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
+import android.webkit.WebViewClient;
+import android.net.Uri;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 
-import java.io.ByteArrayOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.util.HashMap;
+import java.util.Map;
 
 public class MainActivity extends Activity {
     private WebView web;
@@ -36,28 +42,45 @@ public class MainActivity extends Activity {
         s.setDomStorageEnabled(true);
         s.setMediaPlaybackRequiresUserGesture(false);
         web.setWebChromeClient(new WebChromeClient());
+        // Sirve los archivos del juego (assets/www) bajo un origen https propio.
+        web.setWebViewClient(new WebViewClient() {
+            @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest req) {
+                Uri u = req.getUrl();
+                if (!HOST.equals(u.getHost())) return null;
+                String path = u.getPath();
+                if (path == null || path.equals("/") || path.isEmpty()) path = "/index.html";
+                try {
+                    InputStream in = getAssets().open("www" + path);
+                    Map<String, String> h = new HashMap<>();
+                    h.put("Access-Control-Allow-Origin", "*");
+                    h.put("Cache-Control", "no-cache");
+                    return new WebResourceResponse(mime(path), mime(path).startsWith("text") ? "utf-8" : null, 200, "OK", h, in);
+                } catch (Exception e) {
+                    return new WebResourceResponse("text/plain", "utf-8", 404, "Not Found", new HashMap<>(), new ByteArrayInputStream(new byte[0]));
+                }
+            }
+        });
         web.addJavascriptInterface(new Bridge(), "AndroidBridge");
         setContentView(web);
 
         if (savedInstanceState != null) {
             web.restoreState(savedInstanceState);
         } else {
-            // Base https para que la página sea un "contexto seguro" (WebRTC, almacenamiento).
-            web.loadDataWithBaseURL("https://app.fiesta-tablero.local/", readAsset("index.html"),
-                    "text/html", "utf-8", null);
+            web.loadUrl("https://" + HOST + "/index.html");
         }
     }
 
-    private String readAsset(String name) {
-        try (InputStream in = getAssets().open(name)) {
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            byte[] buf = new byte[16384];
-            int n;
-            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
-            return out.toString("UTF-8");
-        } catch (Exception e) {
-            return "<h1>Error cargando el juego</h1>";
-        }
+    private static final String HOST = "app.fiesta-tablero.local";
+
+    private static String mime(String p) {
+        if (p.endsWith(".html")) return "text/html";
+        if (p.endsWith(".js")) return "text/javascript";
+        if (p.endsWith(".glb")) return "model/gltf-binary";
+        if (p.endsWith(".jpg")) return "image/jpeg";
+        if (p.endsWith(".png")) return "image/png";
+        if (p.endsWith(".json")) return "application/json";
+        return "application/octet-stream";
     }
 
     @Override
