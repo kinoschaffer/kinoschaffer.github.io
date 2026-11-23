@@ -91,7 +91,7 @@ K.monedas = {
       const g = new THREE.Group();
       if (c.kind === 'bomb') { g.add(mesh(new THREE.SphereGeometry(0.42, 14, 10), mat(0x222222, { flatShading: false, roughness: 0.3 }))); const sp = new THREE.Mesh(new THREE.SphereGeometry(0.1, 6, 5), new THREE.MeshBasicMaterial({ color: 0xffa94d })); sp.position.y = 0.55; g.add(sp); }
       else { const m = it === 'coin' ? gold : it === 'fruit' ? mat(c.kind === 'big' ? 0x2f9e44 : fruitCols[i % 4]) : it === 'gem' ? glow([0x4dabf7, 0xe64980, 0x51cf66, 0xfcc419][i % 4], 0.5) : glow(0xffe066, 1);
-        const x = mesh(geos[it], m); if (it === 'coin') x.rotation.x = Math.PI / 2; g.add(x); if (c.kind === 'big') g.scale.setScalar(1.7); }
+        const x = it === 'coin' ? coinObj(0.8) : mesh(geos[it], m); g.add(x); if (c.kind === 'big') g.scale.setScalar(1.7); }
       const sh = new THREE.Mesh(new THREE.CircleGeometry(0.45, 16), new THREE.MeshBasicMaterial({ color: 0, transparent: true, opacity: 0.25, depthWrite: false })); sh.rotation.x = -Math.PI / 2; sh.position.set(c.x, 0.02, c.z); sc.scene.add(sh);
       g.visible = false; sh.visible = false; sc.scene.add(g); return { ...c, g, sh, boom: null }; });
     sc.life = G.p.life || L.COIN.life; },
@@ -394,8 +394,8 @@ K.corredor = {
       [-1, 1].forEach(s => { const w = mesh(new THREE.BoxGeometry(0.15, 0.5, 500), mat(pal.rim)); w.position.set(x0 + s * 1.85, 0.1, -240); sc.scene.add(w); }); });
     const mi = G.players.findIndex(p => p.id === G.myId); sc.x0 = L.spawnPos('corredor', Math.max(0, mi), n)[0];
     const coinM = new THREE.MeshStandardMaterial({ color: 0xffc928, metalness: 0.7, roughness: 0.25 }), rockM = mat(G.p.scene === 'ice' ? 0x74c0fc : 0x868e96);
-    sc.meshes = sc.items.map(it => { const o = it.kind === 'coin' ? mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.08, 14), coinM) : mesh(new THREE.DodecahedronGeometry(0.55, 0), rockM);
-      if (it.kind === 'coin') o.rotation.x = Math.PI / 2; o.position.set(sc.x0 + it.lane * 1.1, it.kind === 'coin' ? 0.6 : 0.4, -it.z); o.visible = mi >= 0; sc.scene.add(o); return o; });
+    sc.meshes = sc.items.map(it => { const o = it.kind === 'coin' ? coinObj(0.7) : mesh(new THREE.DodecahedronGeometry(0.55, 0), rockM);
+      o.position.set(sc.x0 + it.lane * 1.1, it.kind === 'coin' ? 0.6 : 0.4, -it.z); o.visible = mi >= 0; sc.scene.add(o); return o; });
     if (G.me) G.me.lane = 0; },
   lane(d) { const m = G.me; if (!m || G.finished) return; m.lane = Math.max(-1, Math.min(1, (m.lane || 0) + d)); },
   tick(dt, now, m) { const sc = G.sc, dist = L.runnerDist(now, G.p); m.z = -dist; m.ry = Math.PI; m.mv = 1;
@@ -403,7 +403,7 @@ K.corredor = {
     sc.items.forEach((it, i) => { if (sc.got.has(i) || Math.abs(it.z - dist) > 0.6 || Math.abs(sc.x0 + it.lane * 1.1 - m.x) > 0.6) return; sc.got.add(i); sc.meshes[i].visible = false;
       if (it.kind === 'coin') { sc.coins++; X('coin'); } else if (now > (m.stunUntil || 0)) { X('bad'); sc.coins = Math.max(0, sc.coins - 2); m.stunUntil = now + 900; flash('💥 −2', 600); } });
     m.st = now < (m.stunUntil || 0) ? 2 : 0; m.sc = sc.coins; },
-  draw(now, t) { G.sc.meshes.forEach(o => { if (o.geometry.type === 'CylinderGeometry') o.rotation.z = t * 3; }); },
+  draw(now, t) { G.sc.meshes.forEach((o, i) => { if (G.sc.items[i].kind === 'coin') o.rotation.y = t * 3; }); },
   hud() { return `🪙 ${G.sc.coins} · Mejor rival: ${Math.max(0, ...G.players.filter(p => p.id !== G.myId).map(p => (G.net[p.id] || [])[5] || 0))}`; },
   final: () => G.sc.coins,
 };
@@ -451,8 +451,8 @@ K.contar = {
   build(sc) { arenaRect(sc, 9, 10, PAL.grass, 0); const what = G.p.what; sc.data = L.countSchedule(G.seed, G.p); sc.guess = 0; sc.phase = 'watch';
     const gold = c => new THREE.MeshStandardMaterial({ color: c, metalness: 0.7, roughness: 0.25 });
     const good = what === 'pollito' ? mat(0xffe066) : what === 'oveja' ? mat(0xffffff) : gold(0xffc928), bad = what === 'pollito' ? mat(0xffffff) : what === 'oveja' ? mat(0x343a40) : gold(0xadb5bd);
-    sc.objs = sc.data.list.map(it => { const o = new THREE.Group(); const body = mesh(what === 'moneda' ? new THREE.CylinderGeometry(0.4, 0.4, 0.1, 16) : new THREE.SphereGeometry(what === 'oveja' ? 0.55 : 0.35, 10, 8), it.good ? good : bad);
-      if (what === 'moneda') body.rotation.x = Math.PI / 2; o.add(body); if (what === 'pollito') { const bk = mesh(new THREE.ConeGeometry(0.08, 0.2, 5), mat(0xff922b)); bk.rotation.x = Math.PI / 2; bk.position.set(0, 0.05, 0.38); o.add(bk); }
+    sc.objs = sc.data.list.map(it => { const o = new THREE.Group(); const body = what === 'moneda' ? coinObj(0.9, it.good ? null : 0xadb5bd) : mesh(new THREE.SphereGeometry(what === 'oveja' ? 0.55 : 0.35, 10, 8), it.good ? good : bad);
+      o.add(body); if (what === 'pollito') { const bk = mesh(new THREE.ConeGeometry(0.08, 0.2, 5), mat(0xff922b)); bk.rotation.x = Math.PI / 2; bk.position.set(0, 0.05, 0.38); o.add(bk); }
       o.visible = false; sc.scene.add(o); return { ...it, o }; }); },
   buttons() { return G.sc.phase === 'answer' ? `<button data-i="-1" style="width:22%">−</button><button data-i="0" style="width:40%;font-size:2rem" disabled>${G.sc.guess}</button><button data-i="1" style="width:22%">+</button><button data-i="9" style="width:90%">✅ Listo</button>` : ''; },
   onButton(i) { const sc = G.sc; if (sc.phase !== 'answer' || G.finished) return; if (i === 0) return;
@@ -471,7 +471,7 @@ K.vasos = {
   build(sc) { sc.scene.background = new THREE.Color(0x5c3b1e); sc.scene.fog = null; const table = mesh(new THREE.BoxGeometry(9, 0.4, 4), mat(0x8d5524)); table.position.y = -0.2; sc.scene.add(table);
     const chest = G.p.fast; sc.cups = [0, 1, 2].map(i => { const o = chest ? mesh(new THREE.BoxGeometry(1.2, 1, 0.9), mat(0x8d5524)) : mesh(new THREE.CylinderGeometry(0.45, 0.6, 1.2, 16, 1, true), mat(0xff6b6b, { side: THREE.DoubleSide, flatShading: false }));
       o.position.set((i - 1) * 2.2, 0.6, 0); sc.scene.add(o); return o; });
-    sc.coin = mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.06, 16), new THREE.MeshStandardMaterial({ color: 0xffc928, metalness: 0.7, roughness: 0.25 })); sc.coin.position.y = 0.05; sc.scene.add(sc.coin);
+    sc.coin = coinObj(0.65); sc.coin.rotation.x = -Math.PI / 2; sc.coin.position.y = 0.06; sc.scene.add(sc.coin);
     sc.rounds = L.cupsSchedule(G.seed, G.p); sc.r = 0; sc.ok = 0; K.vasos.startRound(800); },
   startRound(at) { const sc = G.sc, rd = sc.rounds[sc.r]; sc.slot = [0, 1, 2]; sc.ball = rd.start; sc.t0 = (G.now || 0) + at; sc.phase = 'show'; sc.pick = null; refreshButtons(); },
   buttons() { return G.sc && G.sc.phase === 'pick' ? [0, 1, 2].map(i => `<button data-i="${i}" style="width:30%">${['⬅️', '⬆️', '➡️'][i]}</button>`).join('') : ''; },
@@ -640,6 +640,7 @@ K.corona = {
   build(sc) { chaseBuild(sc, 6.5); const c = new THREE.Group(); const gold = new THREE.MeshStandardMaterial({ color: 0xffc928, metalness: 0.8, roughness: 0.25, emissive: 0x7a5200, emissiveIntensity: 0.4 });
     const ring = mesh(new THREE.CylinderGeometry(0.4, 0.36, 0.3, 14, 1, true), gold); ring.material.side = THREE.DoubleSide; c.add(ring);
     for (let i = 0; i < 5; i++) { const a = i / 5 * 6.28; const sp = mesh(new THREE.ConeGeometry(0.1, 0.32, 6), gold); sp.position.set(Math.cos(a) * 0.38, 0.28, Math.sin(a) * 0.38); c.add(sp); }
+    const cm = window.Board3D && window.Board3D.prop ? window.Board3D.prop('crown') : null; if (cm) { c.clear(); cm.scale.setScalar(0.95); c.add(cm); }
     sc.crown = c; sc.scene.add(c); },
   tick(dt, now, m) { const h = G.x.holder; if (h !== G.lastHolder) { if (h === G.myId) { X('crown'); flash('👑 ¡Tienes la corona!', 800); } else if (G.lastHolder === G.myId) { X('bad'); flash('😱 ¡Te la robaron!', 800); } G.lastHolder = h; }
     m.st = h === G.myId ? 2 : 0; m.sc = G.counts[G.myId] || 0; },
@@ -666,6 +667,13 @@ css.textContent = `#mgui{position:fixed;inset:0;z-index:7;pointer-events:none;fo
 #mgui .hint{position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 130px);text-align:center;font-weight:700;opacity:.85;text-shadow:0 2px 4px #000;padding:0 12px}`;
 document.head.appendChild(css);
 
+// Moneda 3D (modelo de Meshy si ya cargó; si no, un cilindro). De pie, mirando al frente; d = diámetro.
+function coinObj(d, color) {
+  const g = new THREE.Group(), m = window.Board3D && window.Board3D.prop ? window.Board3D.prop('coin') : null;
+  if (m) { if (color != null) { const mm = new THREE.MeshStandardMaterial({ color, metalness: 0.6, roughness: 0.3 }); m.traverse(o => { if (o.isMesh) o.material = mm; }); } m.scale.setScalar(d); g.add(m); }
+  else { const o = mesh(new THREE.CylinderGeometry(d / 2, d / 2, d * 0.13, 18), new THREE.MeshStandardMaterial({ color: color ?? 0xffc928, metalness: 0.7, roughness: 0.25, emissive: 0x6b4a00, emissiveIntensity: color == null ? 0.35 : 0 })); o.rotation.x = Math.PI / 2; g.add(o); }
+  return g;
+}
 function makeHud() {
   const d = document.createElement('div'); d.id = 'mgui';
   d.innerHTML = `<div class="mg-top"><div class="mg-title"></div><div class="bar"><div id="mgtb"></div></div><div class="mg-score"></div></div>
@@ -870,6 +878,6 @@ function placeCamera(dt, snap) {
 }
 
 // API para registrar mecánicas desde otros archivos (mg3d2.js)
-const api = { THREE, L, mat, glow, mesh, canvasTex, sprite, PAL, TEAM_COL, PLAYER_COLS, addUnder, arenaCircle, arenaRect, sceneOf, flash, done, out, X, dashBtn, chaseBuild, aliveHud, refreshButtons, popFx, get G() { return G; } };
+const api = { coinObj, THREE, L, mat, glow, mesh, canvasTex, sprite, PAL, TEAM_COL, PLAYER_COLS, addUnder, arenaCircle, arenaRect, sceneOf, flash, done, out, X, dashBtn, chaseBuild, aliveHud, refreshButtons, popFx, get G() { return G; } };
 window.MG3D = { prepare, start, stop, net, register(kind, def) { K[kind] = def; }, api, get ok() { return !!(window.Board3D && window.Board3D.ok); } };
 window.dispatchEvent(new Event('mg3d-ready'));

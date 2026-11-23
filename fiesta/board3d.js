@@ -221,12 +221,24 @@ function init() {
     const gem = mesh(new THREE.SphereGeometry(0.08, 8, 6), new THREE.MeshStandardMaterial({ color: [0xff3355, 0x33aaff, 0x33dd77][i % 3], roughness: 0.1, emissive: 0x220000 })); gem.position.set(Math.cos(a) * 0.55, 0, Math.sin(a) * 0.55); crown.add(gem); }
   const glow = new THREE.PointLight(0xffd54a, 8, 5, 1.5); glow.position.y = 0.3; crown.add(glow);
   crown.userData = { from: new THREE.Vector3(), to: new THREE.Vector3(), t: 1, idx: -1 }; scene.add(crown);
+  loadProp('crown').then(m => { if (!m) return; crown.children.filter(o => !o.isLight).forEach(o => crown.remove(o)); const c = m.clone(true); c.scale.setScalar(1.25); c.position.y = 0.1; crown.add(c); });
+  loadProp('coin');
   // Dado
   const pip = [[], [[.5, .5]], [[.25, .25], [.75, .75]], [[.25, .25], [.5, .5], [.75, .75]], [[.25, .25], [.75, .25], [.25, .75], [.75, .75]],
     [[.25, .25], [.75, .25], [.5, .5], [.25, .75], [.75, .75]], [[.25, .25], [.75, .25], [.25, .5], [.75, .5], [.25, .75], [.75, .75]]];
-  const faceMat = v => new THREE.MeshStandardMaterial({ roughness: 0.4, map: canvasTex(128, 128, (g) => { g.fillStyle = '#fff'; g.fillRect(0, 0, 128, 128); g.fillStyle = v === 1 ? '#e03131' : '#1e0b3a';
-    pip[v].forEach(([x, y]) => { g.beginPath(); g.arc(x * 128, y * 128, 13, 0, 7); g.fill(); }); }) });
-  dice = mesh(new THREE.BoxGeometry(0.9, 0.9, 0.9), [1, 6, 2, 5, 3, 4].map(faceMat)); dice.visible = false; scene.add(dice);
+  // Dado con números: cubo redondeado, cada cara de un color con el número grande en la fuente del juego
+  const DCOL = { 1: ['#ff6b6b', '#c92a2a'], 2: ['#ffa94d', '#e8590c'], 3: ['#ffe066', '#f08c00'], 4: ['#69db7c', '#2b8a3e'], 5: ['#74c0fc', '#1864ab'], 6: ['#da77f2', '#862e9c'] };
+  const faceMat = v => { const m = new THREE.MeshStandardMaterial({ roughness: 0.35, metalness: 0.05, emissive: 0xffffff, emissiveIntensity: 0.38, map: canvasTex(256, 256, (g) => {
+    const gr = g.createRadialGradient(128, 110, 20, 128, 128, 180); gr.addColorStop(0, DCOL[v][0]); gr.addColorStop(1, DCOL[v][1]); g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
+    g.lineWidth = 14; g.strokeStyle = 'rgba(255,255,255,.85)'; g.strokeRect(18, 18, 220, 220);
+    g.fillStyle = 'rgba(255,255,255,.9)'; for (const [x, y] of [[40, 40], [216, 40], [40, 216], [216, 216]]) { g.beginPath(); for (let i = 0; i < 10; i++) { const a = i * Math.PI / 5 - Math.PI / 2, r = i % 2 ? 6 : 14; g.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); } g.fill(); }
+    g.font = "170px 'Luckiest Guy', 'Baloo 2', sans-serif"; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+    g.lineWidth = 22; g.strokeStyle = '#1e0b3a'; g.strokeText(String(v), 128, 146); g.fillStyle = '#fff'; g.fillText(String(v), 128, 146); }) }); m.emissiveMap = m.map; return m; };
+  const dg = new THREE.BoxGeometry(1, 1, 1, 8, 8, 8), pa = dg.attributes.position, vv = new THREE.Vector3(), inner = 0.5 - 0.16;
+  for (let i = 0; i < pa.count; i++) { vv.fromBufferAttribute(pa, i); const c = new THREE.Vector3(Math.max(-inner, Math.min(inner, vv.x)), Math.max(-inner, Math.min(inner, vv.y)), Math.max(-inner, Math.min(inner, vv.z)));
+    vv.sub(c).normalize().multiplyScalar(0.16).add(c); pa.setXYZ(i, vv.x, vv.y, vv.z); }
+  dg.computeVertexNormals();
+  dice = mesh(dg, [1, 6, 2, 5, 3, 4].map(faceMat)); dice.scale.setScalar(0.95); dice.userData.s = 0.95; dice.visible = false; scene.add(dice);
   arrow = mesh(new THREE.ConeGeometry(0.22, 0.45, 4), new THREE.MeshStandardMaterial({ color: 0xffd43b, emissive: 0x997700, emissiveIntensity: 0.6 }), { cast: false });
   arrow.rotation.x = Math.PI; scene.add(arrow);
   clock = new THREE.Clock();
@@ -302,6 +314,28 @@ function buildWorld(theme, board) {
 
 /* ---------------- Personajes ---------------- */
 const fxCache = {};
+// Objetos 3D (corona y moneda de Meshy): dorados, centrados y de tamaño 1
+const PROPS = {}, GOLD = () => new THREE.MeshStandardMaterial({ color: 0xffc928, metalness: 0.75, roughness: 0.28, emissive: 0x7a5200, emissiveIntensity: 0.35 });
+function loadProp(name) {
+  if (!PROPS[name]) PROPS[name] = new Promise(res => loader.load(`models/${name}.glb`, g => {
+    const root = g.scene, m = GOLD(); root.traverse(o => { if (o.isMesh) { o.material = m; o.castShadow = true; } });
+    let box = new THREE.Box3().setFromObject(root), sz = box.getSize(new THREE.Vector3());
+    if (name === 'coin') { // que la cara de la moneda mire al frente (eje más delgado = z)
+      if (sz.x < sz.y && sz.x < sz.z) root.rotation.y = Math.PI / 2; else if (sz.y < sz.x && sz.y < sz.z) root.rotation.x = Math.PI / 2;
+      root.updateMatrixWorld(true); box = new THREE.Box3().setFromObject(root); sz = box.getSize(new THREE.Vector3()); }
+    const c = box.getCenter(new THREE.Vector3()), k = 1 / Math.max(sz.x, sz.y, sz.z), wrap = new THREE.Group();
+    root.position.sub(c); const inner = new THREE.Group(); inner.add(root); inner.scale.setScalar(k); wrap.add(inner);
+    PROPS[name].ready = wrap; res(wrap);
+  }, undefined, () => res(null)));
+  return PROPS[name];
+}
+// copia lista para usar (o null si aún no cargó)
+function prop(name) { const p = PROPS[name]; return p && p.ready ? p.ready.clone(true) : (loadProp(name), null); }
+const coinFx = [];
+function coinBurst(pos, n, lose) {
+  for (let i = 0; i < Math.min(n, 6); i++) { const c = prop('coin'); if (!c) return; c.scale.setScalar(0.42); c.position.copy(pos);
+    const a = Math.random() * Math.PI * 2; scene.add(c); coinFx.push({ o: c, t: -i * 0.08, vx: Math.cos(a) * 1.2, vz: Math.sin(a) * 1.2, vy: lose ? 1.5 : 4.2, lose }); }
+}
 function loadFx(id) {
   if (!fxCache[id]) fxCache[id] = new Promise(res => loader.load(`models/${id}_fx.glb`, g => res(Object.fromEntries(g.animations.map(a => [a.name, a]))), undefined, () => res(null)));
   return fxCache[id];
@@ -410,7 +444,7 @@ function update(S, me) {
       av.target = p.pos;
     }
     const live = visible && ['moving', 'event', 'crown'].includes(S.phase);
-    if (p.coins !== av.coins && live) { const d = p.coins - av.coins; floatText(av, (d > 0 ? '+' : '') + d + ' 🪙', d > 0 ? '#ffd43b' : '#ff6b6b'); av.coins = p.coins; }
+    if (p.coins !== av.coins && live) { const d = p.coins - av.coins; floatText(av, (d > 0 ? '+' : '') + d + ' 🪙', d > 0 ? '#ffd43b' : '#ff6b6b'); coinBurst(av.g.position.clone().add(new THREE.Vector3(0, d > 0 ? 0.3 : CHAR_H + 0.4, 0)), Math.abs(d), d < 0); av.coins = p.coins; }
     if (p.crowns !== av.crowns && live && p.crowns > av.crowns) floatText(av, '+1 👑', '#ffe066');
     av.coins = p.coins; av.crowns = p.crowns;
     av.g.visible = true; av.label.material.opacity = p.connected ? 1 : 0.4;
@@ -533,14 +567,14 @@ function frame() {
   dice.visible = !!head && (dfx.mode === 'hover' || dfx.mode === 'hit');
   if (dice.visible) {
     dice.position.copy(head).add(new THREE.Vector3(0, CHAR_H + 1.55 + Math.sin(t * 3) * 0.1, 0));
-    if (dfx.mode === 'hover') { dice.rotation.y += dt * 1.6; dice.rotation.x += dt * 0.7; dice.scale.setScalar(1); }
+    if (dfx.mode === 'hover') { dice.rotation.y += dt * 1.6; dice.rotation.x += dt * 0.7; dice.scale.setScalar(0.95); }
     else {
       dfx.hitT = (performance.now() - dfx.hitStart) / 1000;
       if (!dfx.contact && dfx.hitT > 0.22) { dfx.contact = true; dfx.contactT = dfx.hitT; }
       if (dfx.contact) {
         const since = dfx.hitT - dfx.contactT;
         dice.position.y += Math.sin(Math.min(1, since / 0.25) * Math.PI) * 0.35;
-        dice.rotation.x += dt * 16; dice.rotation.y += dt * 13; dice.scale.setScalar(1 + Math.max(0, 0.35 - since) * 0.8);
+        dice.rotation.x += dt * 16; dice.rotation.y += dt * 13; dice.scale.setScalar(0.95 * (1 + Math.max(0, 0.35 - since) * 0.8));
         if (since > 0.5 && dfx.rollId != null) { dfx.mode = 'num'; burstAt(dice.position); }
       } else { dice.rotation.y += dt * 4; }
     }
@@ -560,6 +594,9 @@ function frame() {
   else crown.position.y = cu.to.y + Math.sin(t * 2) * 0.15;
   crown.rotation.y += dt * 1.5;
   // Textos flotantes
+  for (let i = coinFx.length - 1; i >= 0; i--) { const f = coinFx[i]; f.t += dt; if (f.t < 0) { f.o.visible = false; continue; } f.o.visible = true;
+    f.o.position.x += f.vx * dt; f.o.position.z += f.vz * dt; f.o.position.y += f.vy * dt; f.vy -= 9 * dt; f.o.rotation.y += dt * 12;
+    if (f.t > 1.1) { scene.remove(f.o); coinFx.splice(i, 1); } }
   for (let i = floaters.length - 1; i >= 0; i--) { const f = floaters[i]; f.t += dt; f.s.position.y += dt * 0.9; f.s.material.opacity = Math.min(1, 2.2 - f.t);
     if (f.t > 2.2) { scene.remove(f.s); f.s.material.map.dispose(); f.s.material.dispose(); floaters.splice(i, 1); } }
   // Partículas y efectos del tema
@@ -604,7 +641,7 @@ window.Board3D = {
   setLow(on) { low = !!on; if (!renderer) return; renderer.setPixelRatio(on ? 1 : Math.min(window.devicePixelRatio || 1, 2)); sun.castShadow = !on; resize(); },
   get low() { return low; },
   get _dice() { return { mode: dfx.mode, num: dfx.numShown, hitT: +dfx.hitT.toFixed(2), rid: dfx.rollId, vis: dice.visible, fr: _frames }; },
-  spawnChar, textSprite, disposeTree, get renderer() { return renderer; }, get canvas() { return canvas; }, CHAR_H,
+  spawnChar, textSprite, disposeTree, prop, get renderer() { return renderer; }, get canvas() { return canvas; }, CHAR_H,
   update,
   toggleView() { camMode = camMode === 'follow' ? 'overview' : 'follow'; return camMode; },
   preload(ids) { ids.forEach(loadModel); },
