@@ -120,6 +120,7 @@ body.b3d #app{max-width:none;padding:0}
 .viewbtn{position:fixed;right:10px;top:calc(env(safe-area-inset-top) + 56px);width:48px;height:48px;padding:0;font-size:1.4rem;border-radius:50%;z-index:6;margin:0}
 .tag{font-size:.75rem;background:#7c5cc4;padding:2px 6px;border-radius:999px;font-weight:700;white-space:nowrap}
 .pl button.x{width:34px;height:34px;padding:0;margin:0;font-size:.9rem;background:#64748b;color:#fff;box-shadow:none}
+.ic{height:1.15em;width:auto;vertical-align:-.22em;margin:0 .06em;filter:drop-shadow(0 1px 0 rgba(0,0,0,.35))}
 .intro-card .gif{display:block;margin:6px auto;max-height:26vh;max-width:70%;border-radius:12px;border:3px solid #fff;box-shadow:0 4px 12px #0006}
 .bigcount{position:fixed;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;background:radial-gradient(circle,rgba(30,11,58,.15),rgba(30,11,58,.65))}
 .bc-title{font-family:'Luckiest Guy',cursive;font-size:1.6rem;color:#fff;text-shadow:0 4px 0 #1e0b3a;letter-spacing:.05em;animation:slidein .5s ease-out;padding:0 14px;text-align:center}
@@ -346,7 +347,10 @@ function lost(){ if (role !== 'client') return;
   setBanner('Conexión perdida con el anfitrión <button data-act="reconnect">Reconectar</button>'); }
 function fail(text){ ss.set('fcode', ''); S = null; role = null; ui.screen = 'home'; ui.error = text; ui.viewKey = null; render(); }
 function send(msg){ if (role === 'host') hostAction(myId, msg); else if (net.conn) { try { net.conn.send(msg); } catch(e){ lost(); } } }
-function setBanner(html){ const b = $('#banner'); b.innerHTML = html; b.style.display = html ? 'block' : 'none'; }
+// Monedas y coronas con los íconos de los modelos 3D en vez de emojis
+const IC_COIN = '<img class="ic" src="img/coin.webp" alt="🪙">', IC_CROWN = '<img class="ic" src="img/crown.webp" alt="👑">';
+function ic(html){ return String(html).replaceAll('🪙', IC_COIN).replaceAll('👑', IC_CROWN); }
+function setBanner(html){ const b = $('#banner'); b.innerHTML = ic(html); b.style.display = html ? 'block' : 'none'; }
 
 /* ================= Lógica (sólo anfitrión) ================= */
 function newState(code){
@@ -761,18 +765,18 @@ function render(){
   document.body.classList.toggle('b3d', use3d);
   if (window.Board3D && Board3D.ok) Board3D.show(use3d);
   if (!use3d) window.scrollTo(0, 0);
-  if (ph === 'lobby') app.innerHTML = viewLobby();
-  else if (ph === 'mg-intro') { if (mg3d) prepMg3d(); app.innerHTML = mg3d ? viewIntro3D() : viewIntro(); runIntroBar(); }
+  if (ph === 'lobby') app.innerHTML = ic(viewLobby());
+  else if (ph === 'mg-intro') { if (mg3d) prepMg3d(); app.innerHTML = ic(mg3d ? viewIntro3D() : viewIntro()); runIntroBar(); }
   else if (ph === 'mg-count') { if (mg3d) prepMg3d(); app.innerHTML = viewCount(); runBigCountdown(); }
   else if (ph === 'mg-play') {
     if (mg3d) { prepMg3d(); app.innerHTML = ''; let sent = false;
       MG3D.start({ send, practice: S.mg.practice, done: v => { if (sent) return; sent = true; send({t:'score', key:S.mg.key, v}); } }); }
     else { app.innerHTML = '<div class="mg" id="mg"></div>'; runMinigame(); }
   }
-  else if (ph === 'mg-results') app.innerHTML = viewMgResults();
-  else if (ph === 'end') { app.innerHTML = viewEnd(); }
-  else if (ph === 'bonus') app.innerHTML = viewBonus();
-  else { app.innerHTML = use3d ? viewBoard3D() : viewBoard(); afterBoard(); }
+  else if (ph === 'mg-results') app.innerHTML = ic(viewMgResults());
+  else if (ph === 'end') { app.innerHTML = ic(viewEnd()); }
+  else if (ph === 'bonus') app.innerHTML = ic(viewBonus());
+  else { app.innerHTML = ic(use3d ? viewBoard3D() : viewBoard()); afterBoard(); }
 }
 
 function viewConnecting(){

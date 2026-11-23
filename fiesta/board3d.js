@@ -184,7 +184,7 @@ let visible = false, camMode = 'follow', lastS = null, myId = null;
 const avatars = new Map();       // pid -> avatar
 const floaters = [];
 const look = new THREE.Vector3(), camGoal = new THREE.Vector3(), lookGoal = new THREE.Vector3();
-let crown, dice, diceNum = null, arrow, particles = null;
+let crown, crownBeam, dice, diceNum = null, arrow, particles = null;
 const loader = new GLTFLoader(), modelCache = {};
 const ICON_TEX = {};
 
@@ -221,7 +221,10 @@ function init() {
     const gem = mesh(new THREE.SphereGeometry(0.08, 8, 6), new THREE.MeshStandardMaterial({ color: [0xff3355, 0x33aaff, 0x33dd77][i % 3], roughness: 0.1, emissive: 0x220000 })); gem.position.set(Math.cos(a) * 0.55, 0, Math.sin(a) * 0.55); crown.add(gem); }
   const glow = new THREE.PointLight(0xffd54a, 8, 5, 1.5); glow.position.y = 0.3; crown.add(glow);
   crown.userData = { from: new THREE.Vector3(), to: new THREE.Vector3(), t: 1, idx: -1 }; scene.add(crown);
-  loadProp('crown').then(m => { if (!m) return; crown.children.filter(o => !o.isLight).forEach(o => crown.remove(o)); const c = m.clone(true); c.scale.setScalar(1.25); c.position.y = 0.1; crown.add(c); });
+  // haz de luz dorado sobre la casilla de la corona para que se vea desde lejos
+  crownBeam = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 1.05, 1, 28, 1, true), new THREE.MeshBasicMaterial({ color: 0xffd43b, transparent: true, opacity: 0.28, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
+  crownBeam.visible = false; scene.add(crownBeam);
+  loadProp('crown').then(m => { if (!m) return; crown.children.filter(o => !o.isLight).forEach(o => crown.remove(o)); const c = m.clone(true); c.scale.setScalar(1.7); c.position.y = 0.15; crown.add(c); });
   loadProp('coin');
   // Dado
   const pip = [[], [[.5, .5]], [[.25, .25], [.75, .75]], [[.25, .25], [.5, .5], [.75, .75]], [[.25, .25], [.75, .25], [.25, .75], [.75, .75]],
@@ -332,6 +335,7 @@ function loadProp(name) {
 // copia lista para usar (o null si aún no cargó)
 function prop(name) { const p = PROPS[name]; return p && p.ready ? p.ready.clone(true) : (loadProp(name), null); }
 const coinFx = [];
+function crownPop(av) { const c = prop('crown'); if (!c) return; c.scale.setScalar(0.9); c.position.copy(av.g.position).add(new THREE.Vector3(0.7, CHAR_H + 0.6, 0)); scene.add(c); coinFx.push({ o: c, t: 0, vx: 0, vz: 0, vy: 1.2, float: true, life: 1.8 }); }
 function coinBurst(pos, n, lose) {
   for (let i = 0; i < Math.min(n, 6); i++) { const c = prop('coin'); if (!c) return; c.scale.setScalar(0.42); c.position.copy(pos);
     const a = Math.random() * Math.PI * 2; scene.add(c); coinFx.push({ o: c, t: -i * 0.08, vx: Math.cos(a) * 1.2, vz: Math.sin(a) * 1.2, vy: lose ? 1.5 : 4.2, lose }); }
@@ -444,8 +448,8 @@ function update(S, me) {
       av.target = p.pos;
     }
     const live = visible && ['moving', 'event', 'crown'].includes(S.phase);
-    if (p.coins !== av.coins && live) { const d = p.coins - av.coins; floatText(av, (d > 0 ? '+' : '') + d + ' 🪙', d > 0 ? '#ffd43b' : '#ff6b6b'); coinBurst(av.g.position.clone().add(new THREE.Vector3(0, d > 0 ? 0.3 : CHAR_H + 0.4, 0)), Math.abs(d), d < 0); av.coins = p.coins; }
-    if (p.crowns !== av.crowns && live && p.crowns > av.crowns) floatText(av, '+1 👑', '#ffe066');
+    if (p.coins !== av.coins && live) { const d = p.coins - av.coins; floatText(av, (d > 0 ? '+' : '') + d, d > 0 ? '#ffd43b' : '#ff6b6b'); coinBurst(av.g.position.clone().add(new THREE.Vector3(0, d > 0 ? 0.3 : CHAR_H + 0.4, 0)), Math.abs(d), d < 0); av.coins = p.coins; }
+    if (p.crowns !== av.crowns && live && p.crowns > av.crowns) { floatText(av, '+1', '#ffe066'); crownPop(av); }
     av.coins = p.coins; av.crowns = p.crowns;
     av.g.visible = true; av.label.material.opacity = p.connected ? 1 : 0.4;
   });
@@ -593,10 +597,11 @@ function frame() {
   if (cu.t < 1) { cu.t = Math.min(1, cu.t + dt / 1.4); const k = cu.t; crown.position.lerpVectors(cu.from, cu.to, k); crown.position.y += Math.sin(Math.PI * k) * 6; }
   else crown.position.y = cu.to.y + Math.sin(t * 2) * 0.15;
   crown.rotation.y += dt * 1.5;
+  if (crownBeam && cu.idx >= 0) { const h = Math.max(0.5, crown.position.y - (cu.to.y - CHAR_H - 1.25)); crownBeam.visible = cu.t >= 1; crownBeam.scale.set(1, h, 1); crownBeam.position.set(crown.position.x, crown.position.y - h / 2, crown.position.z); crownBeam.material.opacity = 0.22 + Math.sin(t * 3) * 0.08; }
   // Textos flotantes
   for (let i = coinFx.length - 1; i >= 0; i--) { const f = coinFx[i]; f.t += dt; if (f.t < 0) { f.o.visible = false; continue; } f.o.visible = true;
-    f.o.position.x += f.vx * dt; f.o.position.z += f.vz * dt; f.o.position.y += f.vy * dt; f.vy -= 9 * dt; f.o.rotation.y += dt * 12;
-    if (f.t > 1.1) { scene.remove(f.o); coinFx.splice(i, 1); } }
+    f.o.position.x += f.vx * dt; f.o.position.z += f.vz * dt; f.o.position.y += f.vy * dt; if (!f.float) f.vy -= 9 * dt; f.o.rotation.y += dt * (f.float ? 4 : 12);
+    if (f.t > (f.life || 1.1)) { scene.remove(f.o); coinFx.splice(i, 1); } }
   for (let i = floaters.length - 1; i >= 0; i--) { const f = floaters[i]; f.t += dt; f.s.position.y += dt * 0.9; f.s.material.opacity = Math.min(1, 2.2 - f.t);
     if (f.t > 2.2) { scene.remove(f.s); f.s.material.map.dispose(); f.s.material.dispose(); floaters.splice(i, 1); } }
   // Partículas y efectos del tema
