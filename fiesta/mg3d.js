@@ -589,7 +589,7 @@ K.saltarin = {
 
 // ---------- Defiende tu arco
 K.arco = {
-  ctrl: 'joy', cam: [0, 13, 7.5], look: [0, 0, 0.3],
+  ctrl: 'joy', cam: [0, 15.5, 5.2], look: [0, 0, 0.4],
   build(sc) { const H = L.ARCO.half; addUnder(sc, PAL.night);
     const floor = mesh(new THREE.BoxGeometry(H * 2 + 0.6, 0.4, H * 2 + 0.6), mat(0x2b8a3e, { flatShading: false })); floor.position.y = -0.2; sc.scene.add(floor);
     const A = L.arcoSides(G.players, G.teams); sc.side = A.map; sc.walls = [];
