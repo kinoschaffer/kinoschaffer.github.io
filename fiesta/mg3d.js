@@ -693,7 +693,7 @@ function setupControls() {
     on(window, 'pointerup', end); on(window, 'pointercancel', end);
   } else if (ctrl === 'tap2') { btn('◀ IZQ', () => k.tap('L'), 'race'); btn('DER ▶', () => k.tap('R')); hint('¡Toca IZQ y DER alternando!'); }
   else if (ctrl === 'mash') { btn('¡TOCA!', () => k.tap(), 'wide').style.width = '80%'; hint('¡Toca lo más rápido que puedas!'); }
-  else if (ctrl === 'lanes') { btn('◀', () => k.lane(-1), 'race'); btn('▶', () => k.lane(1)); hint('Cambia de carril: junta monedas y esquiva rocas'); }
+  else if (ctrl === 'lanes') { btn('◀', () => k.lane(-1), 'race'); (k.extra ? k.extra() : []).forEach(([l, f]) => btn(l, f)); btn('▶', () => k.lane(1)); hint(G.kind === 'encaja' ? 'Cambia de carril · 🙇 para agacharte' : 'Cambia de carril: junta monedas y esquiva rocas'); }
   else if (ctrl === 'stop') { btn('✋ ¡ALTO!', () => k.onStop(), 'wide').style.width = '80%'; }
   else if (ctrl === 'buttons') refreshButtons();
   if (ctrl === 'tapscreen') { const ray = new THREE.Raycaster(), v = new THREE.Vector2();
@@ -805,7 +805,7 @@ function frame(dt, t) {
     if (k.stage && G.kind !== 'cuerda') ry = G.kind === 'torre' ? 0.6 : G.kind === 'reflejo' ? (ch.g.position.x < 0 ? Math.PI / 2 : -Math.PI / 2) : 0;
     const d = L.wrap((ry || 0) - ch.g.rotation.y); ch.g.rotation.y += d * Math.min(1, dt * 14);
     ch.setWalking(mv === 1 || (G.kind === 'cuerda' && G.started && now < G.dur)); ch.update(dt);
-    const cs = ['carrera', 'corredor', 'laberinto'].includes(G.kind) ? 1 : 1.3;
+    const cs = ch.baseScale || (['carrera', 'corredor', 'laberinto', 'karts'].includes(G.kind) ? 1 : 1.3);
     if (st === 1 && ['bolas', 'meteoros', 'canon'].includes(G.kind)) ch.g.scale.set(cs * 1.3, cs * 0.15, cs * 1.3); else if (mv === 2) ch.g.scale.set(cs * 1.15, cs * 0.5, cs * 1.15); else ch.g.scale.setScalar(cs);
     if (st === 2 && ['monedas', 'meteoros'].includes(G.kind)) ch.g.rotation.y += dt * 12;
     if (st === 1 && ['cazador', 'papa'].includes(G.kind)) { ch.g.rotation.x = -1.4; ch.g.position.y = 0.2; } else ch.g.rotation.x = 0;
@@ -833,5 +833,7 @@ function placeCamera(dt, snap) {
   cam.lookAt(G.lookAt);
 }
 
-window.MG3D = { prepare, start, stop, net, get ok() { return !!(window.Board3D && window.Board3D.ok); } };
+// API para registrar mecánicas desde otros archivos (mg3d2.js)
+const api = { THREE, L, mat, glow, mesh, canvasTex, sprite, PAL, TEAM_COL, PLAYER_COLS, addUnder, arenaCircle, arenaRect, sceneOf, flash, done, out, X, dashBtn, chaseBuild, aliveHud, refreshButtons, popFx, get G() { return G; } };
+window.MG3D = { prepare, start, stop, net, register(kind, def) { K[kind] = def; }, api, get ok() { return !!(window.Board3D && window.Board3D.ok); } };
 window.dispatchEvent(new Event('mg3d-ready'));

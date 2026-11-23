@@ -71,6 +71,9 @@
     carrera: ['time'], laberinto: ['time'], reflejo: ['ms'], contar: ['err'], ruleta: ['err'],
     sumo: ['surv'], saltarin: ['count', 'puntos'], arco: ['count', 'vidas'], agua: ['count', 'golpes'], corona: ['secs'],
   };
+  // Extensiones (minigames2.js se carga antes y registra más minijuegos)
+  const X2 = window.MGX || { cat: [], meta: {}, kinds: {} };
+  C.push(...X2.cat); Object.assign(KIND_META, X2.meta);
   const MGCAT = C.map(([id, kind, name, icon, desc, dur, p, formats]) => ({ id, kind, name, icon, desc, dur: dur * 1000, p: p || {}, formats: formats || ALL,
     lower: ['time', 'ms', 'err'].includes(KIND_META[kind][0]), fmt: KIND_META[kind][0], unit: KIND_META[kind][1] }));
   const BYID = Object.fromEntries(MGCAT.map(m => [m.id, m]));
@@ -84,6 +87,8 @@
       case 'time': return v < MISS ? '🏁 ' + (v / 1000).toFixed(2) + ' s' : 'no llegó';
       case 'ms': return v >= 9000 ? '❌ falló' : v + ' ms';
       case 'err': return v === 0 ? '🎯 ¡exacto!' : 'error: ' + v;
+      case 'goals': return v + ' goles';
+      case 'pts': return v + ' puntos';
     }
     return String(v);
   }
@@ -292,9 +297,10 @@
 
   /* ======================= Bots del anfitrión ======================= */
   // ctx = { id, kind, p, seed, dur, teams, format, bots{}, now }
-  const arenaOf = (kind, p) => (p && (p.edge || kind === 'sumo')) ? null : ({ monedas: clampCircle(6.6), meteoros: clampCircle(6.5), cazador: clampCircle(7), zombi: clampCircle(7), papa: clampCircle(6), pintar: clampRect(5.9, -5.9, 5.9),
+  const arenaOf = (kind, p) => X2.kinds[kind] ? (X2.kinds[kind].clamp ? X2.kinds[kind].clamp(p) : null) : (p && (p.edge || kind === 'sumo')) ? null : ({ monedas: clampCircle(6.6), meteoros: clampCircle(6.5), cazador: clampCircle(7), zombi: clampCircle(7), papa: clampCircle(6), pintar: clampRect(5.9, -5.9, 5.9),
     colina: clampCircle(7), canon: clampCircle(6.5), saltarin: clampRect(5.95, -5.95, 5.95), agua: clampCircle(AGUA.R), corona: clampCircle(6.5), barra: clampCircle(BARRA.R, BARRA.inner), bolas: clampRect(BOLAS.w, BOLAS.zMin, BOLAS.zMax), piso: clampRect(5.95, -5.95, 5.95) }[kind]);
   function spawnPos(kind, i, n) {
+    if (X2.kinds[kind] && X2.kinds[kind].spawn) return X2.kinds[kind].spawn(i, n);
     if (kind === 'carrera' || kind === 'corredor') return [(i - (n - 1) / 2) * (kind === 'corredor' ? 4.2 : 1.9), 0];
     if (kind === 'bolas') return [n > 1 ? -4 + 8 * i / (n - 1) : 0, 3];
     if (kind === 'laberinto') return [-0.5 * (n - 1) * 0.3 + i * 0.3 - 6.4, -6.4];
@@ -351,9 +357,11 @@
           quitAt: survive ? Infinity : dur * (0.2 + r() * 0.72), stunUntil: 0, speedN: 0.85 + r() * 0.3, score: null, dist: 0, lives: 3, taps: 0 };
         if (PLAN[kind]) { const pl2 = PLAN[kind](b, r, ctx); b.plan = pl2.score; b.planAt = pl2.at; }
         if (kind === 'laberinto') { b.route = ctx.mz.path(ctx.mz.cellAt(x, z)); b.ri = 0; }
+        if (X2.kinds[kind] && X2.kinds[kind].botInit) X2.kinds[kind].botInit(ctx, b, pl, i, HLP);
         b.vx = 0; b.vz = 0; b.hopT = 0;
         if (kind === 'arco') { const sd = ctx.side[pl.id], same = Object.keys(ctx.side).filter(id => ctx.side[id] === sd), k2 = same.indexOf(pl.id); b.side = sd; b.a = (k2 - (same.length - 1) / 2) * 2.5; [b.x, b.z] = arcoPos(sd, b.a); }
       });
+      if (X2.kinds[kind] && X2.kinds[kind].init) X2.kinds[kind].init(ctx, players, r, HLP);
       ctx.net0 = true; return ctx;
     },
     // Avanza la simulación. net = {pos, taken, counts, ev, x, team, over}. Devuelve {id: puntaje} nuevos.
@@ -468,8 +476,12 @@
         if (now > 2000) net.counts[ctx.holder] = (net.counts[ctx.holder] || 0) + Math.round(dt * 1000);
         net.x.holder = ctx.holder;
       }
+      const XK = X2.kinds[kind];
+      if (XK && XK.step) XK.step(ctx, dt, now, net, out, HLP, { posOf, alive, finish: (b, v, st) => finish(b, v, st) });
       // ---- bots
       for (const b of Object.values(ctx.bots)) {
+        if (XK && XK.bot) { if (b.score != null && b.st === 1) { b.y -= 9 * dt; continue; } if (b.score != null) continue; b.retarget -= dt;
+          XK.bot(ctx, b, dt, now, net, HLP, { posOf, alive, finish: (bb, v, st) => finish(bb, v, st), live: now < b.quitAt, go: (tx, tz, sp) => { moveTo(b, tx, tz, sp, dt); const cl = arenaOf(kind, p); if (cl) [b.x, b.z] = cl(b.x, b.z); } }); continue; }
         if (b.score != null && !['carrera'].includes(kind)) { if (b.st === 1) b.y -= 9 * dt; b.mv = 0; continue; }
         const live = now < b.quitAt, k = b.k;
         const go = (tx, tz, sp) => { moveTo(b, tx, tz, sp, dt); if (clamp) [b.x, b.z] = clamp(b.x, b.z); };
@@ -645,6 +657,7 @@
     // acciones de los jugadores (agarrar algo, disparar)
     action(ctx, pid, msg, now, net) {
       const p = ctx.p;
+      if (X2.kinds[ctx.kind] && X2.kinds[ctx.kind].action) return X2.kinds[ctx.kind].action(ctx, pid, msg, now, net, HLP);
       if (msg.t === 'mggrab' && ctx.kind === 'monedas' && net.taken[msg.id] == null) {
         const c = ctx.coins[msg.id], life = p.life || COIN.life;
         if (!c || c.kind === 'bomb' || now < c.t + COIN.fall - 300 || now > c.t + COIN.fall + life + 400) return;
@@ -669,6 +682,7 @@
     final(ctx, id, net) {
       const b = ctx.bots[id]; if (!b) return null; if (b.score != null) return b.score;
       const k = ctx.kind;
+      if (X2.kinds[k] && X2.kinds[k].final) return X2.kinds[k].final(ctx, id, net, HLP);
       if (k === 'monedas' || k === 'tiro') return net.counts[id] || 0;
       if (k === 'carrera') return MISS + Math.round(((ctx.p.len || 40) - b.dist) * 1000);
       if (k === 'laberinto') return MISS + 1000 * b.route.length;
@@ -684,6 +698,7 @@
     },
     // puntajes que decide el anfitrión al final (anula lo que mandó cada celular)
     override(ctx, scores, net) {
+      if (X2.kinds[ctx.kind] && X2.kinds[ctx.kind].override) return X2.kinds[ctx.kind].override(ctx, scores, net, HLP);
       const outs = (net.x && net.x.out) || {};
       for (const id of ctx.players) {
         const b = ctx.bots[id];
@@ -702,6 +717,7 @@
   };
   function paintCount(ctx, id, net) { const col = ctx.teams ? (ctx.teamOf(id) === 'A' ? 0 : 1) : ctx.players.indexOf(id); return ctx.paint.filter(c => c === col).length; }
 
+  const HLP = { rngOf, wrap, shuffle, hashStr, SPEED, MISS, moveTo, between, clampCircle, clampRect, PISO, pisoCenter, pisoCellAt, PUSH };
   window.MGCAT = MGCAT;
   window.MGL = { rngOf, wrap, hashStr, SPEED, MISS, BYID, fmtScore, host, spawnPos, arenaOf, PISO, pisoSchedule, pisoCellAt, pisoState, pisoCenter, COIN, coinSchedule, coinValue,
     meteorSchedule, BARRA, barAngle, barCount, barHit, gravity, jumpV, BOLAS, ballSchedule, ballPos, ballHit, maze, mazeMove, zoneAt, targetSchedule, targetValue, targetPos, targetActive,
