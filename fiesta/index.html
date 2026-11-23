@@ -188,6 +188,10 @@ body.flashgo::after{content:'';position:fixed;inset:0;background:#fff;z-index:20
 .flycoin{position:absolute;right:18px;top:50%;width:22px;height:22px;margin-top:-11px;pointer-events:none;animation:fly .55s ease-in forwards}
 @keyframes fly{0%{transform:translate(0,0) scale(1.2)}60%{transform:translate(-120px,-26px) scale(1)}100%{transform:translate(-190px,4px) scale(.5);opacity:0}}
 .flycoin.lose{animation:flyl .55s ease-in forwards}@keyframes flyl{0%{transform:translate(-190px,4px) scale(.6)}100%{transform:translate(0,30px) scale(.4);opacity:0}}
+#menuBtn{position:fixed;right:10px;top:calc(env(safe-area-inset-top) + 112px);width:46px;height:46px;padding:0;margin:0;border-radius:14px;font-size:1.4rem;z-index:12;display:none;place-items:center}
+#menuPanel{position:fixed;inset:0;z-index:45;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(20,6,40,.6)}
+#menuPanel .card{width:100%;max-width:400px;animation:wbin .35s cubic-bezier(.2,1.5,.4,1)}
+.backbtn{width:auto;padding:8px 16px;margin:4px 0 0;font-size:.95rem}
 /* ================= Estilo fiesta: marcos gruesos, cintas, botones con relieve ================= */
 :root{--ink:#1e0b3a;--cream:#fff4d6;--panel1:#5532a8;--panel2:#3a1b78;--dots:radial-gradient(rgba(255,255,255,.07) 2px,transparent 2.6px)}
 body{background:#2a0f5c}
@@ -239,7 +243,7 @@ button.big{font-family:'Luckiest Guy',cursive;font-weight:400;letter-spacing:.04
 </head>
 <body>
 <div id="banner"></div>
-<div id="trans"><div class="tp a"></div><div class="tp b"></div><div class="tt"></div></div><button id="labExit">✖ Salir de la prueba</button><button id="stkBtn" title="Stickers">😊</button><div id="stkTray"></div><div id="stkShow"></div>
+<div id="trans"><div class="tp a"></div><div class="tp b"></div><div class="tt"></div></div><button id="menuBtn" data-act="menu" title="Menú">☰</button><div id="menuPanel"></div><button id="labExit">✖ Salir de la prueba</button><button id="stkBtn" title="Stickers">😊</button><div id="stkTray"></div><div id="stkShow"></div>
 <div id="app"></div>
 <script type="importmap">{"imports":{"three":"./lib/three.module.min.js"}}</script>
 <script src="lib/peerjs.min.js"></script>
@@ -433,9 +437,21 @@ function clientRecv(d){
   else if (d.t === 'mgp') { if (window.MG3D) MG3D.net(d); }
   else if (d.t === 'stk') showSticker(d.id, d.s);
   else if (d.t === 'reject') { fail(d.reason); }
+  else if (d.t === 'kicked') leaveGame('El anfitrión te sacó de la sala.');
+  else if (d.t === 'closed') leaveGame('El anfitrión cerró la partida.');
 }
 function lost(){ if (role !== 'client') return;
   setBanner('Conexión perdida con el anfitrión <button data-act="reconnect">Reconectar</button>'); }
+// salir de la sala o de la partida (si eres el anfitrión, se termina para todos)
+function leaveGame(msg){
+  try { if (role === 'host') { for (const c of H.conns.values()) { try { c.send({t:'closed'}); } catch(e){} }
+      clearInterval(H.introTimer); clearTimeout(H.mgTimer); clearInterval(H.mgLoop); H.turnToken = (H.turnToken || 0) + 1; H.mgResolve = null;
+      const peer = H.peer; setTimeout(() => { try { peer && peer.destroy(); } catch(e){} }, 400); H.conns.clear(); H.peer = null; }
+    else if (net.conn) { const c = net.conn, pe = net.peer; net.conn = null; setTimeout(() => { try { c.close && c.close(); } catch(e){} try { pe && pe.destroy(); } catch(e){} }, 100); } } catch(e){}
+  if (window.MG3D) MG3D.stop(); if (window.Board3D && Board3D.ok) Board3D.show(false); document.body.classList.remove('b3d');
+  if (window.SFX) { SFX.music(null); if (SFX.ambient) SFX.ambient(null); }
+  ss.set('fcode', ''); setBanner(''); S = null; role = null; ui.screen = 'home'; ui.error = msg || ''; ui.viewKey = null; ui.menu = null; render();
+}
 function fail(text){ ss.set('fcode', ''); S = null; role = null; ui.screen = 'home'; ui.error = text; ui.viewKey = null; render(); }
 function send(msg){ if (role === 'host') hostAction(myId, msg); else if (net.conn) { try { net.conn.send(msg); } catch(e){ lost(); } } }
 // Monedas y coronas con los íconos de los modelos 3D en vez de emojis
@@ -486,6 +502,8 @@ function hostAction(pid, msg){
     case 'fork': if (s.phase === 'fork' && cur().id === pid && s.fork && s.fork.opts.includes(msg.to) && H.forkResolve) H.forkResolve(msg.to); break;
     case 'duel': if (s.phase === 'duel-pick' && cur().id === pid && H.duelResolve && findP(msg.id) && msg.id !== pid) H.duelResolve(msg.id); break;
     case 'addbot': if (isHost && s.phase === 'lobby') { addBot(msg.lvl); broadcast(); } break;
+    case 'kick': if (isHost && s.phase === 'lobby' && msg.id !== myId) { const c = H.conns.get(msg.id); s.players = s.players.filter(x => x.id !== msg.id);
+      if (c) { try { c.send({t:'kicked'}); } catch(e){} H.conns.delete(msg.id); setTimeout(() => { try { c.close && c.close(); } catch(e){} }, 400); } broadcast(); } break;
     case 'delbot': if (isHost && s.phase === 'lobby') { s.players = s.players.filter(x => !(x.bot && x.id === msg.id)); broadcast(); } break;
     case 'start': if (isHost && s.phase === 'lobby' && s.players.length >= 2) startGame(); break;
     case 'roll': if (s.phase === 'turn' && cur().id === pid) doRoll(); break;
@@ -609,15 +627,15 @@ async function chooseFork(p, opts, stepsLeft){
 
 async function crownStop(p){
   const s = H.state;
-  if (p.coins < CROWN_COST) { s.msg = `${p.name} no tiene ${CROWN_COST} 🪙 para la corona 👑`; broadcast(); await sleep(T(1600)); s.phase = 'moving'; return; }
+  if (p.coins < CROWN_COST) { s.msg = `${p.name} no tiene ${CROWN_COST} 🪙 para la corona 👑`; broadcast(); await sleep(T(900)); s.phase = 'moving'; return; }
   s.phase = 'crown'; s.msg = `¿${p.name} compra la corona por ${CROWN_COST} 🪙?`; broadcast();
   const buy = await new Promise(res => { H.crownResolve = res;
-    if (p.bot) setTimeout(() => res(p.lvl !== 'facil' || Math.random() < 0.6), 1300);
+    if (p.bot) setTimeout(() => res(p.lvl !== 'facil' || Math.random() < 0.6), 600);
     else setTimeout(() => res(true), p.connected ? 20000 : 1500); });
   H.crownResolve = null;
   if (buy) { p.coins -= CROWN_COST; p.crowns++; s.msg = `👑 ¡${p.name} consigue una corona! La corona se mueve…`; s.crown = randSpot(s.crown, s.players); botSticker(p, 'feliz', 0.6); s.players.filter(x => x !== p).forEach(x => botSticker(x, 'furioso', 0.15)); }
   else s.msg = `${p.name} deja pasar la corona`;
-  s.phase = 'moving'; broadcast(); await sleep(T(1900));
+  s.phase = 'moving'; broadcast(); await sleep(T(buy ? 1300 : 500));
 }
 
 async function landOn(p){
@@ -860,7 +878,22 @@ $('#labExit').addEventListener('click', () => { if (S && S.lab) endLab(); });
 $('#stkBtn').addEventListener('click', () => { const t = $('#stkTray'); t.style.display = t.style.display === 'grid' ? 'none' : 'grid'; });
 $('#stkTray').addEventListener('click', e => { const im = e.target.closest('[data-stk]'); if (!im) return; $('#stkTray').style.display = 'none';
   if (Date.now() - (ui.stkT || 0) < 2200) return; ui.stkT = Date.now(); send({t:'sticker', s: im.dataset.stk}); });
+function menuUI(){
+  const btn = $('#menuBtn'), pan = $('#menuPanel'), show = !!(S && S.phase !== 'lobby');
+  btn.style.display = show ? 'grid' : 'none'; if (!show) ui.menu = null;
+  if (!ui.menu) { pan.style.display = 'none'; return; }
+  pan.style.display = 'flex'; const host = role === 'host' && !S.solo;
+  pan.innerHTML = ui.menu === 'leave' ? `<div class="card"><h2>¿Salir?</h2><p class="note">${host ? 'Eres el anfitrión: si sales, <b>la partida termina para todos</b>.' : 'Saldrás de la partida. Los demás pueden seguir jugando.'}</p>
+      <button class="no" data-act="leave">🚪 Sí, salir</button><button data-act="menu">Cancelar</button></div>`
+    : `<div class="card"><h2>Menú</h2>
+      <button class="sec" data-act="pref" data-k="sound">${prefs.sound ? '🔊 Sonido: activado' : '🔇 Sonido: apagado'}</button>
+      <button class="sec" data-act="pref" data-k="low">${prefs.low ? '⚡ Gráficos: rápidos (menos detalle)' : '✨ Gráficos: bonitos (más detalle)'}</button>
+      <p class="note">Si el juego va lento en tu celular, usa los gráficos rápidos.</p>
+      <button class="no" data-act="leaveask">🚪 Salir de la partida</button>
+      <button data-act="menu">✖ Cerrar</button></div>`;
+}
 function render(){
+  try { menuUI(); } catch(e){}
   try { stickerUI(); } catch(e){}
   const app = $('#app');
   const lx = $('#labExit'); if (lx) lx.style.display = S && S.lab && S.phase !== 'mg-results' ? 'block' : 'none';
@@ -990,7 +1023,7 @@ async function labAction(act, b){
 }
 
 function viewConnecting(){
-  return `<h1>🎲 Fiesta Tablero</h1><div class="card"><h2>Conectando…</h2><p class="note">Un momento, por favor.</p></div>`;
+  return `<h1>🎲 Fiesta Tablero</h1><div class="card"><h2>Conectando…</h2><p class="note">Un momento, por favor.</p><button class="no" data-act="leave">← Cancelar</button></div>`;
 }
 function viewHome(){
   return `<h1>🎲 Fiesta Tablero</h1>
@@ -1028,13 +1061,13 @@ function viewHome(){
 function plRow(p, extra){
   return `<div class="pl ${p.connected ? '' : 'off'} ${extra||''}"><div class="av" style="border-color:${p.color};background:#fff">${avImg(p)}</div>
     <div class="nm">${esc(p.name)}${p.id === myId ? ' (tú)' : ''}${p.id === S.hostId ? ' ⭐' : ''}${p.bot ? ` <span class="tag">🤖 ${BOT_LEVELS[p.lvl].name}</span>` : ''}${p.connected ? '' : ' · desconectado'}</div>
-    <div class="st">${S.phase === 'lobby' ? (p.bot && role === 'host' ? `<button class="x" data-act="delbot" data-v="${p.id}">✖</button>` : '') : `👑 ${p.crowns} · 🪙 ${p.coins}`}</div></div>`;
+    <div class="st">${S.phase === 'lobby' ? (role === 'host' && p.id !== myId ? `<button class="x" data-act="${p.bot ? 'delbot' : 'kick'}" data-v="${p.id}" title="Sacar de la sala">✖</button>` : '') : `👑 ${p.crowns} · 🪙 ${p.coins}`}</div></div>`;
 }
 function viewLobby(){
   const host = role === 'host';
   const n = S.players.length;
   const lvl = ui.botLvl || 'normal';
-  return `<h1>${S.solo ? '🤖 Modo vs IA' : '🎲 Sala'}</h1>
+  return `<button class="no backbtn" data-act="leave">← ${host ? 'Volver' : 'Salir de la sala'}</button><h1>${S.solo ? '🤖 Modo vs IA' : '🎲 Sala'}</h1>
   ${S.solo ? '' : `<div class="card">
     <div class="note">Código de la sala</div>
     <div class="codebig">${S.code}</div>
@@ -1358,11 +1391,15 @@ document.addEventListener('click', async e => {
   if (act === 'emoji') { me.emoji = b.dataset.v; ls.set('femoji', me.emoji);
     document.querySelectorAll('.chars button').forEach(x => x.classList.toggle('sel', x === b)); }
   else if (act === 'pref') { const k = b.dataset.k; prefs[k] = !prefs[k]; ls.set(k === 'sound' ? 'fsound' : 'flow', prefs[k] ? '1' : '0');
-    if (k === 'low' && window.Board3D && Board3D.ok) Board3D.setLow(prefs.low); if (k === 'sound' && window.SFX) SFX.enable(prefs.sound); render(); }
+    if (k === 'low' && window.Board3D && Board3D.ok) Board3D.setLow(prefs.low); if (k === 'sound' && window.SFX) SFX.enable(prefs.sound); if (ui.menu) menuUI(); else render(); }
   else if (act === 'botlvl') { ui.botLvl = b.dataset.v; render(); }
   else if (act.startsWith('lab')) labAction(act, b);
+  else if (act === 'menu') { ui.menu = ui.menu ? null : 'main'; menuUI(); }
+  else if (act === 'leaveask') { ui.menu = 'leave'; menuUI(); }
+  else if (act === 'leave') leaveGame();
   else if (act === 'addbot') send({t:'addbot', lvl: ui.botLvl || 'normal'});
   else if (act === 'delbot') send({t:'delbot', id: b.dataset.v});
+  else if (act === 'kick') send({t:'kick', id: b.dataset.v});
   else if (act === 'create' || act === 'join' || act === 'solo') {
     me.name = ($('#name').value || '').trim().slice(0, 12);
     if (!me.name) { ui.error = 'Escribe tu nombre primero'; render(); return; }

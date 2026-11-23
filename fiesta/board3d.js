@@ -605,7 +605,7 @@ function frame() {
     if (m.userData.t > 1.1) { scene.remove(m); m.geometry.dispose(); m.material.dispose(); dfx.burst.splice(i, 1); } }
   // Corona
   const cu = crown.userData;
-  if (cu.t < 1) { cu.t = Math.min(1, cu.t + dt / 1.4); const k = cu.t; crown.position.lerpVectors(cu.from, cu.to, k); crown.position.y += Math.sin(Math.PI * k) * 6; }
+  if (cu.t < 1) { cu.t = Math.min(1, cu.t + dt / 0.9); const k = cu.t; crown.position.lerpVectors(cu.from, cu.to, k); crown.position.y += Math.sin(Math.PI * k) * 6; }
   else crown.position.y = cu.to.y + Math.sin(t * 2) * 0.15;
   crown.rotation.y += dt * 1.5;
   if (crownBeam && cu.idx >= 0) { const h = Math.max(0.5, crown.position.y - (cu.to.y - CHAR_H - 1.25)); crownBeam.visible = cu.t >= 1; crownBeam.scale.set(1, h, 1); crownBeam.position.set(crown.position.x, crown.position.y - h / 2, crown.position.z); crownBeam.material.opacity = 0.22 + Math.sin(t * 3) * 0.08; }
