@@ -5,7 +5,7 @@ const { PAL, arenaRect, flash, done, X } = A;
 const G = () => A.G;
 
 const css = document.createElement('style');
-css.textContent = `#mgui .tact{position:absolute;left:8px;right:8px;top:calc(env(safe-area-inset-top) + 92px);bottom:calc(env(safe-area-inset-bottom) + 10px);pointer-events:auto;display:flex;flex-direction:column;gap:8px}
+css.textContent = `#mgui .tact{position:absolute;left:8px;right:8px;top:calc(env(safe-area-inset-top) + 100px);bottom:calc(env(safe-area-inset-bottom) + 10px);pointer-events:auto;display:flex;flex-direction:column;gap:8px}
 #mgui .tact canvas{flex:1;min-height:0;width:100%;border-radius:18px;background:rgba(255,248,231,.96);box-shadow:0 6px 0 #0005;touch-action:none}
 #mgui .tact.dark canvas{background:linear-gradient(#1b2b5a,#0d1430)}
 #mgui .tact .row{display:flex;gap:10px;justify-content:center}

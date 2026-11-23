@@ -28,6 +28,7 @@ function label(type, o, d, g) {
 }
 
 M.register('decision', {
+  scoreOf(id) { const d = G().x.d; return d && d.score ? d.score[id] || 0 : 0; },
   ctrl: 'buttons', stage: true, cam: [0, 5.5, 9.5], look: [0, 1, -1.5],
   build(sc) {
     const g = G(), game = XS.GAMES[g.p.game], type = game.type; sc.type = type; sc.game = game; sc.scene.background = new THREE.Color(0x2b1257); sc.scene.fog = null;

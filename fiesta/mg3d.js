@@ -155,6 +155,7 @@ K.bolas = {
 
 // ---------- Cosas que caen del cielo
 K.meteoros = {
+  hearts: (id, sc) => [sc, 3],
   ctrl: 'joy', ...ARENA_CAM,
   build(sc) { arenaCircle(sc, 6.5, sceneOf(G.p));
     const m = G.p.big ? mat(0x495057, { metalness: 0.6 }) : G.p.fast ? mat(0xd0ebff) : glow(0xff6b00, 0.9);
@@ -600,6 +601,7 @@ K.saltarin = {
 
 // ---------- Defiende tu arco
 K.arco = {
+  hearts: (id, sc) => [sc, G.teams ? 8 : 5],
   ctrl: 'joy', cam: [0, 15.5, 5.2], look: [0, 0, 0.4],
   build(sc) { const H = L.ARCO.half; addUnder(sc, PAL.night);
     const floor = mesh(new THREE.BoxGeometry(H * 2 + 0.6, 0.4, H * 2 + 0.6), mat(0x2b8a3e, { flatShading: false })); floor.position.y = -0.2; sc.scene.add(floor);
@@ -664,9 +666,29 @@ K.corona = {
 const css = document.createElement('style');
 css.textContent = `#mgui{position:fixed;inset:0;z-index:7;pointer-events:none;font-family:'Baloo 2',system-ui,sans-serif;color:#fff}
 #mgui .mg-title,#mgui .mg-msg,#mgui .mg-btns button{font-family:'Luckiest Guy','Baloo 2',sans-serif!important;font-weight:400!important;letter-spacing:.03em}
-#mgui .mg-top{position:absolute;left:10px;right:10px;top:calc(env(safe-area-inset-top) + 8px);background:rgba(30,11,58,.8);border-radius:14px;padding:8px 12px;text-align:center}
-#mgui .mg-title{font-weight:900;color:#fcc419}#mgui .mg-score{font-weight:800;margin-top:4px;font-size:.92rem}
-#mgui .bar{height:8px;background:#0006;border-radius:9px;overflow:hidden;margin-top:6px}#mgui .bar>div{height:100%;background:#fcc419}
+#mgui .mg-top{position:absolute;left:4px;right:4px;top:calc(env(safe-area-inset-top) + 6px);display:flex;align-items:flex-start;justify-content:center;gap:5px}
+#mgui .mg-pl{flex:1;display:flex;gap:3px;min-width:0}#mgui .mg-pl.L{justify-content:flex-end}#mgui .mg-pl.R{justify-content:flex-start}
+#mgui .pc{--c:#fff;position:relative;width:46px;display:flex;flex-direction:column;align-items:center;transition:transform .15s,filter .3s}
+#mgui .pc .ring{width:40px;height:40px;border-radius:50%;border:3px solid var(--c);overflow:hidden;background:#fff;box-shadow:0 3px 0 #0007;box-sizing:border-box}
+#mgui .pc .ring img{width:100%;height:100%;object-fit:cover;display:block}
+#mgui .pc .v{margin-top:-9px;min-width:28px;max-width:52px;padding:1px 5px 0;border-radius:9px;background:#1e0b3a;border:2px solid var(--c);font:400 .86rem 'Luckiest Guy',sans-serif;text-align:center;line-height:1.3;white-space:nowrap;overflow:hidden;box-sizing:border-box}
+#mgui .pc .hp{font-size:.56rem;line-height:1;margin-top:2px;white-space:nowrap;letter-spacing:-1px;text-shadow:0 1px 1px #000}
+#mgui .pc.me .ring{box-shadow:0 0 0 2px #fff,0 0 12px 2px #fcc419}#mgui .pc.me .v{background:#fcc419;color:#1e0b3a;border-color:#fff}
+#mgui .pc.out{filter:grayscale(1) brightness(.55)}#mgui .pc.up .v{animation:pcup .35s ease-out}#mgui .pc.hurt{animation:pchurt .5s}
+#mgui .pc .cr{position:absolute;top:-13px;font-size:.95rem;display:none;filter:drop-shadow(0 1px 1px #000)}#mgui .pc.lead .cr{display:block;animation:pcup .6s}
+#mgui.many .pc{width:40px}#mgui.many .pc .ring{width:34px;height:34px}#mgui.many .pc .v{font-size:.76rem;min-width:24px}
+#mgui .mg-clock{flex:0 0 auto;min-width:62px;height:56px;padding:0 6px;border-radius:16px;background:#1e0b3af0;border:3px solid #fcc419;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 0 #0007;box-sizing:border-box}
+#mgui .mg-time{font:400 2.1rem 'Luckiest Guy',sans-serif;color:#fff;line-height:1;padding-top:5px}
+#mgui .mg-clock.hurry{border-color:#ff6b6b;animation:hurry .5s infinite alternate}#mgui .mg-clock.hurry .mg-time{color:#ff6b6b}
+#mgui .mg-sub{position:absolute;left:12px;right:12px;top:calc(env(safe-area-inset-top) + 70px);text-align:center;font-size:.78rem;font-weight:800;line-height:1.25;text-shadow:0 1px 3px #000}
+#mgui .mg-sub span{background:#1e0b3ab0;border-radius:10px;padding:2px 9px;display:inline-block;max-width:100%}
+#mgui .mg-title{color:#fcc419;font-size:.8rem}#mgui .mg-score{font-weight:800}
+#mgui .bar{display:none}
+#mgui .mg-fin{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:400 5.2rem 'Luckiest Guy',sans-serif;color:#fcc419;-webkit-text-stroke:6px #1e0b3a;paint-order:stroke fill;text-shadow:0 10px 0 #1e0b3a;animation:finpop .7s cubic-bezier(.2,1.6,.4,1);pointer-events:none}
+@keyframes pcup{0%{transform:scale(1)}40%{transform:scale(1.45)}100%{transform:scale(1)}}
+@keyframes pchurt{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px) rotate(-6deg)}40%{transform:translateX(5px) rotate(6deg)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+@keyframes hurry{from{transform:scale(1)}to{transform:scale(1.1)}}
+@keyframes finpop{0%{transform:scale(3) rotate(-12deg);opacity:0}40%{transform:scale(.9) rotate(3deg);opacity:1}100%{transform:scale(1)}}
 #mgui .mg-msg{position:absolute;left:0;right:0;top:38%;text-align:center;font-size:2.2rem;font-weight:900;text-shadow:0 3px 0 #1e0b3a,0 0 12px #000;padding:0 10px}
 #mgui .mg-joy{position:absolute;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.16);border:3px solid rgba(255,255,255,.4);display:none;transform:translate(-50%,-50%)}
 #mgui .mg-knob{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px;border-radius:50%;background:rgba(255,255,255,.8)}
@@ -685,9 +707,44 @@ function coinObj(d, color) {
   else { const o = mesh(new THREE.CylinderGeometry(d / 2, d / 2, d * 0.13, 18), new THREE.MeshStandardMaterial({ color: color ?? 0xffc928, metalness: 0.7, roughness: 0.25, emissive: 0x6b4a00, emissiveIntensity: color == null ? 0.35 : 0 })); o.rotation.x = Math.PI / 2; g.add(o); }
   return g;
 }
+/* ---------- Marcador estilo fiesta: tarjetas de jugadores arriba y reloj al medio ---------- */
+function buildCards() {
+  const hud = G.hud, ps = G.players, n = ps.length, half = Math.ceil(n / 2), L0 = hud.querySelector('.mg-pl.L'), R0 = hud.querySelector('.mg-pl.R');
+  hud.classList.toggle('many', n > 6); G.cards = {};
+  ps.forEach((p, i) => { const ch = (window.FIESTA_CHARS || []).find(c => c.emoji === p.emoji), tc = G.teamOf(p.id), col = tc ? (tc === 'A' ? '#4dabf7' : '#ff6b6b') : p.color;
+    const el = document.createElement('div'); el.className = 'pc' + (p.id === G.myId ? ' me' : ''); el.style.setProperty('--c', col);
+    el.innerHTML = `<span class="cr">👑</span><div class="ring">${ch ? `<img src="models/${ch.id}.jpg" alt="">` : `<span style="font-size:1.6rem">${p.emoji}</span>`}</div><div class="v">0</div><div class="hp"></div>`;
+    (i < half ? L0 : R0).appendChild(el); G.cards[p.id] = { el, v: el.querySelector('.v'), hp: el.querySelector('.hp'), sc: null, st: 0, h: null }; });
+}
+function scoreOf(id) { const k = G.K; if (k.scoreOf) return k.scoreOf(id); if (id === G.myId && G.me) return G.me.sc || 0; return (G.net[id] || [])[5] || 0; }
+function hudTick(now) {
+  if (!G.cards) buildCards();
+  const meta = L.BYID[G.type], fmt = meta.fmt, k = G.K; let lead = null, best = 0;
+  for (const p of G.players) { const c = G.cards[p.id], sc = Math.round(scoreOf(p.id)), st = stOf(p.id), hearts = k.hearts ? k.hearts(p.id, sc) : null; let txt;
+    if (hearts) { txt = st === 1 || hearts[0] <= 0 ? '💀' : String(hearts[0]); const hh = '❤️'.repeat(Math.max(0, hearts[0])) + '🖤'.repeat(Math.max(0, hearts[1] - Math.max(0, hearts[0]))); if (c.hp.textContent !== hh) c.hp.textContent = hh; }
+    else if (fmt === 'surv' || fmt === 'tag') txt = st === 1 ? '💀' : st === 3 ? '🏁' : '❤️';
+    else if (fmt === 'secs') txt = (sc / 1000).toFixed(1);
+    else if (fmt === 'time') txt = st === 3 ? '🏁' : String(sc);
+    else if (fmt === 'ms') txt = st === 3 || sc > 0 ? '✔' : '…';
+    else txt = String(sc);
+    if (c.v.textContent !== txt) c.v.textContent = txt;
+    if (c.sc != null && sc > c.sc && !hearts) { c.el.classList.remove('up'); void c.el.offsetWidth; c.el.classList.add('up'); }
+    if (hearts && c.h != null && hearts[0] < c.h) { c.el.classList.remove('hurt'); void c.el.offsetWidth; c.el.classList.add('hurt'); X(p.id === G.myId ? 'hurt' : 'pop'); }
+    if (st === 1 && c.st !== 1) { c.el.classList.add('out'); if (p.id !== G.myId) X('pop'); } else if (st !== 1 && c.st === 1) c.el.classList.remove('out');
+    c.sc = sc; c.st = st; c.h = hearts ? hearts[0] : null;
+    if (['count', 'pts', 'goals', 'secs'].includes(fmt) && sc > best) { best = sc; lead = p.id; } }
+  for (const p of G.players) G.cards[p.id].el.classList.toggle('lead', p.id === lead);
+  // reloj
+  const rem = Math.max(0, G.dur - now), secs = Math.ceil(rem / 1000), tEl = G.hud.querySelector('.mg-time'), clock = G.hud.querySelector('.mg-clock');
+  if (tEl.textContent !== String(secs)) { tEl.textContent = secs;
+    if (rem > 0 && secs <= 10 && G.dur >= 15000 && !G.finShown) { X(secs <= 3 ? 'tickhi' : 'tick'); if (!G.hurry) { G.hurry = true; clock.classList.add('hurry'); flash('⏰ ¡ÚLTIMOS 10 SEGUNDOS!', 1200); if (window.SFX && SFX.tempo) SFX.tempo(1.18); } } }
+  if ((rem <= 0 || G.over) && !G.finShown) { G.finShown = true; clock.classList.remove('hurry'); if (window.SFX && SFX.tempo) SFX.tempo(1);
+    const f = document.createElement('div'); f.className = 'mg-fin'; f.textContent = '¡FIN!'; G.hud.appendChild(f); X('whistle'); setTimeout(() => f.remove(), 1600); }
+}
 function makeHud() {
   const d = document.createElement('div'); d.id = 'mgui';
-  d.innerHTML = `<div class="mg-top"><div class="mg-title"></div><div class="bar"><div id="mgtb"></div></div><div class="mg-score"></div></div>
+  d.innerHTML = `<div class="mg-top"><div class="mg-pl L"></div><div class="mg-clock"><div class="mg-time"></div></div><div class="mg-pl R"></div></div>
+    <div class="mg-sub"><span><b class="mg-title"></b> · <b class="mg-score"></b></span><div class="bar"><div id="mgtb"></div></div></div>
     <div class="mg-msg"></div><div class="mg-joy"><div class="mg-knob"></div></div><div class="mg-btns"></div>`;
   document.body.appendChild(d); return d;
 }
@@ -769,7 +826,7 @@ function start({ send, done: d, practice }) {
 function stop() {
   if (!G) return;
   const B = window.Board3D; if (B && B.ok) B.setOverlay(null);
-  if (G.K && G.K.stopX) G.K.stopX(); if (G.hud) G.hud.remove(); if (G.cleanup) G.cleanup();
+  if (G.K && G.K.stopX) G.K.stopX(); if (window.SFX && SFX.tempo) SFX.tempo(1); if (G.hud) G.hud.remove(); if (G.cleanup) G.cleanup();
   G.sc.scene.traverse(o => { if (o.geometry) o.geometry.dispose(); });
   G = null;
 }
@@ -810,8 +867,7 @@ function frame(dt, t) {
     if (now >= G.dur && !G.finished) done(k.final ? k.final() : G.dur, k.final ? '¡Tiempo!' : '¡Sobreviviste!');
     if (now - G.lastSent > 95) { G.lastSent = now; G.send({ t: 'mgpos', key: G.key, a: [+m.x.toFixed(2), +m.z.toFixed(2), +m.y.toFixed(2), +(m.ry || 0).toFixed(2), m.st, Math.round(m.sc || 0), m.mv] }); }
   }
-  if (G.started) { const tb = document.getElementById('mgtb'); if (tb) tb.style.width = Math.max(0, 100 - now / G.dur * 100) + '%';
-    const s = G.hud.querySelector('.mg-score'); if (s) { try { s.textContent = (G.me ? '' : '👀 ') + k.hud(); } catch (e) { s.textContent = ''; } } }
+  if (G.started) { const s = G.hud.querySelector('.mg-score'); if (s && now - (G.hudT || 0) > 120) { G.hudT = now; try { s.textContent = (G.me ? '' : '👀 ') + k.hud(); } catch (e) { s.textContent = ''; } hudTick(now); } }
   if (k.draw) k.draw(now, t);
   // personajes
   const off = k.offset ? k.offset() : null;

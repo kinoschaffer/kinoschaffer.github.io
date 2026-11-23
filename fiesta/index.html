@@ -128,7 +128,13 @@ body.b3d #app{max-width:none;padding:0}
 .labitem small{font-size:.78rem;opacity:.85;line-height:1.25}.labitem .li-st{color:#fcc419;font-size:.8rem;white-space:nowrap}
 .labstars{display:flex;gap:4px;margin:6px 0}.labstars button{flex:1;margin:0;font-size:1.8rem;padding:4px;background:#0003;color:#fff6;box-shadow:none}.labstars button.on{color:#fcc419;background:#fcc41922}
 #labnote{width:100%;box-sizing:border-box;border-radius:12px;padding:10px;font:inherit;border:0;margin:4px 0 8px}
-#labExit{position:fixed;right:10px;top:calc(env(safe-area-inset-top) + 98px);z-index:9;display:none;width:auto;padding:8px 14px;font-size:.85rem;background:#1e0b3aee;color:#fff;border-radius:12px;margin:0;box-shadow:0 3px 0 #0006}
+#labExit{position:fixed;left:10px;top:calc(env(safe-area-inset-top) + 122px);z-index:9;display:none;width:auto;padding:8px 14px;font-size:.85rem;background:#1e0b3aee;color:#fff;border-radius:12px;margin:0;box-shadow:0 3px 0 #0006}
+.readyrow{display:flex;justify-content:center;gap:6px;flex-wrap:wrap;margin:8px 0 4px}
+.readyrow .rd{position:relative;width:42px;height:42px;border-radius:50%;border:3px solid;opacity:.5;transition:opacity .2s,transform .2s}.readyrow .rd.ok{opacity:1;transform:scale(1.08)}
+.readyrow .rd .av{display:block;width:100%;height:100%;border-radius:50%;overflow:hidden;background:#fff}.readyrow .rd .av img{width:100%;height:100%;object-fit:cover}
+.readyrow .rd b{position:absolute;right:-6px;bottom:-6px;font-size:.95rem;filter:drop-shadow(0 1px 1px #000)}
+.readybtn{background:#51cf66!important;box-shadow:0 6px 0 #2b8a3e!important;color:#fff!important;animation:readyp 1.2s ease-in-out infinite}
+@keyframes readyp{0%,100%{filter:brightness(1)}50%{filter:brightness(1.18)}}
 .intro-card .gif{display:block;margin:6px auto;max-height:26vh;max-width:70%;border-radius:12px;border:3px solid #fff;box-shadow:0 4px 12px #0006}
 .bigcount{position:fixed;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;background:radial-gradient(circle,rgba(30,11,58,.15),rgba(30,11,58,.65))}
 .bc-title{font-family:'Luckiest Guy',cursive;font-size:1.6rem;color:#fff;text-shadow:0 4px 0 #1e0b3a;letter-spacing:.05em;animation:slidein .5s ease-out;padding:0 14px;text-align:center}
@@ -607,7 +613,7 @@ function startMinigame(opts){
   H.introT0 = Date.now(); clearInterval(H.introTimer);
   H.introTimer = setInterval(() => { if (s.phase !== 'mg-intro') return clearInterval(H.introTimer);
     const humans = s.mg.players.map(findP).filter(p => !p.bot && p.connected), voted = humans.filter(p => p.id in s.mg.votes).length, el = Date.now() - H.introT0;
-    if ((el > 5000 && voted === humans.length) || el > 14000) { clearInterval(H.introTimer); const prac = humans.filter(p => s.mg.votes[p.id] === 'practica').length;
+    if ((el > 1500 && voted === humans.length) || el > 60000) { clearInterval(H.introTimer); const prac = humans.filter(p => s.mg.votes[p.id] === 'practica').length;
       s.mg.practice = prac > 0 && prac * 2 >= humans.length; if (s.mg.practice) s.mg.dur = Math.min(MG[type].dur, 15000); mgCountdown(); } }, 250);
 }
 function mgCountdown(){ const s = H.state; s.phase = 'mg-count'; s.countId = rid(); broadcast(); setTimeout(beginMgPlay, 3700); }
@@ -707,12 +713,30 @@ async function endGame(){
 
 /* ================= Render ================= */
 const has3D = () => !!(window.Board3D && Board3D.ok) && !params.has('2d');
+// Música de cada minijuego según su estilo, y sonido ambiente según el escenario
+function mgSong(d){
+  if (d.kind === 'tactil') return 'mg_calma';
+  if (d.kind === 'decision') return 'mg_suerte';
+  if (['karts', 'carrera', 'corredor', 'relevos', 'cuerda', 'escalada'].includes(d.kind)) return 'mg_carrera';
+  if (['futbol', 'voley', 'portero', 'arco', 'bolos'].includes(d.kind)) return 'mg_deporte';
+  if (['piso', 'barra', 'bolas', 'meteoros', 'zombi', 'papa', 'canon', 'cazador', 'sumo', 'laberinto', 'escondite', 'gigante'].includes(d.kind)) return 'mg_tension';
+  return 'mg';
+}
+function mgAmbient(d){
+  const p = d.p || {};
+  if (p.dark || d.kind === 'escondite') return 'noche';
+  if (['futbol', 'voley', 'portero', 'bolos'].includes(d.kind)) return 'publico';
+  return { ice: 'viento', beach: 'olas', lava: 'lava', space: 'espacio' }[p.scene] || (d.kind === 'escalada' ? 'lava' : d.kind === 'tactil' || d.kind === 'decision' ? null : 'campo');
+}
 // Música y efectos según lo que pasa en la partida
 function sounds(prev, s){
   if (!window.SFX) return; const X = n => SFX.play(n);
   const ph = s.phase, was = prev ? prev.phase : null;
   const board = ['turn', 'rolling', 'moving', 'crown', 'event', 'fork', 'duel-pick'].includes(ph);
-  SFX.music(ph === 'lobby' ? 'lobby' : board ? (s.theme || 'isla') : (ph === 'mg-intro' || ph === 'mg-play') ? 'mg' : null);
+  const mgt = s.mg && MG[s.mg.type];
+  SFX.music(ph === 'lobby' ? 'lobby' : board ? (s.theme || 'isla') : ph === 'mg-intro' ? 'mg_intro' : ph === 'mg-play' && mgt ? mgSong(mgt) : null);
+  if (SFX.ambient) SFX.ambient((ph === 'mg-play' || ph === 'mg-count') && mgt ? mgAmbient(mgt) : null);
+  if (ph === 'mg-results' && was === 'mg-play') X('fanfare');
   const c = s.players[s.turn];
   if (ph === 'turn' && c && c.id === myId && (was !== 'turn' || prev.turn !== s.turn)) X('turn');
   if (ph === 'rolling' && (!prev || prev.rollId !== s.rollId) && !(c && c.id === myId)) X('dice');
@@ -763,7 +787,7 @@ function render(){
   const ph = S.phase;
   // Vistas que no deben reconstruirse en cada actualización
   let key = null;
-  if (ph === 'mg-intro') key = 'intro' + S.mg.key + '|' + Object.keys(S.mg.votes || {}).length;
+  if (ph === 'mg-intro') { key = 'intro' + S.mg.key + '|' + Object.keys(S.mg.votes || {}).length; const nv = Object.keys(S.mg.votes || {}).length; if (ui.lastVotes != null && nv > ui.lastVotes && ui.lastVotesKey === S.mg.key && window.SFX) SFX.play('ready'); ui.lastVotes = nv; ui.lastVotesKey = S.mg.key; }
   if (ph === 'mg-count') key = 'count' + S.countId;
   if (ph === 'mg-play') key = 'play' + S.mg.key;
   if (key && key === ui.viewKey) return;
@@ -1026,13 +1050,15 @@ function viewIntro3D(){
     <img class="gif" src="previews/${d.id}.webp" alt="" onerror="this.remove()">
     <div style="margin:6px 0">${d.desc}</div>
     ${formatBanner(m)}
-    ${mine ? (v ? `<div class="note" style="margin-top:6px">${v === 'practica' ? '🏋️ Votaste practicar' : '✅ ¡Listo!'} · Esperando a los demás…</div>`
-      : `<div class="row" style="margin-top:6px"><button class="sec" data-act="vote" data-v="practica">🏋️ Practicar</button><button data-act="vote" data-v="listo">✅ ¡Listo!</button></div>`) : ''}
-    ${humans.length > 1 ? `<div class="note">Votos para practicar: ${np} de ${humans.length}</div>` : ''}
-    <div class="bar" style="margin-top:6px"><div id="introbar" style="width:100%"></div></div></div></div>`;
+    <div class="readyrow">${m.players.map(id => { const p = S.players.find(x => x.id === id); if (!p) return ''; const ok = p.bot || m.votes[id];
+      return `<div class="rd ${ok ? 'ok' : ''}" style="border-color:${p.color}"><span class="av">${avImg(p)}</span><b>${ok ? (m.votes[id] === 'practica' ? '🏋️' : '✅') : '⏳'}</b></div>`; }).join('')}</div>
+    ${mine ? (v ? `<div class="note" style="margin-top:6px">${v === 'practica' ? '🏋️ Pediste practicar' : '✅ ¡Estás listo!'} · ${humans.filter(p => !m.votes[p.id]).length ? 'Esperando a ' + humans.filter(p => !m.votes[p.id]).map(p => esc(p.name)).join(', ') + '…' : '¡Todos listos!'}</div>`
+      : `<button class="big readybtn" data-act="vote" data-v="listo">✅ ¡ESTOY LISTO!</button><button class="sec" data-act="vote" data-v="practica" style="margin-top:6px">🏋️ Estoy listo, pero quiero practicar</button>`) : '<div class="note">👀 No juegas este minijuego: esperando a los jugadores…</div>'}
+    ${humans.length > 1 && np ? `<div class="note">Quieren practicar: ${np} de ${humans.length} (con la mitad, se practica)</div>` : ''}
+    <div class="note" id="introbar" style="min-height:1.2em"></div></div></div>`;
 }
 function runIntroBar(){ const t0 = ui.introT0 && ui.introKey === S.mg.key ? ui.introT0 : (ui.introT0 = Date.now(), ui.introKey = S.mg.key, Date.now());
-  const it = setInterval(() => { const el = $('#introbar'); if (!el) return clearInterval(it); el.style.width = Math.max(0, 100 - (Date.now() - t0) / 140) + '%'; }, 120);
+  const it = setInterval(() => { const el = $('#introbar'); if (!el) return clearInterval(it); const left = Math.ceil((60000 - (Date.now() - t0)) / 1000); el.textContent = left <= 30 && left > 0 ? `⏱️ Empieza solo en ${left} s` : ''; }, 250);
   ui.mgCleanup = () => clearInterval(it); }
 function viewCount(){ const m = S.mg, d = MG[m.type];
   return `<div class="bigcount"><div class="bc-title">${m.practice ? '🏋️ PRÁCTICA' : m.real ? '¡AHORA VA EN SERIO!' : d.icon + ' ' + d.name}</div><div class="bc-num" id="bcnum"></div></div>`; }
