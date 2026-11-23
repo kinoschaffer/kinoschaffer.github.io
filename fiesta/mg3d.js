@@ -753,7 +753,7 @@ function start({ send, done: d, practice }) {
   G.started = true; G.t0 = performance.now(); G.send = send; G.done = d; G.finished = false; G.lastSent = 0;
   G.hud = makeHud(); G.input = { x: 0, z: 0, jump: false };
   G.hud.querySelector('.mg-title').textContent = (practice ? '🏋️ PRÁCTICA · ' : '') + L.BYID[G.type].icon + ' ' + L.BYID[G.type].name;
-  if (G.me) { setupControls(); flash('¡YA!', 700); } else { flash('👀 Mirando', 0); G.hud.querySelector('.mg-msg').style.top = '72%'; }
+  if (G.me) { setupControls(); flash('¡YA!', 700); } else { flash('👀 Mirando', 1800); G.hud.querySelector('.mg-msg').style.top = '72%'; }
 }
 function stop() {
   if (!G) return;
@@ -847,6 +847,8 @@ function fitCam(all) {
   let cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, W = Math.max(half * 2, x1 - x0 + m * 2), D = Math.max(half * 2, z1 - z0 + m * 2);
   if (!all) { cx = Math.max(-R, Math.min(R, cx)); cz = Math.max(-R, Math.min(R, cz)); }
   const base = k.cam && k.look ? [k.cam[0] - k.look[0], k.cam[1] - k.look[1], k.cam[2] - k.look[2]] : [0, 10.5, 7.5], bl = Math.hypot(...base), dir = base.map(v => v / bl);
+  // en vertical, a quien solo mira se le gira la cancha alargada para que llene la pantalla
+  if (all && cam.aspect < 1 && ['futbol', 'voley'].includes(G.kind) && (!G.me || G.me.st === 1)) { [dir[0], dir[2]] = [dir[2], -dir[0]]; [W, D] = [D, W]; }
   const vf = cam.fov * Math.PI / 180, hf = 2 * Math.atan(Math.tan(vf / 2) * cam.aspect);
   const tilt = Math.max(0.35, dir[1]); // con cámara inclinada, la profundidad se ve más corta
   const dist = Math.max(all ? 8 : 9, (W / 2) / Math.tan(hf / 2) * 1.14, (D / 2) * tilt / Math.tan(vf / 2) * 1.3);
@@ -870,6 +872,9 @@ function placeCamera(dt, snap) {
   else if (k.follow2) { const z = G.me ? G.me.z : -L.runnerDist(G.now, G.p), x = G.sc.x0 || 0; P = [x, 3.6, z + 6]; Lk = [x, 0.6, z - 6]; }
   else if (k.stage) { const wide = Math.min(1.5, Math.max(1, 0.62 / asp)); P = [k.cam[0], k.cam[1] * wide, k.cam[2] * wide]; Lk = k.look; }
   else [P, Lk] = fitCam(false);
+  // el que mira desde lejos no debe quedar tapado por la neblina de la escena
+  const fog = sc.scene.fog; if (fog) { if (fog.userData0 == null) fog.userData0 = [fog.near, fog.far]; const [n0, f0] = fog.userData0, cd = G.camDist || 0;
+    if (spectate && cd > f0 - 4) { fog.near = Math.max(n0, cd - 2); fog.far = Math.max(f0, cd + 25); } else { fog.near = n0; fog.far = f0; } }
   const kk = snap ? 1 : 1 - Math.exp(-dt * 3.5);
   cam.position.x += (P[0] - cam.position.x) * kk; cam.position.y += (P[1] - cam.position.y) * kk; cam.position.z += (P[2] - cam.position.z) * kk;
   G.lookAt = G.lookAt || new THREE.Vector3(...Lk); G.lookAt.x += (Lk[0] - G.lookAt.x) * kk; G.lookAt.y += (Lk[1] - G.lookAt.y) * kk; G.lookAt.z += (Lk[2] - G.lookAt.z) * kk;
