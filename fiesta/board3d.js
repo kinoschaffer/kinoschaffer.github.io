@@ -521,6 +521,7 @@ function frame() {
     if (av.mixer) av.mixer.update(dt * 1.6);
     const isCur = cur && av.id === cur.id;
     av.ring.scale.setScalar(isCur ? 1.25 + Math.sin(t * 6) * 0.12 : 1);
+    if (av.label) av.label.visible = S.players.length <= 5 || isCur || av.id === myId || ['bonus', 'end'].includes(S.phase);
   });
   forkArrows.forEach((a, i) => { a.position.y = a.userData.base + Math.sin(t * 5 + i) * 0.15; });
   // Flecha sobre el jugador actual

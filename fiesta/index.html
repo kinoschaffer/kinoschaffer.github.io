@@ -453,7 +453,7 @@ async function doRoll(){
 async function nextRound(){ const s = H.state; if (s.round >= s.maxRounds) return endGame(); s.round++; s.turn = 0;
   if (s.round === Math.max(2, s.maxRounds - 2) && !s.helped && s.players.length > 1) { // ayuda al que va último
     s.helped = true; const last = s.players.slice().sort((a, b) => a.crowns - b.crowns || a.coins - b.coins)[0];
-    s.phase = 'event'; s.msg = '🔥 ¡Quedan 3 rondas! Desde ahora las casillas azules y rojas valen el doble.'; broadcast(); await sleep(T(3000));
+    const left = s.maxRounds - s.round + 1; s.phase = 'event'; s.msg = `🔥 ¡Quedan ${left} rondas! Desde ahora las casillas azules y rojas valen el doble.`; broadcast(); await sleep(T(3000));
     if (Math.random() < 0.5 || last.items.length >= MAX_ITEMS) { last.coins += 15; last.stats.earned += 15; s.msg = `🎁 Ayuda al último: ${last.name} recibe 15 🪙`; }
     else { last.items.push('triple'); s.msg = `🎁 Ayuda al último: ${last.name} recibe un 🎰 Dado Triple`; }
     broadcast(); await sleep(T(3000)); }
