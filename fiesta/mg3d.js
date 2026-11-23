@@ -650,7 +650,8 @@ K.corona = {
 
 /* ======================= HUD y controles ======================= */
 const css = document.createElement('style');
-css.textContent = `#mgui{position:fixed;inset:0;z-index:7;pointer-events:none;font-family:system-ui,sans-serif;color:#fff}
+css.textContent = `#mgui{position:fixed;inset:0;z-index:7;pointer-events:none;font-family:'Baloo 2',system-ui,sans-serif;color:#fff}
+#mgui .mg-title,#mgui .mg-msg,#mgui .mg-btns button{font-family:'Luckiest Guy','Baloo 2',sans-serif!important;font-weight:400!important;letter-spacing:.03em}
 #mgui .mg-top{position:absolute;left:10px;right:10px;top:calc(env(safe-area-inset-top) + 8px);background:rgba(30,11,58,.8);border-radius:14px;padding:8px 12px;text-align:center}
 #mgui .mg-title{font-weight:900;color:#fcc419}#mgui .mg-score{font-weight:800;margin-top:4px;font-size:.92rem}
 #mgui .bar{height:8px;background:#0006;border-radius:9px;overflow:hidden;margin-top:6px}#mgui .bar>div{height:100%;background:#fcc419}
@@ -739,17 +740,17 @@ function prepare({ type, seed, players, myId, dur, key, teams, format }) {
   placeCamera(0, true);
   B.setOverlay({ frame });
 }
-function start({ send, done: d }) {
+function start({ send, done: d, practice }) {
   if (!G || G.started) return;
   G.started = true; G.t0 = performance.now(); G.send = send; G.done = d; G.finished = false; G.lastSent = 0;
   G.hud = makeHud(); G.input = { x: 0, z: 0, jump: false };
-  G.hud.querySelector('.mg-title').textContent = L.BYID[G.type].icon + ' ' + L.BYID[G.type].name;
+  G.hud.querySelector('.mg-title').textContent = (practice ? '🏋️ PRÁCTICA · ' : '') + L.BYID[G.type].icon + ' ' + L.BYID[G.type].name;
   if (G.me) { setupControls(); flash('¡YA!', 700); } else { flash('👀 Mirando', 0); G.hud.querySelector('.mg-msg').style.top = '72%'; }
 }
 function stop() {
   if (!G) return;
   const B = window.Board3D; if (B && B.ok) B.setOverlay(null);
-  if (G.hud) G.hud.remove(); if (G.cleanup) G.cleanup();
+  if (G.K && G.K.stopX) G.K.stopX(); if (G.hud) G.hud.remove(); if (G.cleanup) G.cleanup();
   G.sc.scene.traverse(o => { if (o.geometry) o.geometry.dispose(); });
   G = null;
 }
@@ -853,7 +854,8 @@ function placeCamera(dt, snap) {
     || (G.kind === 'canon' && G.sc.gunner === G.myId);
   const leader = () => { let best = null, bz = Infinity; G.players.forEach(p => { const ch = G.chars[p.id]; if (ch && ch.g.position.z < bz) { bz = ch.g.position.z; best = ch; } }); return best; };
   const custom = k.camPos ? k.camPos() : null;
-  if (spectate && ARENA_R[G.kind] && (custom || !k.stage) && !k.follow && !k.follow2 && !['escalada', 'relevos'].includes(G.kind)) [P, Lk] = fitCam(true);
+  if (!G.started && !k.stage && G.kind !== 'karts') { const R = ARENA_R[G.kind] || 8, a = performance.now() / 3800; P = [Math.sin(a) * R * 1.5, R * 1.05, Math.cos(a) * R * 1.5]; Lk = [0, 0, 0]; }
+  else if (spectate && ARENA_R[G.kind] && (custom || !k.stage) && !k.follow && !k.follow2 && !['escalada', 'relevos'].includes(G.kind)) [P, Lk] = fitCam(true);
   else if (spectate && G.kind === 'escalada') { let top = null; G.players.forEach(p => { const ch = G.chars[p.id]; if (ch && stOfP(p.id) !== 1 && (!top || ch.g.position.y > top.g.position.y)) top = ch; }); const q = top ? top.g.position : new THREE.Vector3(0, 2, 0); P = [q.x * 0.3, q.y + 6, q.z + 11]; Lk = [q.x * 0.5, q.y + 0.5, q.z * 0.5]; }
   else if (custom) [P, Lk] = custom;
   else if (k.follow) { const me = spectate ? leader() : G.chars[G.myId]; const z = me ? me.g.position.z : 0, x = me ? me.g.position.x : 0; P = [x + 1.1, 4.3, z + 6.8]; Lk = [x - 0.2, 0.8, z - 5]; }

@@ -2,6 +2,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from './lib/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from './lib/addons/utils/SkeletonUtils.js';
+// que la fuente divertida esté lista antes de dibujar carteles en 3D
+try { await Promise.race([document.fonts.load('40px "Luckiest Guy"'), new Promise(r => setTimeout(r, 1500))]); } catch (e) { }
 
 const N = 24;
 const CHAR_H = 1.35;           // altura de los personajes
@@ -17,11 +19,11 @@ function canvasTex(w, h, draw) {
 }
 function textSprite(text, { color = '#fff', stroke = '#1e0b3a', bg = null, h = 0.5, font = 900 } = {}) {
   const fs = 96, pad = 28;
-  const meas = document.createElement('canvas').getContext('2d'); meas.font = `${font} ${fs}px system-ui, sans-serif`;
+  const meas = document.createElement('canvas').getContext('2d'); meas.font = `${font} ${fs}px 'Luckiest Guy', system-ui, sans-serif`;
   const w = Math.ceil(meas.measureText(text).width + pad * 2), H = fs + pad;
   const tex = canvasTex(w, H, (g) => {
     if (bg) { g.fillStyle = bg; const r = H / 2; g.beginPath(); g.roundRect(4, 4, w - 8, H - 8, r - 4); g.fill(); g.lineWidth = 6; g.strokeStyle = '#fff'; g.stroke(); }
-    g.font = `${font} ${fs}px system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = `${font} ${fs}px 'Luckiest Guy', system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
     if (stroke) { g.lineWidth = 14; g.strokeStyle = stroke; g.lineJoin = 'round'; g.strokeText(text, w / 2, H / 2 + 4); }
     g.fillStyle = color; g.fillText(text, w / 2, H / 2 + 4);
   });
@@ -190,7 +192,7 @@ function iconTex(type) {
   if (ICON_TEX[type]) return ICON_TEX[type];
   const label = { B: '+3', R: '−3', E: '?', S: 'SALIDA', V: '⇄', D: '⚔', T: '🛒' }[type];
   const t = canvasTex(256, 256, (g) => {
-    g.font = `900 ${type === 'S' ? 58 : type === 'D' || type === 'T' ? 110 : 130}px system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = `900 ${type === 'S' ? 58 : type === 'D' || type === 'T' ? 110 : 130}px 'Luckiest Guy', system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.lineWidth = 16; g.strokeStyle = 'rgba(0,0,0,.35)'; g.strokeText(label, 128, 136); g.fillStyle = '#fff'; g.fillText(label, 128, 136);
   });
   t.userData.shared = true; return ICON_TEX[type] = t;

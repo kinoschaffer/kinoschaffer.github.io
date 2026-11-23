@@ -6,6 +6,10 @@
 <meta name="theme-color" content="#1e0b3a">
 <title>Fiesta Tablero</title>
 <style>
+@font-face{font-family:'Luckiest Guy';src:url(fonts/luckiest-guy.woff2) format('woff2');font-display:swap}
+@font-face{font-family:'Baloo 2';src:url(fonts/baloo2-500.woff2) format('woff2');font-weight:400 500;font-display:swap}
+@font-face{font-family:'Baloo 2';src:url(fonts/baloo2-700.woff2) format('woff2');font-weight:600 700;font-display:swap}
+@font-face{font-family:'Baloo 2';src:url(fonts/baloo2-800.woff2) format('woff2');font-weight:800 900;font-display:swap}
 :root{
   --bg:#1e0b3a;--bg2:#2d1457;--card:#3a1d6e;--txt:#fff;--mut:#c9b8ee;
   --blue:#3b82f6;--red:#ef4444;--ev:#a855f7;--start:#22c55e;--gold:#fcc419;
@@ -13,9 +17,11 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%}
 body{background:radial-gradient(circle at 50% 0,#4b1f8f,var(--bg) 70%) fixed;color:var(--txt);
-  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none}
+  font-family:'Baloo 2',system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overscroll-behavior:none;user-select:none;-webkit-user-select:none}
 #app{max-width:520px;margin:0 auto;padding:12px 12px 32px;min-height:100%}
-h1{margin:8px 0 4px;font-size:2rem;text-align:center}
+h1{margin:8px 0 4px;font-size:2.2rem;text-align:center;font-family:'Luckiest Guy',cursive;font-weight:400;letter-spacing:.04em;text-shadow:0 4px 0 #1e0b3a}
+h2,.mgname,.codebig,.cd,.dice,button.big,.podium,.pill{font-family:'Luckiest Guy','Baloo 2',cursive;font-weight:400;letter-spacing:.03em}
+button{font-family:'Baloo 2',system-ui,sans-serif}
 h2{margin:6px 0 10px;text-align:center}
 .sub{color:var(--mut);text-align:center;margin:0 0 16px}
 .card{background:var(--card);border-radius:18px;padding:16px;margin-bottom:12px;box-shadow:0 6px 20px #0006}
@@ -114,6 +120,16 @@ body.b3d #app{max-width:none;padding:0}
 .viewbtn{position:fixed;right:10px;top:calc(env(safe-area-inset-top) + 56px);width:48px;height:48px;padding:0;font-size:1.4rem;border-radius:50%;z-index:6;margin:0}
 .tag{font-size:.75rem;background:#7c5cc4;padding:2px 6px;border-radius:999px;font-weight:700;white-space:nowrap}
 .pl button.x{width:34px;height:34px;padding:0;margin:0;font-size:.9rem;background:#64748b;color:#fff;box-shadow:none}
+.intro-card .gif{display:block;margin:6px auto;max-height:26vh;max-width:70%;border-radius:12px;border:3px solid #fff;box-shadow:0 4px 12px #0006}
+.bigcount{position:fixed;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;background:radial-gradient(circle,rgba(30,11,58,.15),rgba(30,11,58,.65))}
+.bc-title{font-family:'Luckiest Guy',cursive;font-size:1.6rem;color:#fff;text-shadow:0 4px 0 #1e0b3a;letter-spacing:.05em;animation:slidein .5s ease-out;padding:0 14px;text-align:center}
+.bc-num{font-family:'Luckiest Guy',cursive;font-size:9rem;line-height:1;margin-top:10px;-webkit-text-stroke:6px #1e0b3a;paint-order:stroke fill;text-shadow:0 10px 0 #1e0b3a,0 0 40px rgba(255,255,255,.5)}
+.bc-num.go{font-size:4.6rem;-webkit-text-stroke:5px #1e0b3a}
+.bc-num.pop{animation:bcpop .8s cubic-bezier(.2,1.6,.4,1)}
+@keyframes bcpop{0%{transform:scale(3) rotate(-15deg);opacity:0}35%{transform:scale(.9) rotate(4deg);opacity:1}55%{transform:scale(1.08)}100%{transform:scale(1)}}
+@keyframes slidein{0%{transform:translateY(-60px);opacity:0}100%{transform:none;opacity:1}}
+body.flashgo::after{content:'';position:fixed;inset:0;background:#fff;z-index:20;pointer-events:none;animation:flashgo .4s ease-out forwards}
+@keyframes flashgo{0%{opacity:.85}100%{opacity:0}}
 #stkBtn{position:fixed;right:10px;bottom:calc(env(safe-area-inset-bottom) + 205px);width:52px;height:52px;padding:0;margin:0;border-radius:50%;font-size:1.6rem;z-index:9;display:none;
   background:#fff;box-shadow:0 4px 0 #adb5bd,0 4px 14px #0006}
 #stkTray{position:fixed;right:10px;bottom:calc(env(safe-area-inset-bottom) + 265px);z-index:9;display:none;grid-template-columns:repeat(3,76px);gap:6px;padding:8px;border-radius:18px;background:rgba(30,11,58,.92);box-shadow:0 6px 20px #0008}
@@ -138,6 +154,7 @@ body.b3d #app{max-width:none;padding:0}
 <script src="boards.js"></script>
 <script src="minigames2.js"></script>
 <script src="minigames3.js"></script>
+<script src="minigames4.js"></script>
 <script src="minigames.js"></script>
 <script src="sfx.js"></script>
 <script>
@@ -377,6 +394,7 @@ function hostAction(pid, msg){
     case 'delbot': if (isHost && s.phase === 'lobby') { s.players = s.players.filter(x => !(x.bot && x.id === msg.id)); broadcast(); } break;
     case 'start': if (isHost && s.phase === 'lobby' && s.players.length >= 2) startGame(); break;
     case 'roll': if (s.phase === 'turn' && cur().id === pid) doRoll(); break;
+    case 'vote': if (s.phase === 'mg-intro' && s.mg && s.mg.players.includes(pid) && (msg.v === 'practica' || msg.v === 'listo')) { s.mg.votes[pid] = msg.v; broadcast(); } break;
     case 'sticker': if (MOODS.includes(msg.s) && Date.now() - ((H.stkT || {})[pid] || 0) > 2000) { H.stkT = H.stkT || {}; H.stkT[pid] = Date.now(); relaySticker(pid, msg.s); } break;
     case 'use': if (s.phase === 'turn' && cur().id === pid && !s.itemUsed && p.items.includes(msg.item)) useItem(p, msg.item); break;
     case 'buy': if (s.phase === 'shop' && cur().id === pid && H.shopResolve) H.shopResolve(msg.item || null); break;
@@ -570,11 +588,21 @@ function startMinigame(opts){
   if (MG_KEYS.includes(params.get('mg'))) type = params.get('mg'); // para pruebas
   s.mgHist.push(type); if (s.mgHist.length > Math.min(30, MG_KEYS.length - 3)) s.mgHist.shift();
   s.mg = {type, key: s.round + '-' + rid(), seed: (Math.random() * 1e9) | 0, scores:{}, ranking:null,
-    players: opts.players, format: opts.format, teams: opts.teams || null, wager: opts.wager || 0, result: null};
+    players: opts.players, format: opts.format, teams: opts.teams || null, wager: opts.wager || 0, result: null, votes: {}, practice: false, dur: MG[type].dur};
   s.phase = 'mg-intro'; s.msg = ''; broadcast();
-  setTimeout(() => {
-    s.phase = 'mg-play'; broadcast(); H.mgTimer = setTimeout(finishMinigame, MG[type].dur + 3500);
-    const key = s.mg.key, dur = MG[type].dur;
+  // presentación: se puede votar una práctica (decide la mitad de los jugadores humanos)
+  H.introT0 = Date.now(); clearInterval(H.introTimer);
+  H.introTimer = setInterval(() => { if (s.phase !== 'mg-intro') return clearInterval(H.introTimer);
+    const humans = s.mg.players.map(findP).filter(p => !p.bot && p.connected), voted = humans.filter(p => p.id in s.mg.votes).length, el = Date.now() - H.introT0;
+    if ((el > 5000 && voted === humans.length) || el > 14000) { clearInterval(H.introTimer); const prac = humans.filter(p => s.mg.votes[p.id] === 'practica').length;
+      s.mg.practice = prac > 0 && prac * 2 >= humans.length; if (s.mg.practice) s.mg.dur = Math.min(MG[type].dur, 15000); mgCountdown(); } }, 250);
+}
+function mgCountdown(){ const s = H.state; s.phase = 'mg-count'; s.countId = rid(); broadcast(); setTimeout(beginMgPlay, 3700); }
+function beginMgPlay(){
+  const s = H.state, type = s.mg.type;
+  {
+    s.phase = 'mg-play'; broadcast(); clearTimeout(H.mgTimer); H.mgTimer = setTimeout(finishMinigame, s.mg.dur + 3500);
+    const key = s.mg.key, dur = s.mg.dur;
     if (MG[type].td) {
       H.mgNet = {pos:{}, taken:{}, counts:{}, ev:[], team:null}; H.mgT0 = performance.now(); H.mgLast = 0;
       const ps = s.mg.players.map(findP);
@@ -585,7 +613,7 @@ function startMinigame(opts){
     s.mg.players.map(findP).filter(p => p.bot).forEach(b => setTimeout(() => {
       if (s.phase === 'mg-play' && s.mg.key === key && !(b.id in s.mg.scores)) { s.mg.scores[b.id] = botScore(type, b.lvl, s.mg.seed); broadcast(); checkMgDone(); }
     }, dur * (0.55 + Math.random() * 0.4)));
-  }, 6000);
+  }
 }
 function hostMgTick(){
   const s = H.state;
@@ -600,7 +628,7 @@ function hostMgTick(){
       for (const [id, v] of Object.entries(got)) if (!(id in s.mg.scores)) { s.mg.scores[id] = v; changed = true; }
     }
     Object.assign(H.mgNet.pos, MGL.host.pos(H.mgCtx));
-    if (now >= MG[s.mg.type].dur) for (const id of Object.keys(H.mgCtx.bots)) if (!(id in s.mg.scores)) { s.mg.scores[id] = MGL.host.final(H.mgCtx, id, H.mgNet); changed = true; }
+    if (now >= s.mg.dur) for (const id of Object.keys(H.mgCtx.bots)) if (!(id in s.mg.scores)) { s.mg.scores[id] = MGL.host.final(H.mgCtx, id, H.mgNet); changed = true; }
   }
   const msg = {t:'mgp', key:s.mg.key, p:H.mgNet.pos, taken:H.mgNet.taken, counts:H.mgNet.counts, ev:H.mgNet.ev, x:H.mgNet.x, over:!!H.mgNet.over};
   for (const c of H.conns.values()) { try { c.send(msg); } catch(e){} }
@@ -613,7 +641,10 @@ function checkMgDone(){
 }
 function finishMinigame(){
   const s = H.state; if (s.phase !== 'mg-play') return;
-  clearInterval(H.mgLoop);
+  clearInterval(H.mgLoop); clearTimeout(H.mgTimer);
+  if (s.mg.practice) { // terminó la práctica: ahora va en serio
+    Object.assign(s.mg, { practice: false, real: true, key: s.round + '-' + rid(), seed: (Math.random() * 1e9) | 0, scores: {}, dur: MG[s.mg.type].dur });
+    mgCountdown(); return; }
   if (MG[s.mg.type].td && H.mgCtx) for (const id of Object.keys(H.mgCtx.bots)) if (!(id in s.mg.scores)) s.mg.scores[id] = MGL.host.final(H.mgCtx, id, H.mgNet);
   if (H.mgCtx) MGL.host.override(H.mgCtx, s.mg.scores, H.mgNet);
   if (H.mgCtx && H.mgCtx.seenOut) for (const id of s.mg.players) if (!(id in s.mg.scores) && H.mgCtx.seenOut[id] != null) s.mg.scores[id] = H.mgCtx.seenOut[id];
@@ -717,23 +748,25 @@ function render(){
   const ph = S.phase;
   // Vistas que no deben reconstruirse en cada actualización
   let key = null;
-  if (ph === 'mg-intro') key = 'intro' + S.mg.key;
+  if (ph === 'mg-intro') key = 'intro' + S.mg.key + '|' + Object.keys(S.mg.votes || {}).length;
+  if (ph === 'mg-count') key = 'count' + S.countId;
   if (ph === 'mg-play') key = 'play' + S.mg.key;
   if (key && key === ui.viewKey) return;
   if (ui.viewKey && ui.viewKey !== key && ui.mgCleanup) { ui.mgCleanup(); ui.mgCleanup = null; }
   ui.viewKey = key;
   const boardPhase = ['turn', 'rolling', 'moving', 'crown', 'event', 'fork', 'duel-pick', 'shop', 'bonus', 'end'].includes(ph);
-  const mg3d = (ph === 'mg-intro' || ph === 'mg-play') && S.mg && MG[S.mg.type].td && has3D() && !!window.MG3D;
+  const mg3d = (ph === 'mg-intro' || ph === 'mg-play' || ph === 'mg-count') && S.mg && MG[S.mg.type].td && has3D() && !!window.MG3D;
   if (!mg3d && window.MG3D) MG3D.stop();
   const use3d = (boardPhase && has3D()) || mg3d;
   document.body.classList.toggle('b3d', use3d);
   if (window.Board3D && Board3D.ok) Board3D.show(use3d);
   if (!use3d) window.scrollTo(0, 0);
   if (ph === 'lobby') app.innerHTML = viewLobby();
-  else if (ph === 'mg-intro') { if (mg3d) prepMg3d(); app.innerHTML = mg3d ? viewIntro3D() : viewIntro(); runCountdown(); }
+  else if (ph === 'mg-intro') { if (mg3d) prepMg3d(); app.innerHTML = mg3d ? viewIntro3D() : viewIntro(); runIntroBar(); }
+  else if (ph === 'mg-count') { if (mg3d) prepMg3d(); app.innerHTML = viewCount(); runBigCountdown(); }
   else if (ph === 'mg-play') {
     if (mg3d) { prepMg3d(); app.innerHTML = ''; let sent = false;
-      MG3D.start({ send, done: v => { if (sent) return; sent = true; send({t:'score', key:S.mg.key, v}); } }); }
+      MG3D.start({ send, practice: S.mg.practice, done: v => { if (sent) return; sent = true; send({t:'score', key:S.mg.key, v}); } }); }
     else { app.innerHTML = '<div class="mg" id="mg"></div>'; runMinigame(); }
   }
   else if (ph === 'mg-results') app.innerHTML = viewMgResults();
@@ -879,7 +912,7 @@ function afterBoard(){
   if (S.phase === 'turn' && c && c.id === myId && ui.buzz !== k) { ui.buzz = k; try { if (APP) APP.vibrate(250); else if (navigator.vibrate) navigator.vibrate([80, 60, 80]); } catch(e){} }
 }
 
-function prepMg3d(){ MG3D.prepare({ type:S.mg.type, seed:S.mg.seed, players:S.mg.players.map(id => S.players.find(p => p.id === id)), myId, dur:MG[S.mg.type].dur, key:S.mg.key, teams:S.mg.teams, format:S.mg.format }); }
+function prepMg3d(){ MG3D.prepare({ type:S.mg.type, seed:S.mg.seed, players:S.mg.players.map(id => S.players.find(p => p.id === id)), myId, dur:S.mg.dur || MG[S.mg.type].dur, key:S.mg.key, teams:S.mg.teams, format:S.mg.format }); }
 const FORMAT_NAME = { ffa: 'Todos contra todos', team: 'Equipos', '1vN': 'Uno contra todos', duel: '⚔️ Duelo' };
 function teamLine(ids, col){ return ids.map(id => { const p = S.players.find(x => x.id === id); return p ? `<span class="av" style="display:inline-block;width:28px;height:28px;border:2px solid ${col};border-radius:50%;vertical-align:middle">${avImg(p)}</span>` : ''; }).join(''); }
 function formatBanner(m){
@@ -891,12 +924,28 @@ function formatBanner(m){
     ${m.players.includes(myId) ? '' : '<div class="note">👀 No juegas este: ¡mira!</div>'}`;
 }
 function viewIntro3D(){
-  const d = MG[S.mg.type];
-  return `<div class="hud"><div></div><div class="hud-bottom glass" style="text-align:center">
+  const d = MG[S.mg.type], m = S.mg, mine = m.players.includes(myId), v = (m.votes || {})[myId];
+  const humans = m.players.map(id => S.players.find(p => p.id === id)).filter(p => p && !p.bot), np = humans.filter(p => m.votes[p.id] === 'practica').length;
+  return `<div class="hud"><div></div><div class="hud-bottom glass intro-card" style="text-align:center">
     <div class="note">¡MINIJUEGO!</div><div class="mgname">${d.icon} ${d.name}</div>
-    <div style="margin:8px 0">${d.desc}</div>
-    ${formatBanner(S.mg)}<div class="cd" id="cd">5</div></div></div>`;
+    <img class="gif" src="previews/${d.id}.webp" alt="" onerror="this.remove()">
+    <div style="margin:6px 0">${d.desc}</div>
+    ${formatBanner(m)}
+    ${mine ? (v ? `<div class="note" style="margin-top:6px">${v === 'practica' ? '🏋️ Votaste practicar' : '✅ ¡Listo!'} · Esperando a los demás…</div>`
+      : `<div class="row" style="margin-top:6px"><button class="sec" data-act="vote" data-v="practica">🏋️ Practicar</button><button data-act="vote" data-v="listo">✅ ¡Listo!</button></div>`) : ''}
+    ${humans.length > 1 ? `<div class="note">Votos para practicar: ${np} de ${humans.length}</div>` : ''}
+    <div class="bar" style="margin-top:6px"><div id="introbar" style="width:100%"></div></div></div></div>`;
 }
+function runIntroBar(){ const t0 = ui.introT0 && ui.introKey === S.mg.key ? ui.introT0 : (ui.introT0 = Date.now(), ui.introKey = S.mg.key, Date.now());
+  const it = setInterval(() => { const el = $('#introbar'); if (!el) return clearInterval(it); el.style.width = Math.max(0, 100 - (Date.now() - t0) / 140) + '%'; }, 120);
+  ui.mgCleanup = () => clearInterval(it); }
+function viewCount(){ const m = S.mg, d = MG[m.type];
+  return `<div class="bigcount"><div class="bc-title">${m.practice ? '🏋️ PRÁCTICA' : m.real ? '¡AHORA VA EN SERIO!' : d.icon + ' ' + d.name}</div><div class="bc-num" id="bcnum"></div></div>`; }
+function runBigCountdown(){ const t0 = Date.now(), steps = ['3', '2', '1', S.mg.practice ? '¡PRACTICA!' : '¡A JUGAR!'], cols = ['#ff6b6b', '#fcc419', '#51cf66', '#4dabf7']; let last = -1;
+  const it = setInterval(() => { const el = $('#bcnum'); if (!el) return clearInterval(it); const k = Math.min(3, Math.floor((Date.now() - t0) / 850));
+    if (k !== last) { last = k; el.textContent = steps[k]; el.style.color = cols[k]; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); el.classList.toggle('go', k === 3);
+      if (window.SFX) SFX.play(k === 3 ? 'go' : 'beep'); if (k === 3) document.body.classList.add('flashgo'), setTimeout(() => document.body.classList.remove('flashgo'), 400); } }, 50);
+  ui.mgCleanup = () => clearInterval(it); }
 function viewIntro(){
   const d = MG[S.mg.type];
   return `<div class="mg"><div class="note">¡MINIJUEGO!</div><div style="font-size:4rem">${d.icon}</div>
@@ -1089,6 +1138,7 @@ document.addEventListener('click', async e => {
   else if (act === 'rounds') send({t:'rounds', n:+b.dataset.v});
   else if (act === 'theme') send({t:'theme', v:b.dataset.v});
   else if (act === 'fast') send({t:'fast', v:b.dataset.v === '1'});
+  else if (act === 'vote') { send({t:'vote', v:b.dataset.v}); }
   else if (act === 'use') { send({t:'use', item:b.dataset.v}); }
   else if (act === 'buy') { b.parentNode.querySelectorAll('button').forEach(x => x.disabled = true); send({t:'buy', item:b.dataset.v}); }
   else if (act === 'fork') { b.parentNode.querySelectorAll('button').forEach(x => x.disabled = true); send({t:'fork', to:+b.dataset.v}); }
@@ -1125,5 +1175,6 @@ if (prevCode && me.name) startClient(prevCode); else render();
 <script type="module" src="mg3d.js"></script>
 <script type="module" src="mg3d2.js"></script>
 <script type="module" src="mg3d3.js"></script>
+<script type="module" src="mg3d4.js"></script>
 </body>
 </html>

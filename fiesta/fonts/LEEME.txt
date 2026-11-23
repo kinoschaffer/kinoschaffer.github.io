@@ -1,0 +1,3 @@
+Fuentes incluidas en Fiesta Tablero (uso libre):
+- Luckiest Guy, de Astigmatic. Licencia Apache 2.0.
+- Baloo 2, de Ek Type. Licencia SIL Open Font License 1.1.
