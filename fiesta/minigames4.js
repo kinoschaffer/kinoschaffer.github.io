@@ -8,6 +8,7 @@
     ['cara', 'tactil', 'Deforma la Cara', '🤪', 'Arrastra los ojos, la boca, la nariz y la cabeza hasta que la cara se parezca al ejemplo. ¡Gana el más parecido!', 25, { game: 'cara' }, ALL],
     ['dibujo', 'tactil', 'Dibuja de Memoria', '✏️', 'Verás un dibujo 3 segundos. Luego desaparece: ¡dibújalo con el dedo lo más parecido posible!', 28, { game: 'dibujo' }, ALL],
     ['fruta', 'tactil', 'Corta la Fruta', '🍉', 'Desliza el dedo para cortar la fruta que salta. Las doradas valen 3. ¡No cortes las bombas!', 25, { game: 'fruta' }, ALL],
+    ['cohetes', 'manivela', 'Cohetes a Manivela', '🚀', '¡Gira la manivela tocando el botón lo más rápido que puedas! Cuando se acabe el tiempo, los cohetes despegan: llega más alto el que dio más vueltas.', 22, {}, ALL],
     ['traza', 'tactil', 'Traza el Camino', '〰️', 'Sigue el camino con el dedo de principio a fin sin salirte. Cuentan la precisión y la rapidez.', 25, { game: 'traza' }, ALL],
   ];
   // ---- Cara: parámetros [mín, máx]
@@ -52,6 +53,14 @@
     bot(ctx, b, dt, now, net, H, { finish }) { b.sc = Math.round(b.plan * Math.min(1, now / b.planAt)); if (now >= b.planAt) finish(b, b.plan, 3); },
     final(ctx, id) { return ctx.bots[id] ? ctx.bots[id].plan : 0; },
   };
-  const X = window.MGX; X.cat.push(...cat); Object.assign(X.meta, { tactil: ['pts'] }); X.kinds.tactil = kind;
-  Object.assign(X.shared, { FACE, faceTarget, faceStart, faceScore, DRAWINGS, DKEYS, drawScore, fruits, fruitPos, FG, pathFor, PATH_W, distToPath, rngOf });
+  // ---- Cohetes a manivela: 13 s girando, después el despegue (el puntaje son las vueltas)
+  const CRANK = { spin: 13000, launch: 20500 };
+  const crankKind = {
+    spawn(i, n) { return [(i - (n - 1) / 2) * 2, 0.6]; },
+    botInit(ctx, b) { b.rate = [4.2, 5.6, 7][b.k] * (0.88 + Math.random() * 0.24); b.plan = Math.round(b.rate * CRANK.spin / 1000); },
+    bot(ctx, b, dt, now, net, H, { finish }) { b.sc = Math.min(b.plan, Math.round(b.rate * Math.max(0, now - 300) / 1000)); b.mv = now < CRANK.spin ? 1 : 0; if (now >= CRANK.launch) finish(b, b.plan, 3); },
+    final(ctx, id) { return ctx.bots[id] ? ctx.bots[id].plan : 0; },
+  };
+  const X = window.MGX; X.cat.push(...cat); Object.assign(X.meta, { tactil: ['pts'], manivela: ['count', 'vueltas'] }); X.kinds.tactil = kind; X.kinds.manivela = crankKind;
+  Object.assign(X.shared, { CRANK, FACE, faceTarget, faceStart, faceScore, DRAWINGS, DKEYS, drawScore, fruits, fruitPos, FG, pathFor, PATH_W, distToPath, rngOf });
 })();

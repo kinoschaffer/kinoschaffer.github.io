@@ -783,7 +783,7 @@ function setupControls() {
     const end = e => { if (e.pointerId !== jid) return; jid = null; joy.style.display = 'none'; G.input.x = 0; G.input.z = 0; };
     on(window, 'pointerup', end); on(window, 'pointercancel', end);
   } else if (ctrl === 'tap2') { btn('◀ IZQ', () => k.tap('L'), 'race'); btn('DER ▶', () => k.tap('R')); hint('¡Toca IZQ y DER alternando!'); }
-  else if (ctrl === 'mash') { btn('¡TOCA!', () => k.tap(), 'wide').style.width = '80%'; hint('¡Toca lo más rápido que puedas!'); }
+  else if (ctrl === 'mash') { btn(k.mashLabel || '¡TOCA!', () => k.tap(), 'wide').style.width = '80%'; hint(k.mashHint || '¡Toca lo más rápido que puedas!'); }
   else if (ctrl === 'lanes') { btn('◀', () => k.lane(-1), k.extra ? 'race race3' : 'race'); (k.extra ? k.extra() : []).forEach(([l, f]) => btn(l, f)); btn('▶', () => k.lane(1)); hint(G.kind === 'encaja' ? 'Cambia de carril · 🙇 para agacharte' : 'Cambia de carril: junta monedas y esquiva rocas'); }
   else if (ctrl === 'stop') { btn('✋ ¡ALTO!', () => k.onStop(), 'wide').style.width = '80%'; }
   else if (ctrl === 'buttons') refreshButtons();
@@ -909,7 +909,7 @@ function frame(dt, t) {
     if (st === 1 && ['bolas', 'meteoros', 'canon'].includes(G.kind)) ch.g.scale.set(cs * 1.3, cs * 0.15, cs * 1.3); else if (mv === 2) ch.g.scale.set(cs * 1.15, cs * 0.5, cs * 1.15); else ch.g.scale.setScalar(cs);
     if (st === 2 && ['monedas', 'meteoros'].includes(G.kind)) ch.g.rotation.y += dt * 12;
     if (st === 1 && ['cazador', 'papa'].includes(G.kind)) { ch.g.rotation.x = -1.4; ch.g.position.y = 0.2; } else ch.g.rotation.x = 0;
-    ch.g.visible = !(G.kind === 'tiro' || G.kind === 'bolos') && !(st === 1 && ch.g.position.y < -6);
+    ch.g.visible = !(G.kind === 'tiro' || G.kind === 'bolos') && !(st === 1 && ch.g.position.y < -6) && !(k.hideChars && k.hideChars(p.id));
     if (ch.label) ch.label.material.opacity = st === 1 ? 0.35 : 1;
   });
   // que nadie se pierda: flecha sobre mí y nombres más grandes cuando la cámara está lejos
