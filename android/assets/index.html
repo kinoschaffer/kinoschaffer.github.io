@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Juegos del Trono</title>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=EB+Garamond:wght@400;600&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#0d0b09;--stone:#2a241e;--stone2:#3a3128;--gold:#c9a44c;--gold2:#f0d58a;--ink:#eadfc8;--muted:#a89880}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -26,8 +25,9 @@ a.card:active{transform:scale(.98)}
 .apk{display:none;text-align:center;margin-top:18px}
 .apk a{font-family:Cinzel,serif;font-weight:700;color:var(--gold2);text-decoration:none;border:2px solid #7a6240;border-radius:8px;padding:10px 16px;background:linear-gradient(#4a3c2c,#2a221a)}
 </style>
+<link rel="stylesheet" href="win98.css">
 </head>
-<body>
+<body data-icon="🖥️">
 <div class="wrap">
   <div class="crown">👑</div>
   <h1>JUEGOS DEL TRONO</h1>
@@ -54,5 +54,6 @@ if(b2)document.getElementById('r2').textContent='👑 Récord: '+b2;
 if(b3)document.getElementById('r3').textContent='👑 Récord: '+b3;
 if(location.protocol.startsWith('http'))document.getElementById('apk').style.display='block';
 </script>
+<script src="win98.js"></script>
 </body>
 </html>

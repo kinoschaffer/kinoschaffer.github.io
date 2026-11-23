@@ -6,7 +6,7 @@ cd "$(dirname "$0")"
 SDK=${ANDROID_HOME:-/opt/android-sdk}; BT=$SDK/build-tools/34.0.0; JAR=$SDK/platforms/android-34/android.jar
 KEYSTORE=${KEYSTORE:-release.keystore}; OUT=${OUT:-../tronos/JuegosDelTrono.apk}
 B=$(mktemp -d); mkdir -p $B/classes $B/dex
-cp ../tronos/index.html ../tronos/lineas.html ../tronos/escarabajo.html ../tronos/linajes.html assets/
+cp ../tronos/*.html ../tronos/win98.css ../tronos/win98.js assets/
 $BT/aapt2 compile --dir res -o $B/res.zip
 $BT/aapt2 link -o $B/base.apk -I $JAR --manifest AndroidManifest.xml -A assets $B/res.zip
 javac -nowarn --release 8 -cp $JAR -d $B/classes src/com/lineasdeltrono/app/*.java

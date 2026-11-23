@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Líneas del Trono</title>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=EB+Garamond:wght@400;600&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#0d0b09; --stone:#2a241e; --stone2:#3a3128; --gold:#c9a44c; --gold2:#f0d58a;
@@ -74,8 +73,9 @@ th{font-family:Cinzel,serif;font-size:12px;color:var(--gold)}
 .crown{font-size:40px}
 .msg{min-height:22px;text-align:center;color:var(--gold);font-style:italic;margin-top:8px}
 </style>
+<link rel="stylesheet" href="win98.css">
 </head>
-<body>
+<body data-icon="🔴">
 <div class="wrap">
   <a class="back" href="index.html">← Menú</a>
   <h1>LÍNEAS DEL TRONO</h1>
@@ -340,5 +340,6 @@ $('houses').innerHTML=HOUSES.map((H,i)=>`<div class="house">${tokHTML(i)}<div><b
 newGame();
 })();
 </script>
+<script src="win98.js"></script>
 </body>
 </html>

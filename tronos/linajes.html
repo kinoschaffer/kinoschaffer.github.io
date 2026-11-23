@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Linajes</title>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=EB+Garamond:wght@400;600&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#0d0b09;--stone:#2a241e;--stone2:#3a3128;--gold:#c9a44c;--gold2:#f0d58a;--ink:#eadfc8;--muted:#a89880}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -29,8 +28,8 @@ h1{font-family:Cinzel,serif;font-weight:900;margin:0;font-size:clamp(22px,6vw,30
 .tile{display:flex;flex-direction:column;align-items:center;justify-content:center;transition:transform .11s ease-in-out;z-index:2;
   border:2px solid rgba(240,213,138,.5);box-shadow:0 3px 6px rgba(0,0,0,.6),inset 0 -4px 8px rgba(0,0,0,.3)}
 .tile .ic{font-size:clamp(22px,8vw,38px);line-height:1}
-.tile .nm{font-family:Cinzel,serif;font-weight:700;font-size:clamp(8px,2.4vw,11px);letter-spacing:.5px;margin-top:2px;color:#fff;text-shadow:0 1px 2px #000;white-space:nowrap}
-.tile .nu{font-family:Cinzel,serif;font-size:clamp(8px,2.2vw,10px);color:rgba(255,255,255,.75)}
+.tile .nm{font-weight:700;font-size:clamp(9px,2.6vw,12px);margin-top:2px;text-shadow:0 1px 2px #000;white-space:nowrap}
+.tile .nu{font-size:clamp(9px,2.4vw,11px)}
 .tile.new .in{animation:pop .18s ease-out}
 .tile.merged .in{animation:bump .2s ease-out}
 .in{display:flex;flex-direction:column;align-items:center}
@@ -51,8 +50,9 @@ button:disabled{opacity:.4}
 .modal h2{font-family:Cinzel,serif;color:var(--gold2);margin:0 0 8px}
 .modal .bar{margin-top:16px}
 </style>
+<link rel="stylesheet" href="win98.css">
 </head>
-<body>
+<body data-icon="🟦">
 <div class="wrap">
   <div class="top"><a class="back" href="index.html">← Menú</a><h1>LINAJES</h1><span style="width:50px"></span></div>
   <div class="sub">Une nobles del mismo rango hasta alcanzar el Trono</div>
@@ -77,9 +77,9 @@ button:disabled{opacity:.4}
 (()=>{
 const N=4;
 const RANKS=[null,
- ['🌾','Campesino','#7a6a4a'],['🛡️','Escudero','#8c7a52'],['🗡️','Soldado','#9a6b3a'],['🐴','Caballero','#a5562c'],
- ['🏰','Barón','#9c3b2a'],['🦅','Conde','#8a2b47'],['🦁','Duque','#6d2f7a'],['⚜️','Príncipe','#3f4598'],
- ['👑','Rey','#b8860b'],['🐉','Emperador','#a8231c'],['🏆','EL TRONO','#d4a017'],['🌟','Leyenda','#e0e0e0']];
+ ['🌾','Campesino','#c0c0c0'],['🛡️','Escudero','#ffff80'],['🗡️','Soldado','#808000'],['🐴','Caballero','#800000'],
+ ['🏰','Barón','#ff8040'],['🦅','Conde','#008000'],['🦁','Duque','#000080'],['⚜️','Príncipe','#00ffff'],
+ ['👑','Rey','#800080'],['🐉','Emperador','#ffff00'],['🏆','EL TRONO','#ff0000'],['🌟','Leyenda','#ffffff']];
 const $=id=>document.getElementById(id), board=$('board');
 function load(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}}
 function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
@@ -91,7 +91,7 @@ function tr(r,c){return `translate(calc(var(--g) + ${c} * (100% + var(--g))), ca
 function lvlInfo(l){return RANKS[Math.min(l,RANKS.length-1)]}
 function tileEl(t,cls){
   const el=document.createElement('div');const [ic,nm,col]=lvlInfo(t.l);
-  el.className='tile '+(cls||'');el.style.background=`radial-gradient(circle at 35% 25%,${col}ee,${col}88 60%,#1a120a)`;
+  el.className='tile '+(cls||'');el.style.background=col;const dark=[3,4,6,7,8,10].includes(Math.min(t.l,12));el.style.color=dark?'#fff':'#000';
   el.innerHTML=`<div class="in"><div class="ic">${ic}</div><div class="nm">${nm}</div><div class="nu">${2**t.l}</div></div>`;
   el.style.transform=tr(t.r,t.c);board.appendChild(el);tiles.set(t.id,el);return el;
 }
@@ -155,5 +155,6 @@ $('ranks').innerHTML=RANKS.slice(1).map((r,i)=>`<div>${r[0]} <b>${r[1]}</b> · $
 newGame();
 })();
 </script>
+<script src="win98.js"></script>
 </body>
 </html>

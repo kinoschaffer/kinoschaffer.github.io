@@ -1,0 +1,78 @@
+/* Tema Windows 98 compartido */
+:root{--face:#c0c0c0;--hl:#ffffff;--lt:#dfdfdf;--sh:#808080;--dk:#0a0a0a;--navy:#000080;--teal:#008080}
+*{font-family:"MS Sans Serif","Microsoft Sans Serif",Tahoma,"Segoe UI",Arial,sans-serif!important;letter-spacing:0!important}
+html,body{background:var(--teal)!important;color:#000!important}
+body{font-size:13px}
+.wrap{background:var(--face)!important;margin:8px auto!important;padding:3px 3px 10px!important;width:calc(100% - 12px)!important;align-self:flex-start;
+  box-shadow:inset -1px -1px var(--dk),inset 1px 1px var(--lt),inset -2px -2px var(--sh),inset 2px 2px var(--hl)!important}
+.wrap>*:not(.w98-title){margin-left:8px!important;margin-right:8px!important}
+.w98-title{display:flex;align-items:center;gap:4px;height:22px;padding:0 3px;margin-bottom:8px;
+  background:linear-gradient(90deg,var(--navy),#1084d0);color:#fff;font-weight:bold;font-size:13px;user-select:none}
+.w98-title .ti{font-size:14px;line-height:1}
+.w98-title .tt{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.w98-title .tb{width:16px;height:14px;background:var(--face);color:#000;font-size:10px;font-weight:bold;line-height:12px;text-align:center;text-decoration:none;
+  box-shadow:inset -1px -1px var(--dk),inset 1px 1px var(--hl),inset -2px -2px var(--sh),inset 2px 2px var(--lt)}
+.w98-title .tb.x{margin-left:2px}
+.w98-status{display:flex;gap:3px;margin-top:10px}
+.w98-status div{flex:1;padding:2px 4px;font-size:12px;box-shadow:inset -1px -1px var(--hl),inset 1px 1px var(--sh);white-space:nowrap;overflow:hidden}
+h1,.sub,.back,.top,.crown{display:none!important}
+/* botones */
+button,.apk a{background:var(--face)!important;color:#000!important;border:none!important;border-radius:0!important;font-size:13px!important;font-weight:normal!important;
+  padding:6px 14px!important;min-width:75px;text-shadow:none!important;transform:none!important;
+  box-shadow:inset -1px -1px var(--dk),inset 1px 1px var(--hl),inset -2px -2px var(--sh),inset 2px 2px var(--lt)!important}
+button:active,button.on{box-shadow:inset -1px -1px var(--hl),inset 1px 1px var(--dk),inset -2px -2px var(--lt),inset 2px 2px var(--sh)!important;padding:7px 13px 5px 15px!important}
+button:disabled{color:var(--sh)!important;text-shadow:1px 1px var(--hl)!important;opacity:1!important}
+/* paneles / contadores LED */
+.panel{background:var(--face)!important;border:none!important;border-radius:0!important;padding:4px!important;
+  box-shadow:inset -1px -1px var(--hl),inset 1px 1px var(--sh)!important}
+.panel .lbl,.lbl{color:#000!important;font-size:11px!important}
+.panel .val,.val{display:inline-block;background:#000!important;color:#ff0000!important;-webkit-text-fill-color:#ff0000;font-family:"Courier New",monospace!important;
+  font-weight:bold!important;padding:0 6px;margin-top:2px;min-width:70%;box-shadow:inset -1px -1px var(--hl),inset 1px 1px var(--sh)}
+.panel .who{color:#000!important}
+/* marcos hundidos */
+.board-frame,.frame{background:var(--face)!important;border-radius:0!important;padding:3px!important;
+  box-shadow:inset -1px -1px var(--hl),inset 1px 1px var(--sh),inset -2px -2px var(--lt),inset 2px 2px var(--dk)!important}
+details,.legend{background:var(--face)!important;border:1px solid var(--sh)!important;border-radius:0!important;box-shadow:1px 1px var(--hl),inset 1px 1px var(--hl);color:#000!important;padding:8px!important}
+summary{color:#000!important;font-weight:bold}
+.legend b,.house b,.ranks b{color:#000!important}
+.house,.ranks,.msg,.legend{color:#000!important}
+.msg{font-style:normal!important}
+td,th{border-bottom:1px solid var(--sh)!important;color:#000!important}
+/* diálogos */
+.overlay{background:transparent!important}
+.modal{background:var(--face)!important;border:none!important;border-radius:0!important;padding:3px 3px 14px!important;color:#000;
+  box-shadow:inset -1px -1px var(--dk),inset 1px 1px var(--lt),inset -2px -2px var(--sh),inset 2px 2px var(--hl),4px 4px 0 rgba(0,0,0,.4)!important}
+.modal h2{background:linear-gradient(90deg,var(--navy),#1084d0);color:#fff!important;-webkit-text-fill-color:#fff;font-size:13px!important;text-align:left;padding:3px 6px;margin:0 0 12px!important}
+.modal input{background:#fff!important;color:#000!important;border:none!important;border-radius:0!important;box-shadow:inset -1px -1px var(--hl),inset 1px 1px var(--sh),inset -2px -2px var(--lt),inset 2px 2px var(--dk)}
+.modal>*:not(h2){margin-left:10px;margin-right:10px}
+/* Líneas */
+.board{background:var(--sh)!important;border-radius:0!important}
+.cell{background:var(--face)!important;border-radius:0!important;
+  box-shadow:inset -1px -1px var(--dk),inset 1px 1px var(--hl),inset -2px -2px var(--sh),inset 2px 2px var(--lt)!important}
+.cell.path{background:#d4d0c8!important}
+.tok{box-shadow:1px 2px 2px rgba(0,0,0,.55)!important}
+.tok.sel{box-shadow:0 0 0 2px #000,1px 2px 2px rgba(0,0,0,.55)!important;outline:1px dotted #fff}
+.tok.small{box-shadow:none!important;opacity:.9!important}
+.next{background:var(--face);box-shadow:inset -1px -1px var(--hl),inset 1px 1px var(--sh);padding:3px}
+.float{color:#ffff00!important;-webkit-text-stroke:1px #000;text-shadow:none!important;font-weight:bold}
+/* Menú */
+a.card{background:var(--face)!important;border:none!important;border-radius:0!important;color:#000!important;
+  box-shadow:inset -1px -1px var(--dk),inset 1px 1px var(--hl),inset -2px -2px var(--sh),inset 2px 2px var(--lt)!important}
+a.card:active{box-shadow:inset -1px -1px var(--hl),inset 1px 1px var(--dk),inset -2px -2px var(--lt),inset 2px 2px var(--sh)!important}
+a.card h2{color:#000!important;font-size:14px!important;font-weight:bold}
+a.card p{color:#000!important;font-size:13px!important}
+a.card .rec{color:var(--navy)!important}
+a.card .ic{border-radius:0!important;width:48px!important;height:48px!important;font-size:30px!important;background:none!important;box-shadow:none!important}
+.apk a{display:inline-block;text-decoration:none}
+/* Escarabajo */
+canvas{border-radius:0!important;box-shadow:inset 0 0 0 0,-1px -1px var(--sh),1px 1px var(--hl)!important;border:2px solid;border-color:var(--sh) var(--hl) var(--hl) var(--sh)}
+.pad .mid{background:var(--face)!important;box-shadow:none!important}
+.pad button{min-width:0!important;padding:0!important;font-size:22px!important}
+.pad button:active,.pad button.on{padding:2px 0 0 2px!important}
+/* Linajes */
+.slot{background:var(--sh)!important;border-radius:0!important;box-shadow:inset 1px 1px var(--dk),inset -1px -1px var(--lt)!important}
+.tile{border:none!important;border-radius:0!important;
+  box-shadow:inset -1px -1px var(--dk),inset 1px 1px var(--hl),inset -2px -2px rgba(0,0,0,.4),inset 2px 2px rgba(255,255,255,.5)!important}
+.tile .nm{text-shadow:none!important}
+.tile .nu{font-family:"Courier New",monospace!important;font-weight:bold}
+.side button{min-width:0!important;padding:6px 8px!important}

@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Escarabajo Real</title>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=EB+Garamond:wght@400;600&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#0d0b09;--stone:#2a241e;--stone2:#3a3128;--gold:#c9a44c;--gold2:#f0d58a;--ink:#eadfc8;--muted:#a89880}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -37,8 +36,9 @@ button:active,button.on{transform:translateY(2px);box-shadow:0 1px 0 #120d08;bac
 .modal h2{font-family:Cinzel,serif;color:var(--gold2);margin:0 0 8px}
 .modal p{margin:6px 0 14px}
 </style>
+<link rel="stylesheet" href="win98.css">
 </head>
-<body>
+<body data-icon="🪲">
 <div class="wrap">
   <div class="top"><a class="back" href="index.html">← Menú</a><h1>ESCARABAJO REAL</h1><span style="width:50px"></span></div>
   <div class="hud">
@@ -60,7 +60,7 @@ button:active,button.on{transform:translateY(2px);box-shadow:0 1px 0 #120d08;bac
   <div class="legend">
     Recoge todas las <b>monedas</b> y <b>corazones</b> del castillo. Empuja las <b>puertas giratorias</b> (verdes) para pasar: tú puedes girarlas, los enemigos no.
     Cada <b>❤</b> aumenta el multiplicador (×2, ×3, ×5). Las <b>💀 calaveras</b> matan a quien las pisa, ¡también a los enemigos!
-    Cada vez que la línea dorada del borde completa una vuelta, sale un enemigo de la guarida. La <b>💎 gema</b> del centro vale 800.
+    Cada vez que la línea amarilla del borde completa una vuelta, sale un enemigo de la guarida. La <b>💎 gema</b> del centro vale 800.
   </div>
 </div>
 <div class="overlay" id="over"><div class="modal">
@@ -230,34 +230,34 @@ function resize(){
 const cx=x=>M+(x+0.5)*S, cy=y=>M+(y+0.5)*S;
 function draw(){
   const w=cv.width/dpr;
-  ctx.fillStyle='#120e0a';ctx.fillRect(0,0,w,w);
+  ctx.fillStyle='#c0c0c0';ctx.fillRect(0,0,w,w);
   // timer border
   ctx.lineWidth=M*0.55;ctx.lineCap='butt';
-  ctx.strokeStyle='#2c241b';ctx.strokeRect(M/2,M/2,w-M,w-M);
-  const L=(w-M)*4,p=timer*L;ctx.strokeStyle='#e0b850';ctx.beginPath();
+  ctx.strokeStyle='#808080';ctx.strokeRect(M/2,M/2,w-M,w-M);
+  const L=(w-M)*4,p=timer*L;ctx.strokeStyle='#ffff00';ctx.beginPath();
   const pts=[[w/2,M/2],[w-M/2,M/2],[w-M/2,w-M/2],[M/2,w-M/2],[M/2,M/2],[w/2,M/2]];
   let rem=p;ctx.moveTo(pts[0][0],pts[0][1]);
   for(let i=1;i<pts.length&&rem>0;i++){const [ax,ay]=pts[i-1],[bx,by]=pts[i],len=Math.hypot(bx-ax,by-ay),f=Math.min(1,rem/len);ctx.lineTo(ax+(bx-ax)*f,ay+(by-ay)*f);rem-=len;}
   ctx.stroke();
   // floor
-  for(let y=0;y<H;y++)for(let x=0;x<W;x++){ctx.fillStyle=(x+y)%2?'#1e1812':'#211a14';ctx.fillRect(M+x*S,M+y*S,S,S);}
-  ctx.fillStyle='#3a1414';ctx.fillRect(M+LX*S+2,M+LY*S+2,S-4,S-4);
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){ctx.fillStyle='#000';ctx.fillRect(M+x*S,M+y*S,S,S);}
+  ctx.fillStyle='#800000';ctx.fillRect(M+LX*S+2,M+LY*S+2,S-4,S-4);
   // items
   ctx.textAlign='center';ctx.textBaseline='middle';
   for(let y=0;y<H;y++)for(let x=0;x<W;x++){const it=items[y][x];if(!it)continue;
-    if(it===1){ctx.fillStyle='#e8c66a';ctx.beginPath();ctx.arc(cx(x),cy(y),S*0.09,0,7);ctx.fill();}
+    if(it===1){ctx.fillStyle='#ffff00';ctx.beginPath();ctx.arc(cx(x),cy(y),S*0.08,0,7);ctx.fill();}
     else{ctx.font=`${S*0.5}px serif`;ctx.fillText(it===2?'❤️':'💀',cx(x),cy(y)+1);}}
   if(gem&&(gem.t>2||Math.floor(gem.t*6)%2)){ctx.font=`${S*0.6}px serif`;ctx.fillText('💎',cx(gem.x),cy(gem.y));}
   // walls
-  ctx.strokeStyle='#8a7354';ctx.lineWidth=Math.max(3,S*0.14);ctx.lineCap='round';ctx.beginPath();
+  ctx.strokeStyle='#0000ff';ctx.lineWidth=Math.max(3,S*0.14);ctx.lineCap='round';ctx.beginPath();
   for(let x=0;x<=W;x++)for(let y=0;y<H;y++)if(vW[x][y]){ctx.moveTo(M+x*S,M+y*S);ctx.lineTo(M+x*S,M+(y+1)*S);}
   for(let y=0;y<=H;y++)for(let x=0;x<W;x++)if(hW[y][x]){ctx.moveTo(M+x*S,M+y*S);ctx.lineTo(M+(x+1)*S,M+y*S);}
   ctx.stroke();
   // gates
   for(const g of gates){const px=M+g.gx*S,py=M+g.gy*S,r=S*0.92;
     const ax=Math.sin(g.ang)*r,ay=Math.cos(g.ang)*r;
-    ctx.strokeStyle='#4fb35a';ctx.lineWidth=Math.max(3,S*0.12);ctx.beginPath();ctx.moveTo(px-ax,py-ay);ctx.lineTo(px+ax,py+ay);ctx.stroke();
-    ctx.fillStyle='#c9a44c';ctx.beginPath();ctx.arc(px,py,S*0.1,0,7);ctx.fill();}
+    ctx.strokeStyle='#00ff00';ctx.lineWidth=Math.max(3,S*0.12);ctx.beginPath();ctx.moveTo(px-ax,py-ay);ctx.lineTo(px+ax,py+ay);ctx.stroke();
+    ctx.fillStyle='#ffffff';ctx.beginPath();ctx.arc(px,py,S*0.1,0,7);ctx.fill();}
   // enemies
   for(const e of enemies){
     let ep;if(e.act)ep=pos(e);else if(enemies.filter(z=>!z.act)[0]===e&&state!=='clear')ep={x:LX,y:LY};else continue;
@@ -271,7 +271,7 @@ function draw(){
     if(state==='dying'){rot+=stateT*12;ctx.globalAlpha=Math.max(0,1-stateT/1.6);}
     ctx.rotate(rot);drawScarab(S*0.4);ctx.restore();}
   if(state==='clear'||(state==='play'&&paused)){ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillRect(0,0,w,w);
-    ctx.fillStyle='#f0d58a';ctx.font=`900 ${S*0.9}px Cinzel,serif`;ctx.fillText(paused?'PAUSA':'¡NIVEL SUPERADO!',w/2,w/2);}
+    ctx.fillStyle='#ffff00';ctx.font=`bold ${S*0.8}px 'MS Sans Serif',Tahoma,sans-serif`;ctx.fillText(paused?'PAUSA':'¡NIVEL SUPERADO!',w/2,w/2);}
 }
 function drawScarab(r){
   // legs
@@ -320,5 +320,6 @@ $('over').classList.add('show');
 requestAnimationFrame(t=>{last=t;frame(t)});
 })();
 </script>
+<script src="win98.js"></script>
 </body>
 </html>
