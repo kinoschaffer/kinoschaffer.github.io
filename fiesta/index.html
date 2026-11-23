@@ -626,7 +626,7 @@ function beginMgPlay(){
       H.mgNet = {pos:{}, taken:{}, counts:{}, ev:[], team:null}; H.mgT0 = performance.now(); H.mgLast = 0;
       const ps = s.mg.players.map(findP);
       H.mgCtx = MGL.host.init(type, s.mg.seed, ps, dur, s.mg.teams, s.mg.format);
-      clearInterval(H.mgLoop); H.mgLoop = setInterval(hostMgTick, 100);
+      clearInterval(H.mgLoop); H.mgLoop = setInterval(hostMgTick, 50); // 20 veces por segundo: más fluido
       return;
     }
     s.mg.players.map(findP).filter(p => p.bot).forEach(b => setTimeout(() => {

@@ -228,7 +228,7 @@
     return false;
   }
   const waveForce = now => { const t = now / 1000, g = 1 + t / 7; return [(Math.sin(t * 0.8) * 3.4 + Math.sin(t * 1.9) * 1.3) * g, (Math.cos(t * 0.6) * 3.1 + Math.sin(t * 1.3) * 1.0) * g]; };
-  const PUSH = { r: 1.0, power: 9.5, dash: 10.5, dashMs: 260, cool: 1100 };
+  const PUSH = { r: 1.1, power: 13, dash: 12.5, dashMs: 300, cool: 900 };
 
   // ---------- Saltarines
   const SAL = { hop: 330 };
@@ -429,6 +429,7 @@
           const nx = dx / d, nz = dz / d, pw = da && dc ? PUSH.power * 0.6 : PUSH.power;
           const imp = (id, vx, vz) => { if (ctx.bots[id]) { ctx.bots[id].vx += vx; ctx.bots[id].vz += vz; } else net.x.push[id] = [++ctx.pushSeq, +vx.toFixed(2), +vz.toFixed(2)]; };
           if (da) imp(ids[j], nx * pw, nz * pw); if (dc) imp(ids[i], -nx * pw, -nz * pw);
+          net.x.hit = [(ctx.hitSeq = (ctx.hitSeq || 0) + 1), +((a[0] + c[0]) / 2).toFixed(2), +((a[1] + c[1]) / 2).toFixed(2), ids[i], ids[j]]; // para mostrar el choque a todos
         }
       }
       if (kind === 'sumo') { const live = ctx.players.filter(id => alive(id));
@@ -582,13 +583,13 @@
           case 'colina': {
             const [zx, zz, zr] = zoneAt(ctx.seed, now + [700, 350, 100][k], p);
             if (b.retarget <= 0) { b.retarget = [0.5, 0.3, 0.15][k];
-              if (now > (b.wanderUntil || 0) && Math.random() < [0.12, 0.06, 0.025][k]) { b.wanderUntil = now + 1800; b.wx = (Math.random() * 2 - 1) * 5; b.wz = (Math.random() * 2 - 1) * 5; }
+              if (now > (b.wanderUntil || 0) && Math.random() < [0.12, 0.06, 0.025][k] * dt * 10) { b.wanderUntil = now + 1800; b.wx = (Math.random() * 2 - 1) * 5; b.wz = (Math.random() * 2 - 1) * 5; }
               if (now < (b.wanderUntil || 0)) { b.tx = b.wx; b.tz = b.wz; } else { b.tx = zx + (Math.random() - 0.5) * zr; b.tz = zz + (Math.random() - 0.5) * zr; } }
             if (b.respawn && now < b.respawn) { b.st = 1; b.y = Math.max(-6, b.y - dt * 9); break; } if (b.respawn) { b.respawn = 0; b.x = 0; b.z = 0; b.y = 0; b.vx = b.vz = 0; b.st = 0; }
             go(b.tx, b.tz, SPEED * [0.6, 0.75, 0.9][k]);
             if (p.push) { const f = Math.exp(-dt * 3.6); b.x += b.vx * dt; b.z += b.vz * dt; b.vx *= f; b.vz *= f;
               for (const id of ctx.players) { if (id === b.id) continue; const a = posOf(id); if (!a) continue; const d = Math.hypot(a[0] - b.x, a[1] - b.z);
-                if (d < 2 && now > (b.nextDash || 0) && Math.random() < [0.02, 0.04, 0.07][k]) { b.vx += (a[0] - b.x) / (d || 1) * PUSH.dash; b.vz += (a[1] - b.z) / (d || 1) * PUSH.dash; net.x.dash[b.id] = now + PUSH.dashMs; b.nextDash = now + PUSH.cool; } } }
+                if (d < 2 && now > (b.nextDash || 0) && Math.random() < [0.02, 0.04, 0.07][k] * dt * 10) { b.vx += (a[0] - b.x) / (d || 1) * PUSH.dash; b.vz += (a[1] - b.z) / (d || 1) * PUSH.dash; net.x.dash[b.id] = now + PUSH.dashMs; b.nextDash = now + PUSH.cool; } } }
             if (fellOff('colina', p, now, b.x, b.z)) b.respawn = now + 1500;
             const [cx, cz, cr] = zoneAt(ctx.seed, now, p); if (Math.hypot(b.x - cx, b.z - cz) < cr) b.sc += dt * 1000; break; }
           case 'laberinto': {
@@ -597,12 +598,12 @@
             if (mz.cellAt(b.x, b.z) === mz.exit) finish(b, Math.round(now), 3); break; }
           case 'tiro': {
             if (b.retarget <= 0) { b.retarget = [0.75, 0.5, 0.32][k];
-              const avail = ctx.targets.filter(c => targetActive(c, now) && net.taken[c.id] == null && now - c.t > [600, 400, 250][k] && (!c.bad || Math.random() < [0.3, 0.15, 0.05][k]));
+              const avail = ctx.targets.filter(c => targetActive(c, now) && net.taken[c.id] == null && now - c.t > [600, 400, 250][k] && (!c.bad || Math.random() < [0.3, 0.15, 0.05][k] * dt * 10));
               if (avail.length && Math.random() < 0.85) host.action(ctx, b.id, { t: 'mggrab', id: avail[0].id }, now, net); }
             b.sc = net.counts[b.id] || 0; break; }
           case 'cuerda': { b.taps += dt * [5.5, 7.5, 9.5][k] * b.speedN; b.mv = 1; b.sc = Math.round(b.taps); break; }
           case 'sumo': {
-            const ice = !!p.ice, acc = ice ? 9 : 16, fr = ice ? 0.9 : p.tilt ? 2.2 : 3.6, R = p.tilt ? RAFT - 1.2 : sumoR(p, now) - 1;
+            const ice = !!p.ice, acc = ice ? 13 : 16, fr = ice ? 1.15 : p.tilt ? 2.2 : 3.6, R = p.tilt ? RAFT - 1.2 : sumoR(p, now) - 1;
             let tx = 0, tz = 0, near = null, nd = 1e9;
             for (const id of ctx.players) { if (id === b.id || !alive(id)) continue; const a = posOf(id); const d = Math.hypot(a[0] - b.x, a[1] - b.z); if (d < nd) { nd = d; near = a; } }
             if (near && (live || Math.random() < 0.5)) { tx = near[0] * 0.6; tz = near[1] * 0.6; if (Math.hypot(b.x, b.z) > R) { tx = 0; tz = 0; } }
@@ -610,7 +611,7 @@
             const dx = tx - b.x, dz = tz - b.z, dl = Math.hypot(dx, dz) || 1;
             b.vx += dx / dl * acc * [0.7, 0.85, 1][k] * dt; b.vz += dz / dl * acc * [0.7, 0.85, 1][k] * dt;
             if (p.tilt) { const [wx, wz] = waveForce(now); b.vx += wx * dt; b.vz += wz * dt; }
-            if (near && nd < 2.4 && now > (b.nextDash || 0) && Math.random() < [0.02, 0.05, 0.09][k]) { const ux = (near[0] - b.x) / nd, uz = (near[1] - b.z) / nd; b.vx += ux * PUSH.dash; b.vz += uz * PUSH.dash; net.x.dash[b.id] = now + PUSH.dashMs; b.nextDash = now + PUSH.cool; }
+            if (near && nd < 2.4 && now > (b.nextDash || 0) && Math.random() < [0.02, 0.05, 0.09][k] * dt * 10) { const ux = (near[0] - b.x) / nd, uz = (near[1] - b.z) / nd; b.vx += ux * PUSH.dash; b.vz += uz * PUSH.dash; net.x.dash[b.id] = now + PUSH.dashMs; b.nextDash = now + PUSH.cool; }
             const f = Math.exp(-dt * fr); b.vx *= f; b.vz *= f; b.x += b.vx * dt; b.z += b.vz * dt; b.mv = Math.hypot(b.vx, b.vz) > 0.4 ? 1 : 0; if (b.mv) b.ry = Math.atan2(b.vx, b.vz);
             if (fellOff('sumo', p, now, b.x, b.z)) finish(b, Math.round(now));
             break; }

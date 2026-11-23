@@ -251,28 +251,68 @@ M.register('bolos', {
 
 // ===== Ritmo
 const LANE_COL = ['#ff6b6b', '#4dabf7', '#51cf66', '#fcc419'], ARROWS = ['⬅', '⬇', '⬆', '➡'];
+// Flecha grande con contorno (blanco y oscuro) para el juego de ritmo
+const ROT = [-90, 180, 0, 90];
+const arrowSvg = (lane, fill, ghost) => `<svg viewBox="0 0 100 100" style="width:100%;height:100%;transform:rotate(${ROT[lane]}deg);overflow:visible">
+  <path d="M50 6 L94 50 L68 50 L68 94 L32 94 L32 50 L6 50 Z" fill="none" stroke="#1e0b3a" stroke-width="20" stroke-linejoin="round"/>
+  <path d="M50 6 L94 50 L68 50 L68 94 L32 94 L32 50 L6 50 Z" fill="${ghost ? 'rgba(255,255,255,.08)' : fill}" stroke="${ghost ? fill : '#fff'}" stroke-width="8" stroke-linejoin="round"/>
+  ${ghost ? '' : '<path d="M50 18 L80 48 L58 48 L58 60 L42 60 L42 48 L20 48 Z" fill="rgba(255,255,255,.35)"/>'}</svg>`;
+const rcss = document.createElement('style');
+rcss.textContent = `#mgui .rit{position:absolute;left:6px;right:6px;top:calc(env(safe-area-inset-top) + 104px);bottom:calc(env(safe-area-inset-bottom) + 8px);display:flex;gap:6px}
+#mgui .rit .ln{position:relative;flex:1;border-radius:16px;background:linear-gradient(rgba(20,8,48,.35),rgba(20,8,48,.75));box-shadow:inset 0 0 0 2px rgba(255,255,255,.08);overflow:hidden}
+#mgui .rit .rc{position:absolute;left:8%;right:8%;aspect-ratio:1;bottom:var(--hit);transform:translateY(50%);opacity:.9;transition:transform .08s}
+#mgui .rit .rc.on{transform:translateY(50%) scale(1.18);filter:brightness(1.6) drop-shadow(0 0 14px var(--c))}
+#mgui .rit .nt{position:absolute;left:6%;right:6%;aspect-ratio:1;top:0;will-change:transform;filter:drop-shadow(0 4px 0 rgba(0,0,0,.35))}
+#mgui .rit .pad{position:absolute;left:0;right:0;bottom:0;height:var(--pad);pointer-events:auto;touch-action:none;border-radius:16px;background:var(--c);opacity:.22}
+#mgui .rit .pad.on{opacity:.5}
+#mgui .rit .jd{position:absolute;left:0;right:0;text-align:center;bottom:calc(var(--hit) + 50px);font:400 1.05rem 'Luckiest Guy',sans-serif;color:#fff;-webkit-text-stroke:3px #1e0b3a;paint-order:stroke fill;animation:jd .5s ease-out forwards;pointer-events:none}
+@keyframes jd{0%{transform:scale(1.5);opacity:1}100%{transform:translateY(-30px) scale(1);opacity:0}}
+#mgui .rit-combo{position:absolute;left:0;right:0;top:34%;text-align:center;font:400 3rem 'Luckiest Guy',sans-serif;color:#fcc419;-webkit-text-stroke:5px #1e0b3a;paint-order:stroke fill;pointer-events:none;opacity:.9}
+#mgui .rit-combo small{display:block;font-size:1rem;color:#fff}`;
+document.head.appendChild(rcss);
+const TRAVEL = 1700, PERF = 90, GOOD = 180;
+
 M.register('ritmo', {
-  ctrl: 'buttons', stage: true, cam: [0, 3, 7.5], look: [0, 1.2, -2],
+  ctrl: 'ritmo', stage: true, cam: [0, 3, 7.5], look: [0, 1.2, -2],
   build(sc) { const g = G(); sc.scene.background = new THREE.Color(0x1e0b3a); sc.scene.fog = null;
     const stage = mesh(new THREE.CylinderGeometry(5, 5.4, 0.5, 32), mat(0x7048e8, { flatShading: false })); stage.position.set(0, -0.25, -2); sc.scene.add(stage);
     sc.lights = [0, 1, 2, 3].map(i => { const l = new THREE.PointLight(new THREE.Color(LANE_COL[i]), 0, 8); l.position.set(-3 + i * 2, 3, -1); sc.scene.add(l); return l; });
-    sc.notes = XS.chart(g.seed, g.dur); sc.hit = new Set(); sc.score = 0; sc.combo = 0;
-    if (g.me && g.hud == null) {} },
-  buttons() { return [0, 1, 2, 3].map(i => `<button data-i="${i}" style="background:${LANE_COL[i]};width:22%;height:80px;font-size:2rem">${ARROWS[i]}</button>`).join(''); },
-  onButton(i) { const g = G(), sc = g.sc, now = g.now; let best = null, bd = 1e9;
-    sc.notes.forEach((n, k) => { if (n.lane !== i || sc.hit.has(k)) return; const d = Math.abs(n.t - now); if (d < bd) { bd = d; best = k; } });
-    if (best != null && bd < 230) { sc.hit.add(best); const pts = bd < 110 ? 3 : 1; sc.score += pts; sc.combo++; X(pts === 3 ? 'coin' : 'tap'); flash(pts === 3 ? '✨ ¡Perfecto!' : '👍 Bien', 300); sc.lights[i].intensity = 40; }
-    else { sc.combo = 0; X('bad'); } },
-  tick(dt, now, m) { const g = G(); m.sc = g.sc.score; m.mv = 1;
-    if (!g.noteLayer && g.hud) { const lay = document.createElement('div'); lay.style.cssText = 'position:absolute;left:4%;right:4%;top:15%;bottom:150px;pointer-events:none'; lay.innerHTML = '<div style="position:absolute;left:0;right:0;bottom:0;height:4px;background:#fff;opacity:.8;border-radius:2px"></div>'; g.hud.appendChild(lay); g.noteLayer = lay; g.noteEls = {}; }
-    if (g.noteLayer) { const H = g.noteLayer.clientHeight, sc = g.sc;
-      sc.notes.forEach((n, k) => { const dtn = n.t - now; const show = dtn < 1800 && dtn > -250 && !sc.hit.has(k); let el = g.noteEls[k];
-        if (show && !el) { el = g.noteEls[k] = document.createElement('div'); el.textContent = ARROWS[n.lane]; el.style.cssText = `position:absolute;width:22%;left:${n.lane * 26}%;text-align:center;font-size:2rem;font-weight:900;color:${LANE_COL[n.lane]};text-shadow:0 0 8px #000`; g.noteLayer.appendChild(el); }
-        if (el) { if (!show) { el.remove(); delete g.noteEls[k]; } else el.style.top = (H - dtn / 1800 * H - 30) + 'px'; } }); }
-    g.sc.lights.forEach(l => l.intensity *= 0.9);
-    if (now >= g.dur - 300 && !g.finished) done(g.sc.score, `🎵 ${g.sc.score} puntos`); },
-  hud() { const sc = G().sc; return `🎵 Puntos: ${sc.score} · Combo: ${sc.combo}`; },
+    sc.notes = XS.chart(g.seed, g.dur); sc.hit = new Set(); sc.miss = new Set(); sc.score = 0; sc.combo = 0; },
+  setupLanes() { const g = G(), sc = g.sc, box = document.createElement('div'); box.className = 'rit'; sc.lanes = [];
+    for (let i = 0; i < 4; i++) { const ln = document.createElement('div'); ln.className = 'ln'; ln.style.setProperty('--c', LANE_COL[i]);
+      ln.innerHTML = `<div class="rc">${arrowSvg(i, LANE_COL[i], true)}</div><div class="pad"></div>`; box.appendChild(ln);
+      const pad = ln.querySelector('.pad'), down = e => { e.preventDefault(); this.onButton(i); pad.classList.add('on'); }, up = () => pad.classList.remove('on');
+      pad.addEventListener('pointerdown', down); pad.addEventListener('pointerup', up); pad.addEventListener('pointercancel', up); pad.addEventListener('pointerleave', up);
+      sc.lanes.push({ ln, rc: ln.querySelector('.rc'), notes: {} }); }
+    const combo = document.createElement('div'); combo.className = 'rit-combo'; box.appendChild(combo); sc.comboEl = combo;
+    g.hud.appendChild(box); sc.box = box;
+    const keyMap = { ArrowLeft: 0, ArrowDown: 1, ArrowUp: 2, ArrowRight: 3, a: 0, s: 1, w: 2, d: 3 };
+    sc.onKey = e => { if (e.repeat || !(e.key in keyMap)) return; this.onButton(keyMap[e.key]); }; window.addEventListener('keydown', sc.onKey);
+    this.layout(); },
+  layout() { const sc = G().sc, W = sc.box.clientWidth / 4, H = sc.box.clientHeight, pad = Math.min(130, Math.max(90, H * 0.17));
+    sc.H = H; sc.noteSize = W * 0.88; sc.hitY = H - pad / 2; sc.box.style.setProperty('--pad', pad + 'px'); sc.box.style.setProperty('--hit', pad / 2 + 'px'); },
+  judge(i, txt, col) { const sc = G().sc, el = document.createElement('div'); el.className = 'jd'; el.textContent = txt; el.style.color = col; sc.lanes[i].ln.appendChild(el); setTimeout(() => el.remove(), 520); },
+  onButton(i) { const g = G(), sc = g.sc, now = g.now; if (!sc.lanes || g.finished) return; let best = null, bd = 1e9;
+    sc.notes.forEach((n, k) => { if (n.lane !== i || sc.hit.has(k) || sc.miss.has(k)) return; const d = Math.abs(n.t - now); if (d < bd) { bd = d; best = k; } });
+    const rc = sc.lanes[i].rc; rc.classList.add('on'); setTimeout(() => rc.classList.remove('on'), 110);
+    if (best != null && bd < GOOD) { sc.hit.add(best); const perf = bd < PERF; sc.combo++; const pts = (perf ? 3 : 1) + (sc.combo >= 10 ? 1 : 0); sc.score += pts;
+      X(perf ? 'coin' : 'tap'); this.judge(i, perf ? '¡PERFECTO!' : 'BIEN', perf ? '#fcc419' : '#8ce99a'); sc.lights[i].intensity = 40;
+      const el = sc.lanes[i].notes[best]; if (el) { el.remove(); delete sc.lanes[i].notes[best]; } if (perf) A.buzz(12); }
+    else { sc.combo = 0; X('bad'); this.judge(i, 'FALLO', '#ff6b6b'); } },
+  tick(dt, now, m) { const g = G(), sc = g.sc; m.sc = sc.score; m.mv = 1; if (!sc.lanes && g.hud) this.setupLanes(); if (!sc.lanes) return;
+    if (Math.abs(sc.box.clientHeight - sc.H) > 2) this.layout();
+    const travel = sc.hitY + sc.noteSize / 2;
+    sc.notes.forEach((n, k) => { const L0 = sc.lanes[n.lane], dtn = n.t - now; let el = L0.notes[k];
+      if (!sc.hit.has(k) && !sc.miss.has(k) && dtn < -GOOD) { sc.miss.add(k); if (sc.combo >= 3) this.judge(n.lane, 'FALLO', '#ff6b6b'); sc.combo = 0; }
+      const show = dtn < TRAVEL && dtn > -260 && !sc.hit.has(k);
+      if (show && !el) { el = L0.notes[k] = document.createElement('div'); el.className = 'nt'; el.innerHTML = arrowSvg(n.lane, LANE_COL[n.lane]); L0.ln.insertBefore(el, L0.rc); }
+      if (el) { if (!show) { el.remove(); delete L0.notes[k]; } else { const y = sc.hitY - sc.noteSize / 2 - dtn / TRAVEL * travel; el.style.transform = `translateY(${y}px)`; el.style.opacity = sc.miss.has(k) ? 0.35 : 1; } } });
+    sc.comboEl.innerHTML = sc.combo >= 5 ? `${sc.combo}<small>COMBO${sc.combo >= 10 ? ' ×2' : ''}</small>` : '';
+    sc.lights.forEach(l => l.intensity *= 0.9);
+    if (now >= g.dur - 300 && !g.finished) done(sc.score, `🎵 ${sc.score} puntos`); },
+  hud() { const sc = G().sc; return `🎵 Toca la flecha cuando llegue a su silueta · Combo ${sc.combo}`; },
   final: () => G().sc.score,
+  stopX() { const sc = G() && G().sc; if (sc && sc.onKey) window.removeEventListener('keydown', sc.onKey); },
 });
 
 // ===== Encaja la Figura

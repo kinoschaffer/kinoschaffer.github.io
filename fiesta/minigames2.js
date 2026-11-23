@@ -17,7 +17,7 @@
     ['escalada', 'escalada', 'Escalada de Lava', '🧗', 'Salta de plataforma en plataforma hacia arriba: ¡la lava sube! Gana quien llegue más alto.', 40, {}],
     ['karts', 'karts', 'Karts', '🏎️', 'Dos vueltas al circuito. Mantén ACELERAR y gira con ◀ ▶. La pista tiene bordes. Las flechas amarillas dan turbo.', 45, {}],
     ['bolos', 'bolos', 'Bolos', '🎳', 'Toca para fijar la dirección y otra vez para la fuerza. 4 tiros: ¡derriba todos los pinos!', 40, {}],
-    ['ritmo', 'ritmo', 'Ritmo Fiestero', '🎵', 'Toca la flecha correcta cuando llegue a la línea. ¡Al compás!', 30, {}],
+    ['ritmo', 'ritmo', 'Ritmo Fiestero', '🎵', 'Toca la flecha cuando llegue a su silueta. Perfecto vale 3 y con combo de 10 ganas extra. ¡Al compás!', 30, {}],
     ['encaja', 'encaja', 'Encaja la Figura', '🧱', 'Llegan paredes con un hueco: cámbiate de carril y AGÁCHATE si el hueco es bajo. Tienes 3 vidas.', 35, {}],
   ];
   const meta = { futbol: ['goals'], relevos: ['count', 'metros'], voley: ['pts'], escondite: ['tag'], gigante: ['tag'], portero: ['count', 'puntos'],
@@ -97,7 +97,7 @@
         const sp = SP * [0.7, 0.85, 0.97][b.k];
         if (attacker) { const tx = bl.x - dirX * 0.7, tz = bl.z - (bl.z - 0) * 0.15; const d = Math.hypot(tx - b.x, tz - b.z);
           if (d > 0.4) go(tx, tz, sp); else go(bl.x + dirX, bl.z, sp);
-          if (Math.hypot(bl.x - b.x, bl.z - b.z) < 1.3 && Math.sign(bl.x - b.x) === dirX && now > (b.nextDash || 0) && Math.random() < [0.05, 0.1, 0.18][b.k]) { net.x.dash[b.id] = now + 300; b.nextDash = now + 1200; } }
+          if (Math.hypot(bl.x - b.x, bl.z - b.z) < 1.3 && Math.sign(bl.x - b.x) === dirX && now > (b.nextDash || 0) && Math.random() < [0.05, 0.1, 0.18][b.k] * dt * 10) { net.x.dash[b.id] = now + 300; b.nextDash = now + 1200; } }
         else go(-dirX * FUT.hx * 0.55 + (bl.x + dirX * FUT.hx) * 0.15, bl.z * 0.6, sp * 0.9);
         b.sc = ctx.goals[t];
       },
@@ -272,7 +272,7 @@
       bot(ctx, b, dt, now, net, H, { finish }) { b.sc = Math.round(b.plan * Math.min(1, now / b.planAt)); if (now >= b.planAt) finish(b, b.plan, 3); },
       final(ctx, id) { return ctx.bots[id] ? ctx.bots[id].plan : 0; } },
     ritmo: { spawn(i, n) { return [(i - (n - 1) / 2) * 1.6, -2]; },
-      botInit(ctx, b) { const max = chart(ctx.seed, ctx.dur).length * 3; b.plan = Math.round(max * [0.45, 0.62, 0.8][b.k] * (0.9 + Math.random() * 0.2)); },
+      botInit(ctx, b) { const max = chart(ctx.seed, ctx.dur).length * 3.6; /* con bonus de combo */ b.plan = Math.round(max * [0.45, 0.62, 0.8][b.k] * (0.9 + Math.random() * 0.2)); },
       bot(ctx, b, dt, now) { b.sc = Math.round(b.plan * Math.min(1, now / ctx.dur)); b.mv = 1; },
       final(ctx, id) { return ctx.bots[id] ? ctx.bots[id].plan : 0; } },
     encaja: { spawn(i, n) { return [(i % 3 - 1) * 1.6, 2]; },
