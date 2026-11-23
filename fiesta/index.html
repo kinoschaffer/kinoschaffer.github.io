@@ -121,6 +121,14 @@ body.b3d #app{max-width:none;padding:0}
 .tag{font-size:.75rem;background:#7c5cc4;padding:2px 6px;border-radius:999px;font-weight:700;white-space:nowrap}
 .pl button.x{width:34px;height:34px;padding:0;margin:0;font-size:.9rem;background:#64748b;color:#fff;box-shadow:none}
 .ic{height:1.15em;width:auto;vertical-align:-.22em;margin:0 .06em;filter:drop-shadow(0 1px 0 rgba(0,0,0,.35))}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px}.chips button{flex:1 1 auto;width:auto;padding:8px 10px;font-size:.85rem;margin:0}
+.lablist{display:flex;flex-direction:column;gap:6px}
+.labitem{display:flex;align-items:center;gap:10px;text-align:left;padding:10px 12px;margin:0;background:var(--card,#2b1257);color:#fff;border-radius:14px;box-shadow:0 3px 0 #0005}
+.labitem .li-ic{font-size:1.8rem;width:40px;text-align:center}.labitem .li-tx{flex:1;display:flex;flex-direction:column;font-weight:400}.labitem .li-tx b{font-family:'Luckiest Guy',cursive;font-weight:400;letter-spacing:.03em;color:#fcc419}
+.labitem small{font-size:.78rem;opacity:.85;line-height:1.25}.labitem .li-st{color:#fcc419;font-size:.8rem;white-space:nowrap}
+.labstars{display:flex;gap:4px;margin:6px 0}.labstars button{flex:1;margin:0;font-size:1.8rem;padding:4px;background:#0003;color:#fff6;box-shadow:none}.labstars button.on{color:#fcc419;background:#fcc41922}
+#labnote{width:100%;box-sizing:border-box;border-radius:12px;padding:10px;font:inherit;border:0;margin:4px 0 8px}
+#labExit{position:fixed;left:10px;bottom:calc(env(safe-area-inset-bottom) + 10px);z-index:9;display:none;width:auto;padding:8px 14px;font-size:.85rem;background:#1e0b3aee;color:#fff;border-radius:12px;margin:0;box-shadow:0 3px 0 #0006}
 .intro-card .gif{display:block;margin:6px auto;max-height:26vh;max-width:70%;border-radius:12px;border:3px solid #fff;box-shadow:0 4px 12px #0006}
 .bigcount{position:fixed;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;background:radial-gradient(circle,rgba(30,11,58,.15),rgba(30,11,58,.65))}
 .bc-title{font-family:'Luckiest Guy',cursive;font-size:1.6rem;color:#fff;text-shadow:0 4px 0 #1e0b3a;letter-spacing:.05em;animation:slidein .5s ease-out;padding:0 14px;text-align:center}
@@ -148,7 +156,7 @@ body.flashgo::after{content:'';position:fixed;inset:0;background:#fff;z-index:20
 </head>
 <body>
 <div id="banner"></div>
-<button id="stkBtn" title="Stickers">😊</button><div id="stkTray"></div><div id="stkShow"></div>
+<button id="labExit">✖ Salir de la prueba</button><button id="stkBtn" title="Stickers">😊</button><div id="stkTray"></div><div id="stkShow"></div>
 <div id="app"></div>
 <script type="importmap">{"imports":{"three":"./lib/three.module.min.js"}}</script>
 <script src="lib/peerjs.min.js"></script>
@@ -439,7 +447,7 @@ function beginTurn(){
 }
 function relaySticker(id, mood){ const m = {t:'stk', id, s:mood}; for (const c of H.conns.values()) { try { c.send(m); } catch(e){} } showSticker(id, mood); }
 // los bots también mandan stickers de vez en cuando
-function botSticker(p, mood, prob){ if (!p || !p.bot || Math.random() > prob) return; H.stkT = H.stkT || {}; if (Date.now() - (H.stkT[p.id] || 0) < 4000) return; H.stkT[p.id] = Date.now(); setTimeout(() => relaySticker(p.id, mood), 500 + Math.random() * 900); }
+function botSticker(p, mood, prob){ if (H.state && H.state.lab) return; if (!p || !p.bot || Math.random() > prob) return; H.stkT = H.stkT || {}; if (Date.now() - (H.stkT[p.id] || 0) < 4000) return; H.stkT[p.id] = Date.now(); setTimeout(() => relaySticker(p.id, mood), 500 + Math.random() * 900); }
 function useItem(p, id){
   const s = H.state, g = graph(), it = ITEMS[id]; p.items.splice(p.items.indexOf(id), 1); s.itemUsed = id; p.stats.bought++;
   const rivals = s.players.filter(x => x !== p);
@@ -590,6 +598,7 @@ function startMinigame(opts){
   const fresh = pool.filter(k => !s.mgHist.includes(k)); if (fresh.length) pool = fresh;
   let type = pick(pool);
   if (MG_KEYS.includes(params.get('mg'))) type = params.get('mg'); // para pruebas
+  if (opts.type && MG[opts.type]) type = opts.type; // elegido en "Probar minijuegos"
   s.mgHist.push(type); if (s.mgHist.length > Math.min(30, MG_KEYS.length - 3)) s.mgHist.shift();
   s.mg = {type, key: s.round + '-' + rid(), seed: (Math.random() * 1e9) | 0, scores:{}, ranking:null,
     players: opts.players, format: opts.format, teams: opts.teams || null, wager: opts.wager || 0, result: null, votes: {}, practice: false, dur: MG[type].dur};
@@ -738,17 +747,19 @@ function showSticker(id, mood){
   setTimeout(() => el.classList.add('bye'), 3200); setTimeout(() => el.remove(), 3700);
 }
 function stickerUI(){
-  const btn = $('#stkBtn'), tray = $('#stkTray'), mp = meP(), show = !!(S && mp && S.phase !== 'mg-play');
+  const btn = $('#stkBtn'), tray = $('#stkTray'), mp = meP(), show = !!(S && mp && S.phase !== 'mg-play' && !S.lab);
   btn.style.display = show ? 'grid' : 'none'; if (!show) tray.style.display = 'none';
   if (show && tray.dataset.emoji !== mp.emoji) { tray.dataset.emoji = mp.emoji; tray.innerHTML = MOODS.map(m => `<img data-stk="${m}" src="${stickerUrl(mp.emoji, m)}" alt="${m}">`).join(''); }
 }
+$('#labExit').addEventListener('click', () => { if (S && S.lab) endLab(); });
 $('#stkBtn').addEventListener('click', () => { const t = $('#stkTray'); t.style.display = t.style.display === 'grid' ? 'none' : 'grid'; });
 $('#stkTray').addEventListener('click', e => { const im = e.target.closest('[data-stk]'); if (!im) return; $('#stkTray').style.display = 'none';
   if (Date.now() - (ui.stkT || 0) < 2200) return; ui.stkT = Date.now(); send({t:'sticker', s: im.dataset.stk}); });
 function render(){
   try { stickerUI(); } catch(e){}
   const app = $('#app');
-  if (!S) { ui.viewKey = null; app.innerHTML = ui.screen === 'connecting' ? viewConnecting() : viewHome(); return; }
+  const lx = $('#labExit'); if (lx) lx.style.display = S && S.lab && S.phase !== 'mg-results' ? 'block' : 'none';
+  if (!S) { ui.viewKey = null; app.innerHTML = ui.screen === 'connecting' ? viewConnecting() : ui.screen === 'lab' ? ic(viewLab()) : viewHome(); if (ui.screen === 'lab') afterLab(); return; }
   const ph = S.phase;
   // Vistas que no deben reconstruirse en cada actualización
   let key = null;
@@ -779,6 +790,85 @@ function render(){
   else { app.innerHTML = ic(use3d ? viewBoard3D() : viewBoard()); afterBoard(); }
 }
 
+/* ======================= Probar minijuegos ======================= */
+const LAB_CATS = [['todos', 'Todos'], ['accion', '🏃 Acción'], ['equipo', '🤝 Equipos y 1 vs 3'], ['suerte', '🍀 Suerte'], ['tactil', '✍️ Táctiles']];
+const labCat = d => d.kind === 'tactil' ? 'tactil' : d.kind === 'decision' ? 'suerte' : !d.formats.includes('ffa') ? 'equipo' : 'accion';
+const FMT_NAME = { ffa: 'Todos contra todos', team: 'Por equipos', '1vN-solo': '1 contra todos (tú solo)', '1vN-grupo': '1 contra todos (tú en el grupo)', duel: 'Duelo 1 contra 1' };
+const labReviews = () => { try { return JSON.parse(ls.get('freviews') || '{}'); } catch (e) { return {}; } };
+const stars = n => n ? '★'.repeat(n) + '☆'.repeat(5 - n) : '';
+function labFormats(d) { const out = []; for (const f of d.formats) { if (f === '1vN') out.push('1vN-solo', '1vN-grupo'); else out.push(f); } return out; }
+function viewLab(){
+  const L = ui.lab = ui.lab || { cat: 'todos', q: '', pick: null, fmt: null, n: 3 }, R = labReviews();
+  if (L.pick) { const d = MG[L.pick], fmts = labFormats(d); if (!fmts.includes(L.fmt)) L.fmt = fmts[0];
+    const minN = L.fmt === 'duel' ? 1 : L.fmt === 'team' ? 3 : 2, maxN = L.fmt === 'duel' ? 1 : 7; L.n = Math.max(minN, Math.min(maxN, L.n)); if (L.fmt === 'team' && L.n % 2 === 0) L.n = L.n + 1 > maxN ? L.n - 1 : L.n + 1; // equipos parejos
+    return `<h2 style="margin-top:8px">${d.icon} ${esc(d.name)}</h2>
+    <div class="card intro-card"><img class="gif" src="previews/${d.id}.webp" alt="" onerror="this.remove()"><p>${esc(d.desc)}</p>
+      ${R[d.id] ? `<p class="note">Tu reseña: <b style="color:var(--gold)">${stars(R[d.id].stars)}</b>${R[d.id].note ? ' · ' + esc(R[d.id].note) : ''}</p>` : ''}</div>
+    <div class="card"><label>Modo</label><div class="row" style="flex-wrap:wrap">${fmts.map(f => `<button class="${f === L.fmt ? '' : 'sec'}" data-act="labfmt" data-v="${f}" style="flex:1 1 45%">${FMT_NAME[f]}</button>`).join('')}</div>
+      <label>Rivales IA</label><div class="row" style="align-items:center"><button class="sec" data-act="labn" data-v="-1" ${L.n <= minN ? 'disabled' : ''}>−</button><div style="flex:1;text-align:center;font-size:1.5rem;font-weight:900">${L.n} 🤖</div><button class="sec" data-act="labn" data-v="1" ${L.n >= maxN ? 'disabled' : ''}>+</button></div>
+      <label>Dificultad de la IA</label><div class="row">${['facil', 'normal', 'dificil'].map(l => `<button class="${(ui.botLvl || 'normal') === l ? '' : 'sec'}" data-act="botlvl" data-v="${l}">${{ facil: '😊 Fácil', normal: '😐 Normal', dificil: '😈 Difícil' }[l]}</button>`).join('')}</div>
+      <button class="big" data-act="labgo" style="margin-top:12px">▶ ¡Jugar!</button>
+      <button class="sec" data-act="labpick" data-v="">← Volver a la lista</button></div>`; }
+  const norm = t => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''), q = norm(L.q), list = MGCAT.filter(d => (L.cat === 'todos' || labCat(d) === L.cat) && (!q || norm(d.name + ' ' + d.desc).includes(q)));
+  const nRev = Object.keys(R).length;
+  return `<h2 style="margin-top:8px">🎮 Probar minijuegos</h2>
+  <p class="sub">Elige cualquiera de los ${MGCAT.length} minijuegos, juégalo contra la IA y déjale una reseña.</p>
+  <input id="labq" placeholder="🔎 Buscar…" value="${esc(L.q)}" autocomplete="off" style="margin-bottom:8px">
+  <div class="chips">${LAB_CATS.map(([k, n]) => `<button class="${L.cat === k ? '' : 'sec'}" data-act="labcat" data-v="${k}">${n}</button>`).join('')}</div>
+  <div class="row" style="margin:6px 0"><button class="sec" data-act="labrand">🎲 Uno al azar</button><button class="sec" data-act="labcopy" ${nRev ? '' : 'disabled'}>📋 Copiar reseñas (${nRev})</button></div>
+  <div class="lablist">${list.map(d => `<button class="labitem" data-act="labpick" data-v="${d.id}"><span class="li-ic">${d.icon}</span><span class="li-tx"><b>${esc(d.name)}</b><small>${esc(d.desc)}</small></span>${R[d.id] ? `<span class="li-st">${stars(R[d.id].stars)}</span>` : ''}</button>`).join('') || '<p class="note">No hay minijuegos con ese nombre.</p>'}</div>
+  <button class="sec" data-act="labhome" style="margin-top:10px">← Volver al inicio</button>`;
+}
+function afterLab(){ const q = $('#labq'); if (!q) return; q.addEventListener('input', () => { ui.lab.q = q.value; const pos = q.selectionStart; render(); const q2 = $('#labq'); if (q2) { q2.focus(); q2.setSelectionRange(pos, pos); } }); }
+function labReviewCard(id){
+  const r = labReviews()[id] || {}, st = ui.labStars ?? r.stars ?? 0;
+  return `<div class="card" style="text-align:left"><b>¿Qué te pareció?</b>
+    <div class="labstars">${[1, 2, 3, 4, 5].map(i => `<button data-act="labstar" data-v="${i}" class="${i <= st ? 'on' : ''}">★</button>`).join('')}</div>
+    <textarea id="labnote" rows="3" maxlength="400" placeholder="¿Qué cambiarías? ¿Es muy fácil, difícil, confuso, aburrido…?">${esc(ui.labNote ?? r.note ?? '')}</textarea>
+    <button data-act="labsave">💾 Guardar reseña</button>
+    <div class="row"><button class="sec" data-act="labagain">🔁 Otra vez</button><button class="sec" data-act="labexit">📋 Elegir otro</button></div></div>`;
+}
+function labSaveDraft(){ const t = $('#labnote'); if (t) ui.labNote = t.value; }
+function startLab(){
+  const L = ui.lab, d = MG[L.pick]; if (!me.name) me.name = 'Tú';
+  role = 'host'; H.state = newState(makeCode()); addPlayer(myId, me.name, me.emoji); H.state.solo = true; H.state.lab = true;
+  for (let i = 0; i < L.n; i++) addBot(ui.botLvl || 'normal');
+  H.state.players.forEach(p => { p.coins = 10; p.crowns = 0; p.wins = 0; p.items = []; p.stats = { earned: 0, red: 0, steps: 0, bought: 0, duels: 0, events: 0, mg: 0 }; });
+  const ids = H.state.players.map(p => p.id), bots = ids.slice(1); let format = L.fmt, teams = null, players = ids;
+  if (format === 'duel') { players = ids.slice(0, 2); teams = { A: [ids[0]], B: [ids[1]] }; }
+  else if (format === '1vN-solo') { format = '1vN'; teams = { A: [ids[0]], B: bots }; }
+  else if (format === '1vN-grupo') { format = '1vN'; teams = { A: [bots[0]], B: [ids[0], ...bots.slice(1)] }; }
+  else if (format === 'team') { const A = [], B = []; ids.forEach((id, i) => (i % 2 ? B : A).push(id)); teams = { A, B }; }
+  ui.labStars = null; ui.labNote = null; ui.viewKey = null;
+  playMinigame({ players, format, teams, wager: format === 'duel' ? 10 : 0, type: d.id });
+}
+function endLab(){
+  clearInterval(H.introTimer); clearTimeout(H.mgTimer); clearInterval(H.mgLoop); H.mgResolve = null; H.mgCtx = null;
+  if (window.MG3D) MG3D.stop(); if (window.Board3D && Board3D.ok) Board3D.show(false); document.body.classList.remove('b3d');
+  H.state = null; S = null; role = null; ui.viewKey = null; ui.screen = 'lab'; render();
+}
+async function labAction(act, b){
+  const L = ui.lab = ui.lab || { cat: 'todos', q: '', pick: null, fmt: null, n: 3 }, v = b.dataset.v;
+  if (act === 'lab') { const n = ($('#name') || {}).value; if (n && n.trim()) { me.name = n.trim().slice(0, 12); ls.set('fname', me.name); } ui.screen = 'lab'; render(); }
+  else if (act === 'labhome') { ui.screen = 'home'; render(); }
+  else if (act === 'labcat') { L.cat = v; render(); }
+  else if (act === 'labpick') { L.pick = v || null; L.fmt = null; window.scrollTo(0, 0); render(); }
+  else if (act === 'labrand') { L.pick = pick(MG_KEYS); L.fmt = null; window.scrollTo(0, 0); render(); }
+  else if (act === 'labfmt') { L.fmt = v; render(); }
+  else if (act === 'labn') { L.n += +v * (L.fmt === 'team' ? 2 : 1); render(); }
+  else if (act === 'labgo') startLab();
+  else if (act === 'labstar') { labSaveDraft(); ui.labStars = +v; render(); }
+  else if (act === 'labsave') { labSaveDraft(); const R = labReviews(), id = S.mg.type, old = R[id] || {};
+    R[id] = { stars: ui.labStars ?? old.stars ?? 0, note: (ui.labNote ?? old.note ?? '').trim(), fmt: S.mg.format, t: Date.now() }; ls.set('freviews', JSON.stringify(R));
+    b.textContent = '✅ ¡Guardada!'; if (window.SFX) SFX.play('coin'); }
+  else if (act === 'labagain') { labSaveDraft(); endLab(); startLab(); }
+  else if (act === 'labexit') { labSaveDraft(); L.pick = null; endLab(); }
+  else if (act === 'labcopy') { const R = labReviews();
+    const text = 'Reseñas de minijuegos (Fiesta Tablero)\n\n' + Object.entries(R).sort((a, c) => (a[1].stars || 0) - (c[1].stars || 0)).map(([id, r]) => `• ${MG[id] ? MG[id].name : id} [${id}] ${stars(r.stars) || 'sin estrellas'}${r.note ? '\n  ' + r.note : ''}`).join('\n');
+    if (APP && APP.share) APP.share(text); else if (navigator.share) { try { await navigator.share({ title: 'Reseñas', text }); } catch (e) { } }
+    else { try { await navigator.clipboard.writeText(text); b.textContent = '✅ Copiadas'; } catch (e) { prompt('Copia tus reseñas:', text); } } }
+}
+
 function viewConnecting(){
   return `<h1>🎲 Fiesta Tablero</h1><div class="card"><h2>Conectando…</h2><p class="note">Un momento, por favor.</p></div>`;
 }
@@ -792,6 +882,7 @@ function viewHome(){
     <div class="chars">${CHARS.map(c => `<button data-act="emoji" data-v="${c.emoji}" class="${c.emoji === me.emoji ? 'sel' : ''}"><img src="models/${c.id}.jpg" alt="">${c.name}</button>`).join('')}</div>
     <button class="big" data-act="create">Crear sala</button>
     <button class="sec" data-act="solo">🤖 Jugar contra la IA</button>
+    <button class="sec" data-act="lab">🎮 Probar minijuegos</button>
     <div class="or">— o únete a la sala de un amigo —</div>
     <input id="code" class="codeinput" maxlength="4" placeholder="CÓDIGO" value="${esc(ui.code)}" autocomplete="off">
     <button class="sec" data-act="join">Unirse</button>
@@ -990,7 +1081,7 @@ function viewMgResults(){
       return `<div class="rank"><div class="pos">${medals[e.rank]}</div><div class="av" style="width:44px;height:44px;border:3px solid ${p.color};border-radius:50%">${avImg(p)}</div>
       <div style="flex:1"><b>${esc(p.name)}</b><div class="note" style="text-align:left">${fmtScore(m.type, e.v)}</div></div>
       <div class="prize">${e.prize >= 0 ? '+' : ''}${e.prize} 🪙</div></div>`; }).join('')}
-    <div class="note">${m.format === 'duel' ? 'Volviendo al tablero…' : S.round >= S.maxRounds ? 'Calculando ganador…' : 'Siguiente ronda en un momento…'}</div></div>`;
+    ${S.lab ? labReviewCard(m.type) : `<div class="note">${m.format === 'duel' ? 'Volviendo al tablero…' : S.round >= S.maxRounds ? 'Calculando ganador…' : 'Siguiente ronda en un momento…'}</div>`}</div>`;
 }
 function bonusCard(b, big){
   const names = b.ids.map(id => esc((S.players.find(p => p.id === id) || {}).name || '')).join(' y ');
@@ -1120,6 +1211,7 @@ document.addEventListener('click', async e => {
   else if (act === 'pref') { const k = b.dataset.k; prefs[k] = !prefs[k]; ls.set(k === 'sound' ? 'fsound' : 'flow', prefs[k] ? '1' : '0');
     if (k === 'low' && window.Board3D && Board3D.ok) Board3D.setLow(prefs.low); if (k === 'sound' && window.SFX) SFX.enable(prefs.sound); render(); }
   else if (act === 'botlvl') { ui.botLvl = b.dataset.v; render(); }
+  else if (act.startsWith('lab')) labAction(act, b);
   else if (act === 'addbot') send({t:'addbot', lvl: ui.botLvl || 'normal'});
   else if (act === 'delbot') send({t:'delbot', id: b.dataset.v});
   else if (act === 'create' || act === 'join' || act === 'solo') {
