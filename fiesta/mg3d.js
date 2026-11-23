@@ -216,7 +216,7 @@ K.cazador = {
 K.zombi = {
   ctrl: 'joy', ...ARENA_CAM,
   build(sc) { chaseBuild(sc, 7); sc.marks = {}; },
-  speed() { return (G.x.z || {})[G.myId] != null ? 0.9 : 1; },
+  speed() { return (G.x.z || {})[G.myId] != null ? 0.85 : 1; },
   tick(dt, now, m) { const z = (G.x.z || {})[G.myId]; if (z != null && !G.finished) { m.st = 2; done(z, z === 0 ? '🧟 ¡Empiezas como zombi! Atrapa a todos' : '🧟 ¡Te convirtieron!'); } },
   draw() { for (const id of Object.keys(G.x.z || {})) if (!G.sc.marks[id] && G.chars[id]) { G.sc.marks[id] = true; G.chars[id].g.add(marker('#69db7c', '🧟')); } },
   hud() { const n = Object.keys(G.x.z || {}).length; return `Zombis: ${n} / ${G.players.length}` + ((G.x.z || {})[G.myId] != null ? ' · ¡Atrapa a los demás!' : ' · ¡Huye!'); },

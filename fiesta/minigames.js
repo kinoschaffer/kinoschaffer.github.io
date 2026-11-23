@@ -308,7 +308,7 @@
     const STAGE_Z = { tiro: 3, memoria: -5, reflejo: -0.5, contar: -5.2, vasos: -2.6, ruleta: -1.6, pesca: -5.5, torre: -4, cuerda: 3 };
     if (kind in STAGE_Z) { if (n > 5 && kind !== 'reflejo') { const per = Math.ceil(n / 2), row = Math.floor(i / per), j = i % per; return [(j - (per - 1) / 2) * 1.5 + row * 0.75, STAGE_Z[kind] - row * 1.3]; }
       return [(i - (n - 1) / 2) * (kind === 'reflejo' ? (n > 4 ? 1.5 : 2.2) : 1.6), STAGE_Z[kind]]; }
-    const rad = kind === 'barra' ? 4 : kind === 'pintar' ? 3.5 : 2.8, a = i / n * Math.PI * 2 + 0.4;
+    const rad = kind === 'barra' ? 4 : kind === 'pintar' ? 3.5 : kind === 'zombi' ? 5.2 : 2.8, a = i / n * Math.PI * 2 + 0.4;
     return [Math.cos(a) * rad, Math.sin(a) * rad];
   }
   // Puntaje planificado para las mecánicas donde el bot no se mueve "de verdad"
@@ -384,7 +384,7 @@
       if (kind === 'zombi') {
         net.x.z = ctx.zombies;
         for (const zid of Object.keys(ctx.zombies)) { const zp = posOf(zid); if (!zp) continue;
-          for (const id of ctx.players) { if (id in ctx.zombies) continue; const a = posOf(id); if (a && now - ctx.zombies[zid] > 800 && Math.hypot(a[0] - zp[0], a[1] - zp[1]) < 0.95) ctx.zombies[id] = Math.round(now); } }
+          for (const id of ctx.players) { if (id in ctx.zombies) continue; const a = posOf(id); if (a && now > 1500 && now - ctx.zombies[zid] > 2000 && Math.hypot(a[0] - zp[0], a[1] - zp[1]) < 0.9) ctx.zombies[id] = Math.round(now); } }
         for (const id of ctx.players) if (ctx.zombies[id] != null && ctx.bots[id] && ctx.bots[id].score == null && ctx.zombies[id] > 0) { ctx.bots[id].score = ctx.zombies[id]; out[id] = ctx.zombies[id]; }
         if (Object.keys(ctx.zombies).length >= ctx.players.length) net.over = true;
       }
@@ -551,7 +551,7 @@
           case 'zombi': {
             const isZ = b.id in ctx.zombies;
             if (isZ) { let best = null, bd = 1e9; for (const id of ctx.players) { if (id in ctx.zombies) continue; const a = posOf(id); if (!a) continue; const d = Math.hypot(a[0] - b.x, a[1] - b.z); if (d < bd) { bd = d; best = a; } }
-              if (best) go(best[0], best[1], SPEED * 0.8); b.st = 2; }
+              if (best && now - ctx.zombies[b.id] > 2000) go(best[0], best[1], SPEED * 0.72); else b.mv = 0; b.st = 2; }
             else { let near = null, nd = 1e9; for (const zid of Object.keys(ctx.zombies)) { const a = posOf(zid); if (!a) continue; const d = Math.hypot(a[0] - b.x, a[1] - b.z); if (d < nd) { nd = d; near = a; } }
               if (near && nd < 5) { const dx = b.x - near[0], dz = b.z - near[1], d = nd || 1; let tx = b.x + dx / d * 3 + (-dz / d) * 2, tz = b.z + dz / d * 3 + (dx / d) * 2; if (Math.hypot(tx, tz) > 6) { tx = -dz / d * 5; tz = dx / d * 5; } go(tx, tz, SPEED * [0.7, 0.82, 0.92][k] * (live ? 1 : 0.6)); }
               else b.mv = 0; }
@@ -657,7 +657,7 @@
     },
     // acciones de los jugadores (agarrar algo, disparar)
     action(ctx, pid, msg, now, net) {
-      const p = ctx.p;
+      const p = ctx.p; if (!msg || !net) return; net.x = net.x || {}; net.taken = net.taken || {};
       if (X2.kinds[ctx.kind] && X2.kinds[ctx.kind].action) return X2.kinds[ctx.kind].action(ctx, pid, msg, now, net, HLP);
       if (msg.t === 'mggrab' && ctx.kind === 'monedas' && net.taken[msg.id] == null) {
         const c = ctx.coins[msg.id], life = p.life || COIN.life;
