@@ -70,7 +70,7 @@ button:active,button.on{transform:translateY(2px);box-shadow:0 1px 0 #120d08;bac
 
 <script>
 (()=>{
-const W=11,H=11, LX=5,LY=5, SX=5,SY=8;
+const W=11,H=11, LX=5,LY=5, SX=5,SY=9;
 const DX=[0,1,0,-1], DY=[-1,0,1,0];
 const $=id=>document.getElementById(id);
 const cv=$('cv'), ctx=cv.getContext('2d');
@@ -83,17 +83,29 @@ function buildMaze(){
   vW=[];hW=[];
   for(let x=0;x<=W;x++){vW[x]=[];for(let y=0;y<H;y++)vW[x][y]=(x===0||x===W)}
   for(let y=0;y<=H;y++){hW[y]=[];for(let x=0;x<W;x++)hW[y][x]=(y===0||y===H)}
-  // lair: cell (5,5) open only to the top
-  vW[5][5]=vW[6][5]=true; hW[6][5]=true;
-  const hw=[[1,5],[10,5],[3,0],[3,10],[8,0],[8,10],[5,2],[5,8],[6,2],[6,8],[1,1],[1,9],[10,1],[10,9]];
-  hw.forEach(([y,x])=>hW[y][x]=true);
-  const vw=[[1,5],[10,5],[3,0],[8,0],[3,10],[8,10],[5,8],[6,8],[5,3],[6,3],[1,0],[10,0],[1,10],[10,10]];
-  vw.forEach(([x,y])=>vW[x][y]=true);
   gates=[];
-  for(const gx of [2,4,7,9])for(const gy of [2,4,7,9]){
-    const o=((gx+gy)%2===0)?(gx<6?1:0):(gy<6?0:1); // 0=vertical, 1=horizontal
-    gates.push({gx,gy,o,ang:o?Math.PI/2:0});
+  const V=(x,y)=>vW[x][y]=true, Hh=(x,y)=>hW[y][x]=true;
+  const gate=(gx,gy,o)=>gates.push({gx,gy,o,ang:o?Math.PI/2:0});
+  // "molinete": habitación 2x2 con puerta giratoria en el centro y una salida por lado
+  function room(px,py,o,flip){
+    const x0=px-1,y0=py-1;
+    if(!flip){Hh(x0,y0);V(x0+2,y0);Hh(x0+1,y0+2);V(x0,y0+1);}
+    else{Hh(x0+1,y0);V(x0+2,y0+1);Hh(x0,y0+2);V(x0,y0);}
+    gate(px,py,o);
   }
+  room(2,2,0,false); room(9,2,0,true);
+  room(2,9,1,true);  room(9,9,1,false);
+  room(2,6,1,false); room(9,6,1,true);
+  // guarida (5,5) abierta solo arriba, dentro de una cámara en U
+  V(5,5);V(6,5);Hh(5,6);
+  V(4,5);V(4,6);V(7,5);V(7,6);Hh(4,7);Hh(6,7);
+  // puertas sueltas en los pasillos
+  gate(4,4,0);gate(7,4,0);gate(4,8,1);gate(7,8,1);gate(5,2,1);gate(6,10,0);
+  // tabiques fijos
+  V(5,0);V(6,0);Hh(4,3);Hh(6,3);
+  V(5,10);
+  V(4,10);V(7,10);
+  Hh(0,4);Hh(10,4);Hh(0,8);Hh(10,8);
 }
 function gateOn(x,y,d){ // gate that blocks moving from (x,y) in dir d
   for(const g of gates){
