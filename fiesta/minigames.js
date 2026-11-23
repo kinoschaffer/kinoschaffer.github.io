@@ -14,108 +14,62 @@
   const C = [
     // --- Piso que se cae
     ['piso', 'piso', 'Piso Traicionero', '🟨', 'Las baldosas parpadean en rojo y caen a la lava. ¡Muévete y aguanta!', 30, { order: 'random', scene: 'lava' }],
-    ['filas', 'piso', 'Baldosas en Fila', '🧱', 'Las filas caen desde los bordes hacia el centro. ¡No te quedes en la orilla!', 30, { order: 'rows', scene: 'space' }],
-    ['encoge', 'piso', 'Isla que se Encoge', '🏝️', 'La isla se hunde desde afuera hacia adentro. ¡Busca el centro!', 30, { order: 'ring', scene: 'beach' }],
-    ['espiral', 'piso', 'Espiral Mortal', '🌀', 'Las baldosas caen en espiral. Adivina por dónde sigue.', 30, { order: 'spiral', scene: 'night' }],
-    ['ajedrez', 'piso', 'Ajedrez Caliente', '♟️', 'Primero caen las baldosas de un color y luego las del otro.', 30, { order: 'checker', scene: 'lava' }],
-    ['hielo', 'piso', 'Hielo Quebradizo', '🧊', 'El hielo se rompe… ¡y además resbala!', 30, { order: 'random', ice: true, scene: 'ice' }],
+    ['hielo', 'piso', 'Hielo Quebradizo', '🧊', 'El hielo se rompe en filas desde los bordes… ¡y resbala! Cuesta frenar.', 30, { order: 'rows', ice: true, scene: 'ice' }],
     // --- Recolectar
     ['monedas', 'monedas', 'Lluvia de Monedas', '🪙', 'Caen monedas del cielo. Las grandes valen 3. ¡Cuidado con las bombas!', 25, { item: 'coin', scene: 'grass' }],
-    ['frutas', 'monedas', 'Frutas al Vuelo', '🍎', 'Atrapa las frutas que caen de los árboles. Las sandías valen 3.', 25, { item: 'fruit', bomb: 0.1, scene: 'grass' }],
-    ['gemas', 'monedas', 'Cosecha de Gemas', '💎', 'Gemas brillantes caen en la cueva. Las grandes valen 3.', 25, { item: 'gem', rate: 1.3, scene: 'night' }],
-    ['estrellas', 'monedas', 'Estrellas Fugaces', '⭐', 'Las estrellas duran muy poco en el suelo. ¡Sé rápido!', 25, { item: 'star', life: 1800, rate: 0.8, scene: 'space' }],
-    ['tormenta', 'monedas', 'Tormenta de Bombas', '💣', 'Muchas monedas… y muchísimas bombas.', 25, { item: 'coin', bomb: 0.38, rate: 0.75, scene: 'lava' }],
-    ['patinaje', 'monedas', 'Monedas en el Hielo', '⛸️', 'Recoge monedas sobre hielo resbaloso.', 25, { item: 'coin', ice: true, scene: 'ice' }],
+    ['borde', 'monedas', 'Monedas al Borde', '🫨', 'Isla sin baranda que se achica. Si te caes pierdes 3 monedas y vuelves al centro.', 25, { item: 'coin', edge: true, shrink: true, bomb: 0.08, scene: 'beach' }],
     // --- Saltar la barra
     ['barra', 'barra', 'Salta la Barra', '🌀', 'Una barra gira cada vez más rápido: toca SALTA justo cuando pase.', 30, {}],
-    ['helice', 'barra', 'Doble Hélice', '🚁', 'Dos barras desde el principio. ¡Mucho ritmo!', 30, { bars: 2, speed: 0.8 }],
-    ['tornado', 'barra', 'Tornado', '🌪️', 'La barra arranca rapidísimo.', 25, { speed: 1.4 }],
-    ['lunar', 'barra', 'Barra Lunar', '🌙', 'Gravedad baja: saltas alto y lento. Calcula bien.', 30, { lowG: true, speed: 1.1, scene: 'space' }],
-    ['traviesa', 'barra', 'Barra Traviesa', '🔁', 'La barra cambia de dirección sin avisar.', 30, { zigzag: true }],
+    ['agachate', 'barra', 'Salta o Agáchate', '🙇', 'La barra baja se SALTA y la alta se esquiva AGACHÁNDOSE. ¡Mira bien cuál viene!', 30, { duck: true, speed: 0.8 }],
     // --- Esquivar lo que rueda
-    ['avalancha', 'bolas', 'Avalancha', '⛄', 'Bolas de nieve gigantes ruedan hacia ti. ¡Esquívalas!', 30, { obj: 'snow', scene: 'ice' }],
-    ['barriles', 'bolas', 'Barriles Locos', '🛢️', 'Barriles rodando cada vez más rápido.', 30, { obj: 'barrel', rate: 1.2, scene: 'grass' }],
-    ['troncos', 'bolas', 'Troncos Rodantes', '🪵', 'Troncos largos: ¡salta por encima con SALTA!', 30, { obj: 'log', jump: true, scene: 'grass' }],
-    ['rocas', 'bolas', 'Rocas del Volcán', '🪨', 'Rocas enormes bajan por la ladera.', 30, { obj: 'rock', big: true, scene: 'lava' }],
-    ['lateral', 'bolas', 'Ataque Lateral', '↔️', 'Las bolas vienen de los costados.', 30, { obj: 'snow', side: true, scene: 'candy' }],
+    ['avalancha', 'bolas', 'Avalancha', '⛄', 'Bolas de nieve gigantes ruedan hacia ti. ¡Esquívalas de lado!', 30, { obj: 'snow', scene: 'ice' }],
+    ['troncos', 'bolas', 'Troncos Rodantes', '🪵', 'Troncos largos que no se pueden esquivar: ¡sáltalos con SALTA!', 30, { obj: 'log', jump: true, scene: 'grass' }],
     // --- Cosas que caen del cielo
     ['meteoros', 'meteoros', 'Lluvia de Meteoritos', '☄️', 'Mira las sombras y apártate. Tienes 3 vidas.', 30, { scene: 'space' }],
-    ['yunques', 'meteoros', 'Yunques', '⚒️', 'Caen yunques pesados. Pocas sombras, pero grandes.', 30, { big: true, scene: 'grass' }],
-    ['granizo', 'meteoros', 'Granizo Gigante', '🌨️', 'Granizo rápido y por todos lados.', 30, { fast: true, scene: 'ice' }],
     // --- Carreras tocando
     ['carrera', 'carrera', 'Carrera Loca', '🏁', 'Toca IZQ y DER alternando. ¡Primero a la meta gana!', 18, { mode: 'alt' }],
-    ['natacion', 'carrera', 'Natación', '🏊', 'Brazada izquierda, brazada derecha… ¡hasta la otra orilla!', 20, { mode: 'alt', look: 'water', len: 34 }],
-    ['cohete', 'carrera', 'Cohete Turbo', '🚀', 'Toca el botón lo más rápido que puedas.', 15, { mode: 'mash', look: 'space' }],
     ['semaforo', 'carrera', 'Semáforo', '🚦', 'Avanza solo con luz verde. Si tocas en rojo, te devuelven atrás.', 22, { mode: 'light', len: 32 }],
-    ['sacos', 'carrera', 'Carrera de Sacos', '🥔', 'Alterna IZQ y DER, pero si te equivocas te caes.', 20, { mode: 'alt', strict: true, len: 32 }],
     // --- Persecuciones
     ['cazador', 'cazador', 'El Cazador', '🎯', 'Uno caza y los demás huyen. Si atrapa a todos, gana el cazador.', 30, {}, ['1vN']],
-    ['lobo', 'cazador', 'Lobo y Ovejas', '🐺', 'El lobo es más rápido, pero se cansa cada vez que atrapa a alguien.', 30, { fast: true }, ['1vN']],
     ['zombis', 'zombi', 'Zombis', '🧟', 'Uno empieza como zombi. A quien toca, se convierte. ¡Sé el último!', 30, {}, ['ffa']],
     ['papa', 'papa', 'Papa Caliente', '🥔', 'Si tienes la bomba, ¡pásala tocando a otro antes de que explote!', 30, {}, ['ffa', 'duel']],
-    ['petardo', 'papa', 'Petardo Rebotón', '🧨', 'La bomba explota más seguido. ¡No la sueltes tarde!', 25, { fast: true }, ['ffa', 'duel']],
-    // --- Pintar
+    ['ladron', 'corona', 'Ladrón de Corona', '👑', 'Quien tiene la corona suma tiempo. ¡Tócalo para robársela!', 30, {}],
+    // --- Empujones (física)
+    ['tempano', 'sumo', 'Témpano Loco', '🐧', 'Empuja a los demás al agua con EMPUJÓN. El témpano resbala y se achica. ¡El último en pie gana!', 35, { ice: true, shrink: true, scene: 'ice' }],
+    ['balsa', 'sumo', 'Balsa Movediza', '🛶', 'La balsa se inclina con las olas. Empuja a los demás al agua sin caerte tú.', 35, { tilt: true, scene: 'beach' }],
+    ['colina', 'colina', 'Rey de la Colina', '⛰️', 'Quédate en el círculo que se mueve. Puedes EMPUJAR a los demás… ¡y caerte por el borde!', 25, { push: true, edge: true }],
+    // --- Pintar y saltar
     ['pintar', 'pintar', 'Pinta el Piso', '🎨', 'Camina para pintar el piso de tu color. Gana quien pinte más.', 25, {}],
-    ['guerra', 'pintar', 'Guerra de Colores', '🖌️', 'Brocha grande y poco tiempo.', 20, { brush: 1 }],
-    ['nieve', 'pintar', 'Huellas en la Nieve', '👣', 'Deja tus huellas en la nieve resbalosa.', 25, { ice: true, scene: 'ice' }],
+    ['saltarines', 'saltarin', 'Saltarines', '🦘', 'Saltas solo, casilla por casilla, pintándolas. Toca una caja ⭐ para cobrar tus casillas como puntos.', 30, {}],
+    // --- Pelotas y proyectiles
+    ['arco', 'arco', 'Defiende tu Arco', '🥅', 'Cuida tu lado: muévete para rechazar las pelotas. Si una entra por tu borde, pierdes una vida.', 40, {}],
+    ['globosagua', 'agua', 'Guerra de Globos de Agua', '💦', 'Muévete y LANZA globos hacia donde miras. Cada golpe suma. Con 3 golpes quedas empapado.', 30, {}],
     // --- Tocar objetivos
-    ['globos', 'tiro', 'Revienta Globos', '🎈', 'Toca los globos para reventarlos. El primero que toca se lo lleva.', 20, { target: 'globo' }],
+    ['globos', 'tiro', 'Revienta Globos', '🎈', 'Toca los globos para reventarlos. El primero que toca se lo lleva. ¡No toques las bombas!', 20, { target: 'globo', bad: 0.15 }],
     ['topos', 'tiro', 'Martillazo', '🔨', 'Golpea a los topos que asoman. Los dorados valen 3.', 20, { target: 'topo' }],
-    ['patos', 'tiro', 'Tiro al Pato', '🦆', 'Los patos cruzan rápido. ¡Toca para atraparlos!', 20, { target: 'pato', move: 1 }],
-    ['burbujas', 'tiro', 'Burbujas', '🫧', 'Las burbujas suben. Revienta todas las que puedas.', 20, { target: 'burbuja', move: 1 }],
-    ['nobomba', 'tiro', 'No Toques la Bomba', '💥', 'Toca los globos, pero si tocas una bomba pierdes 3.', 20, { target: 'globo', bad: 0.35 }],
-    ['luciernagas', 'tiro', 'Luciérnagas', '✨', 'De noche, pequeñas y rápidas.', 20, { target: 'luz', move: 1, small: true }],
-    // --- Memoria
+    // --- Cabeza y precisión
     ['simon', 'memoria', 'Simón Dice', '🟢', 'Mira la secuencia de colores y repítela. Cada ronda es más larga.', 40, {}],
-    ['simonrapido', 'memoria', 'Simón Veloz', '⚡', 'La secuencia se muestra muy rápido.', 40, { fast: true }],
-    ['simon6', 'memoria', 'Memoria de Seis', '🔷', 'Seis colores en vez de cuatro.', 45, { pads: 6 }],
-    // --- Reflejos
-    ['desenfunda', 'reflejo', 'Desenfunda', '🤠', 'Toca apenas aparezca "¡YA!". Si tocas antes, te penalizan. 3 rondas.', 20, {}],
-    ['falso', 'reflejo', 'Señal Falsa', '🟡', 'A veces aparece una señal falsa amarilla. ¡No caigas!', 22, { fake: true }],
-    ['mosca', 'reflejo', 'Atrapa la Mosca', '🪰', 'Toca cuando la mosca se pose. 3 rondas.', 22, { fly: true }],
-    // --- En equipo
-    ['cuerda', 'cuerda', 'Tira la Cuerda', '🪢', 'Toca sin parar para tirar de la cuerda hacia tu lado.', 15, {}, ['team', '1vN', 'duel']],
-    ['carrito', 'cuerda', 'Empuja el Carrito', '🛒', 'Empujen el carrito hasta el lado contrario.', 15, { look: 'cart' }, ['team', '1vN', 'duel']],
-    ['remo', 'cuerda', 'Remo en Equipo', '🚣', 'Remen tocando sin parar. El primer bote en llegar gana.', 15, { look: 'boat' }, ['team', '1vN', 'duel']],
-    // --- Torre
-    ['torre', 'torre', 'Torre Alta', '🏗️', 'El bloque se mueve: toca para soltarlo. Lo que sobresale se cae.', 35, {}],
-    ['pasteles', 'torre', 'Torre de Pasteles', '🎂', 'Apila pisos de pastel lo más alto posible.', 35, { look: 'cake' }],
-    ['torrerapida', 'torre', 'Torre Rápida', '⏩', 'El bloque se mueve cada vez más rápido.', 30, { fast: true }],
-    // --- Corredor
-    ['selva', 'corredor', 'Corredor de la Selva', '🌴', 'Corres solo: toca IZQ/DER para cambiar de carril. Junta monedas y esquiva.', 25, { scene: 'grass' }],
-    ['tunel', 'corredor', 'Túnel de Hielo', '❄️', 'Igual, pero más rápido y resbaloso.', 25, { fast: true, scene: 'ice' }],
-    ['vagoneta', 'corredor', 'Vagoneta Minera', '⛏️', 'Viajas en una vagoneta por la mina. ¡Cuidado con las rocas!', 25, { scene: 'night' }],
-    // --- Laberinto
-    ['laberinto', 'laberinto', 'Laberinto', '🌀', 'Encuentra la salida antes que nadie.', 35, {}],
-    ['oscuro', 'laberinto', 'Laberinto Oscuro', '🔦', 'Solo ves cerca de ti.', 40, { dark: true }],
-    ['setos', 'laberinto', 'Laberinto de Setos', '🌳', 'Un laberinto más grande.', 45, { big: true }],
-    // --- Zona
-    ['colina', 'colina', 'Rey de la Colina', '👑', 'Quédate dentro del círculo que se mueve. Suma tiempo adentro.', 25, {}],
-    ['foco', 'colina', 'Foco de Luz', '🔦', 'De noche: sigue la luz que se mueve rápido.', 25, { fast: true, scene: 'night' }],
-    ['achica', 'colina', 'Círculo que se Achica', '⭕', 'El círculo se hace cada vez más chico.', 25, { shrink: true }],
-    // --- Contar
+    ['desenfunda', 'reflejo', 'Desenfunda', '🤠', 'Toca apenas aparezca "¡YA!". Cuidado con las señales falsas. 3 rondas.', 22, { fake: true }],
     ['pollitos', 'contar', '¿Cuántos Pollitos?', '🐥', 'Cuenta cuántos pollitos amarillos pasan. ¡Ojo con los patos!', 25, { what: 'pollito' }],
-    ['ovejas', 'contar', 'Cuenta Ovejas', '🐑', 'Cuenta las ovejas blancas. Las negras no cuentan.', 25, { what: 'oveja' }],
-    ['cuentamonedas', 'contar', 'Cuenta Monedas', '🪙', 'Cuenta las monedas doradas que caen.', 25, { what: 'moneda' }],
-    // --- Vasos
-    ['vasos', 'vasos', 'Vasos Locos', '🥤', 'Sigue el vaso que tiene la moneda. 3 rondas.', 30, {}],
-    ['cofres', 'vasos', 'Cofres Pirata', '🏴‍☠️', 'Sigue el cofre con el tesoro. Cada vez más rápido.', 30, { fast: true }],
-    // --- Precisión
-    ['ruleta', 'ruleta', 'Ruleta Exacta', '🎯', 'Detén la aguja en la zona dorada. 3 intentos.', 25, { mode: 'ruleta' }],
+    ['vasos', 'vasos', 'Vasos Locos', '🥤', 'Sigue el vaso que tiene la moneda. 3 rondas, cada vez más rápido.', 30, {}],
     ['tren', 'ruleta', 'Frena el Tren', '🚂', 'Frena el tren lo más cerca posible de la raya. 3 intentos.', 25, { mode: 'tren' }],
     ['reloj', 'ruleta', 'Reloj Ciego', '⏱️', 'Detén el reloj en 5.00 s. Se oculta a los 2 s. 3 intentos.', 30, { mode: 'reloj' }],
-    // --- Pesca
     ['pesca', 'pesca', 'Pesca Rápida', '🎣', 'Cuando el corcho se hunda, ¡toca! Si tocas antes, se espanta el pez.', 25, {}],
-    ['pescahielo', 'pesca', 'Pesca en el Hielo', '🐟', 'Los peces pican menos, pero valen más.', 25, { ice: true }],
+    ['torre', 'torre', 'Torre Alta', '🏗️', 'El bloque se mueve: toca para soltarlo. Lo que sobresale se cae.', 35, {}],
+    ['selva', 'corredor', 'Corredor de la Selva', '🌴', 'Corres solo: cambia de carril para juntar monedas y esquivar rocas.', 25, { scene: 'grass' }],
+    ['laberinto', 'laberinto', 'Laberinto Oscuro', '🔦', 'Encuentra la salida antes que nadie. Solo ves cerca de ti.', 40, { dark: true }],
+    // --- En equipo
+    ['cuerda', 'cuerda', 'Tira la Cuerda', '🪢', 'Toca sin parar para tirar de la cuerda hacia tu lado.', 15, {}, ['team', '1vN', 'duel']],
+    ['remo', 'cuerda', 'Remo en Equipo', '🚣', 'Remen tocando sin parar. El primer bote en llegar gana.', 15, { look: 'boat' }, ['team', '1vN', 'duel']],
     // --- Uno contra todos
     ['canon', 'canon', 'Cañonero', '💣', 'El solitario dispara bolas tocando el piso. Los demás esquivan.', 30, {}, ['1vN']],
-    ['yunquero', 'canon', 'Lluvia de Yunques', '⚒️', 'El solitario tira yunques enormes, pero más lentos.', 30, { big: true }, ['1vN']],
   ];
   const KIND_META = { // menor-es-mejor y formato del puntaje
     piso: ['surv'], barra: ['surv'], bolas: ['surv'], meteoros: ['surv'], cazador: ['tag'], zombi: ['surv'], papa: ['surv'], canon: ['tag'],
     monedas: ['count', 'monedas'], pintar: ['count', 'casillas'], tiro: ['count', 'puntos'], memoria: ['count', 'rondas'], torre: ['count', 'pisos'],
     corredor: ['count', 'monedas'], colina: ['secs'], vasos: ['count', 'aciertos'], pesca: ['count', 'puntos'], cuerda: ['count', 'toques'],
     carrera: ['time'], laberinto: ['time'], reflejo: ['ms'], contar: ['err'], ruleta: ['err'],
+    sumo: ['surv'], saltarin: ['count', 'puntos'], arco: ['count', 'vidas'], agua: ['count', 'golpes'], corona: ['secs'],
   };
   const MGCAT = C.map(([id, kind, name, icon, desc, dur, p, formats]) => ({ id, kind, name, icon, desc, dur: dur * 1000, p: p || {}, formats: formats || ALL,
     lower: ['time', 'ms', 'err'].includes(KIND_META[kind][0]), fmt: KIND_META[kind][0], unit: KIND_META[kind][1] }));
@@ -173,7 +127,8 @@
   function coinSchedule(seed, dur, p) {
     const r = rngOf(seed), list = []; let t = 700, id = 0; const bomb = p.bomb ?? 0.13, rate = p.rate || 1;
     while (t < dur - 1300) { const a = r() * Math.PI * 2, d = Math.sqrt(r()) * (COIN.R - 0.6), q = r();
-      list.push({ id: id++, t, x: Math.cos(a) * d, z: Math.sin(a) * d, kind: q < bomb ? 'bomb' : q < bomb + 0.12 ? 'big' : 'coin' });
+      const dd = p.shrink ? d * (coinR(p, t + COIN.fall) - 0.5) / (COIN.R - 0.6) : d;
+      list.push({ id: id++, t, x: Math.cos(a) * dd, z: Math.sin(a) * dd, kind: q < bomb ? 'bomb' : q < bomb + 0.12 ? 'big' : 'coin' });
       t += (240 + r() * 300) * rate; }
     return list;
   }
@@ -189,13 +144,14 @@
   // ---------- Barra
   const BARRA = { R: 6.6, inner: 1.15, h: 0.55 };
   const barAngle = (ms, p) => { const t = ms / 1000, sp = p.speed || 1; return p.zigzag ? 1.4 * t + 0.03 * t * t + 4 * Math.sin(t * 0.55) : sp * (1.25 * t + 0.052 * t * t); };
-  const barCount = (ms, p) => (p.bars || 1) + (ms > 15000 ? 1 : 0);
+  const barCount = (ms, p) => p.duck ? 2 : (p.bars || 1) + (ms > 15000 ? 1 : 0);
+  const barHigh = (p, k) => !!p.duck && k === 1; // en 'Salta o Agáchate' la segunda barra va alta
   const gravity = p => p.lowG ? 9 : 24, jumpV = p => p.lowG ? 4.8 : 7.4;
-  function barHit(prev, now, x, z, y, p) {
-    if (now < 2200) return false; const r = Math.hypot(x, z); if (r < BARRA.inner - 0.3 || r > BARRA.R + 0.3 || y > BARRA.h) return false;
+  function barHit(prev, now, x, z, y, p, duck) {
+    if (now < 2200) return false; const r = Math.hypot(x, z); if (r < BARRA.inner - 0.3 || r > BARRA.R + 0.3) return false;
     const pa = Math.atan2(z, x), n = barCount(now, p);
     for (let b = 0; b < n; b++) { const off = b * Math.PI * 2 / n, d0 = wrap(barAngle(prev, p) + off - pa), d1 = wrap(barAngle(now, p) + off - pa);
-      if (Math.sign(d0) !== Math.sign(d1) && Math.abs(d1 - d0) < 1.5) return true; }
+      if (Math.sign(d0) !== Math.sign(d1) && Math.abs(d1 - d0) < 1.5) { if (barHigh(p, b) ? !duck : y <= BARRA.h) return true; } }
     return false;
   }
 
@@ -255,6 +211,36 @@
   const zoneAt = (seed, now, p) => { const t = now / 1000, s = (seed % 1000) / 160, f = p.fast ? 1.8 : 1;
     const x = Math.sin(t * 0.33 * f + s) * 4.2, z = Math.cos(t * 0.27 * f + s * 1.3) * 3.6; const rad = p.shrink ? Math.max(0.9, 2.6 - t * 0.07) : p.fast ? 1.6 : 2.1; return [x, z, rad]; };
 
+  // ---------- Bordes, arenas que se achican y olas
+  const arenaR = (p, now, R0, min, rate) => p.shrink ? Math.max(min, R0 - now / 1000 * rate) : R0;
+  const coinR = (p, now) => arenaR(p, now, COIN.R, 3.5, 0.09);
+  const sumoR = (p, now) => arenaR(p, now, 6.2, 2.8, 0.1);
+  const RAFT = 5.6;
+  function fellOff(kind, p, now, x, z) {
+    if (kind === 'monedas') return !!p.edge && Math.hypot(x, z) > coinR(p, now) + 0.25;
+    if (kind === 'sumo') return p.tilt ? (Math.abs(x) > RAFT || Math.abs(z) > RAFT) : Math.hypot(x, z) > sumoR(p, now) + 0.15;
+    if (kind === 'colina') return !!p.edge && Math.hypot(x, z) > 7.3;
+    return false;
+  }
+  const waveForce = now => { const t = now / 1000, g = 1 + t / 7; return [(Math.sin(t * 0.8) * 3.4 + Math.sin(t * 1.9) * 1.3) * g, (Math.cos(t * 0.6) * 3.1 + Math.sin(t * 1.3) * 1.0) * g]; };
+  const PUSH = { r: 1.0, power: 9.5, dash: 10.5, dashMs: 260, cool: 1100 };
+
+  // ---------- Saltarines
+  const SAL = { hop: 330 };
+  function boxSchedule(seed, dur) { const r = rngOf(seed ^ 77), list = []; let t = 2500, id = 0; while (t < dur - 1200) { list.push({ id: id++, t, cell: Math.floor(r() * 64), life: 6500 }); t += 1700 + r() * 1500; } return list; }
+
+  // ---------- Defiende tu arco
+  const ARCO = { half: 6, line: 5.2, lives: 5 };
+  function arcoSides(players, teams) { // id -> lado (0 abajo, 1 arriba, 2 izquierda, 3 derecha)
+    const map = {}, ids = players.map(p => p.id || p);
+    if (teams) { teams.A.forEach(id => map[id] = 0); teams.B.forEach(id => map[id] = 1); return { map, active: [0, 1] }; }
+    const n = Math.min(4, ids.length); ids.forEach((id, i) => map[id] = i % n); return { map, active: [0, 1, 2, 3].slice(0, n) };
+  }
+  const arcoPos = (side, a) => side === 0 ? [a, ARCO.line] : side === 1 ? [a, -ARCO.line] : side === 2 ? [-ARCO.line, a] : [ARCO.line, a];
+
+  // ---------- Globos de agua
+  const AGUA = { R: 7, speed: 10, range: 8.5, cool: 850, crates: [[-3, -2], [3, -2.5], [0, 2.8], [-4.2, 3], [4, 2.6]] };
+
   // ---------- Tiro (objetivos para tocar)
   function targetSchedule(seed, dur, p) {
     const r = rngOf(seed), list = []; let t = 600, id = 0;
@@ -306,12 +292,13 @@
 
   /* ======================= Bots del anfitrión ======================= */
   // ctx = { id, kind, p, seed, dur, teams, format, bots{}, now }
-  const arenaOf = kind => ({ monedas: clampCircle(6.6), meteoros: clampCircle(6.5), cazador: clampCircle(7), zombi: clampCircle(7), papa: clampCircle(6), pintar: clampRect(5.9, -5.9, 5.9),
-    colina: clampCircle(7), canon: clampCircle(6.5), barra: clampCircle(BARRA.R, BARRA.inner), bolas: clampRect(BOLAS.w, BOLAS.zMin, BOLAS.zMax), piso: clampRect(5.95, -5.95, 5.95) }[kind]);
+  const arenaOf = (kind, p) => (p && (p.edge || kind === 'sumo')) ? null : ({ monedas: clampCircle(6.6), meteoros: clampCircle(6.5), cazador: clampCircle(7), zombi: clampCircle(7), papa: clampCircle(6), pintar: clampRect(5.9, -5.9, 5.9),
+    colina: clampCircle(7), canon: clampCircle(6.5), saltarin: clampRect(5.95, -5.95, 5.95), agua: clampCircle(AGUA.R), corona: clampCircle(6.5), barra: clampCircle(BARRA.R, BARRA.inner), bolas: clampRect(BOLAS.w, BOLAS.zMin, BOLAS.zMax), piso: clampRect(5.95, -5.95, 5.95) }[kind]);
   function spawnPos(kind, i, n) {
     if (kind === 'carrera' || kind === 'corredor') return [(i - (n - 1) / 2) * (kind === 'corredor' ? 4.2 : 1.9), 0];
     if (kind === 'bolas') return [n > 1 ? -4 + 8 * i / (n - 1) : 0, 3];
     if (kind === 'laberinto') return [-0.5 * (n - 1) * 0.3 + i * 0.3 - 6.4, -6.4];
+    if (kind === 'saltarin') { const c = [0, 7, 63, 56, 27, 36, 3, 60][i % 8]; return pisoCenter(c); }
     const STAGE_Z = { tiro: 3, memoria: -5, reflejo: -0.5, contar: -5.2, vasos: -2.6, ruleta: -1.6, pesca: -5.5, torre: -4, cuerda: 3 };
     if (kind in STAGE_Z) { if (n > 5 && kind !== 'reflejo') { const per = Math.ceil(n / 2), row = Math.floor(i / per), j = i % per; return [(j - (per - 1) / 2) * 1.5 + row * 0.75, STAGE_Z[kind] - row * 1.3]; }
       return [(i - (n - 1) / 2) * (kind === 'reflejo' ? (n > 4 ? 1.5 : 2.2) : 1.6), STAGE_Z[kind]]; }
@@ -330,6 +317,7 @@
     pesca: (b, r, c) => ({ score: Math.round(between(r, [[3, 6], [5, 8], [7, 11]][b.k]) * (c.p.ice ? 1.4 : 1)), at: null }),
     carrera: null, laberinto: null,
   };
+  const SURV_X = ['sumo'];
   const SURV = ['piso', 'barra', 'bolas', 'meteoros', 'zombi', 'papa', 'canon', 'cazador'];
 
   const host = {
@@ -349,6 +337,11 @@
       if (kind === 'papa') { ctx.holder = players[Math.floor(r() * players.length)].id; ctx.booms = []; let t = 0; for (let k = 0; k < players.length - 1; k++) { t += (p.fast ? 5000 : 7000) + r() * 3000; ctx.booms.push(Math.min(t, dur - 300)); } ctx.immune = 0; }
       if (kind === 'canon') ctx.gunner = teams ? (teams.A.length === 1 ? teams.A[0] : teams.B[0]) : players[0].id;
       if (kind === 'pintar') ctx.paint = new Array(100).fill(-1);
+      if (kind === 'saltarin') { ctx.paint = new Array(64).fill(-1); ctx.boxes = boxSchedule(seed, dur); ctx.boxTaken = {}; }
+      if (kind === 'arco') { const A = arcoSides(players, teams); ctx.side = A.map; ctx.lives = [-1, -1, -1, -1]; A.active.forEach(sd => ctx.lives[sd] = teams ? 8 : ARCO.lives); ctx.balls = []; ctx.nextBall = 2500; ctx.outAt = {}; }
+      if (kind === 'agua') { ctx.wet = {}; ctx.projs = []; ctx.lastThrow = {}; ctx.pid = 0; }
+      if (kind === 'corona') { ctx.holder = players[Math.floor(r() * players.length)].id; ctx.immune = 0; }
+      if (kind === 'sumo' || p.push) { ctx.dash = {}; ctx.pairT = {}; ctx.pushSeq = 0; }
       if (kind === 'cuerda') ctx.rope = 0;
       players.forEach((pl, i) => {
         if (!pl.bot) return;
@@ -358,12 +351,14 @@
           quitAt: survive ? Infinity : dur * (0.2 + r() * 0.72), stunUntil: 0, speedN: 0.85 + r() * 0.3, score: null, dist: 0, lives: 3, taps: 0 };
         if (PLAN[kind]) { const pl2 = PLAN[kind](b, r, ctx); b.plan = pl2.score; b.planAt = pl2.at; }
         if (kind === 'laberinto') { b.route = ctx.mz.path(ctx.mz.cellAt(x, z)); b.ri = 0; }
+        b.vx = 0; b.vz = 0; b.hopT = 0;
+        if (kind === 'arco') { const sd = ctx.side[pl.id], same = Object.keys(ctx.side).filter(id => ctx.side[id] === sd), k2 = same.indexOf(pl.id); b.side = sd; b.a = (k2 - (same.length - 1) / 2) * 2.5; [b.x, b.z] = arcoPos(sd, b.a); }
       });
       ctx.net0 = true; return ctx;
     },
     // Avanza la simulación. net = {pos, taken, counts, ev, x, team, over}. Devuelve {id: puntaje} nuevos.
     step(ctx, dt, now, net) {
-      const prev = ctx.now; ctx.now = now; const out = {}, p = ctx.p, kind = ctx.kind, clamp = arenaOf(kind);
+      const prev = ctx.now; ctx.now = now; const out = {}, p = ctx.p, kind = ctx.kind, clamp = arenaOf(kind, p);
       net.x = net.x || {};
       const posOf = id => ctx.bots[id] ? [ctx.bots[id].x, ctx.bots[id].z, ctx.bots[id].y, 0, ctx.bots[id].st] : net.pos[id];
       const alive = id => { const a = posOf(id); return a && a[4] !== 1; };
@@ -416,6 +411,63 @@
           if (!net.team && Math.abs(ctx.rope) >= 1) { net.team = ctx.rope < 0 ? 'A' : 'B'; net.over = true; } }
         if (now >= ctx.dur && !net.team) net.team = p.look === 'boat' ? ((ctx.ba || 0) === (ctx.bb || 0) ? 'tie' : (ctx.ba || 0) > (ctx.bb || 0) ? 'A' : 'B') : ctx.rope === 0 ? 'tie' : ctx.rope < 0 ? 'A' : 'B';
       }
+      if (ctx.dash) { // empujones: quien embiste empuja al otro
+        net.x.dash = net.x.dash || {}; net.x.push = net.x.push || {};
+        const ids = ctx.players.filter(id => alive(id));
+        for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) {
+          const a = posOf(ids[i]), c = posOf(ids[j]); if (!a || !c) continue; const dx = c[0] - a[0], dz = c[1] - a[1], d = Math.hypot(dx, dz);
+          if (d > PUSH.r || d < 0.01) continue; const da = (net.x.dash[ids[i]] || 0) > now, dc = (net.x.dash[ids[j]] || 0) > now; if (!da && !dc) continue;
+          const key = ids[i] + '|' + ids[j]; if (now - (ctx.pairT[key] || -9999) < 450) continue; ctx.pairT[key] = now;
+          const nx = dx / d, nz = dz / d, pw = da && dc ? PUSH.power * 0.6 : PUSH.power;
+          const imp = (id, vx, vz) => { if (ctx.bots[id]) { ctx.bots[id].vx += vx; ctx.bots[id].vz += vz; } else net.x.push[id] = [++ctx.pushSeq, +vx.toFixed(2), +vz.toFixed(2)]; };
+          if (da) imp(ids[j], nx * pw, nz * pw); if (dc) imp(ids[i], -nx * pw, -nz * pw);
+        }
+      }
+      if (kind === 'sumo') { const live = ctx.players.filter(id => alive(id));
+        if (ctx.teams) { const la = live.filter(id => ctx.teamOf(id) === 'A').length, lb = live.length - la; if ((!la || !lb) && !net.team) { net.team = la ? 'A' : lb ? 'B' : 'tie'; net.over = true; } }
+        else if (live.length <= 1 && ctx.players.length > 1) net.over = true; }
+      if (kind === 'saltarin') {
+        const colOf = id => ctx.teams ? (ctx.teamOf(id) === 'A' ? 0 : 1) : ctx.players.indexOf(id);
+        ctx.players.forEach(id => { const a = posOf(id); if (!a) return; const c = pisoCellAt(a[0], a[1]); if (c >= 0) ctx.paint[c] = colOf(id);
+          for (const bx of ctx.boxes) { if (ctx.boxTaken[bx.id] || now < bx.t || now > bx.t + bx.life || bx.cell !== c) continue;
+            ctx.boxTaken[bx.id] = id; const mine = colOf(id); let n = 0; ctx.paint.forEach((v, k) => { if (v === mine) { n++; ctx.paint[k] = -1; } }); net.counts[id] = (net.counts[id] || 0) + n; net.x.cash = [id, n, Math.round(now)]; } });
+        net.x.paint = ctx.paint.join(','); net.x.boxes = ctx.boxes.filter(bx => !ctx.boxTaken[bx.id] && now >= bx.t && now < bx.t + bx.life).map(bx => [bx.id, bx.cell]);
+      }
+      if (kind === 'arco') {
+        if (now >= ctx.nextBall && ctx.balls.length < 4) { const a = ctx.rr() * Math.PI * 2, d = [Math.cos(a), Math.sin(a)]; if (Math.abs(d[0]) < 0.3) d[0] = 0.3 * Math.sign(d[0] || 1); if (Math.abs(d[1]) < 0.3) d[1] = 0.3 * Math.sign(d[1] || 1);
+          const l = Math.hypot(...d); ctx.balls.push({ x: 0, z: 0, vx: d[0] / l * 5.2, vz: d[1] / l * 5.2 }); ctx.nextBall = now + 7000; }
+        const pads = ctx.players.filter(id => ctx.lives[ctx.side[id]] > 0).map(id => { const a = posOf(id); return a && { id, x: a[0], z: a[1], sd: ctx.side[id] }; }).filter(Boolean);
+        for (const bl of ctx.balls) {
+          bl.x += bl.vx * dt; bl.z += bl.vz * dt;
+          for (const pd of pads) { if (Math.hypot(bl.x - pd.x, bl.z - pd.z) > 0.85) continue;
+            if (pd.sd === 0) { bl.vz = -Math.abs(bl.vz); bl.vx += (bl.x - pd.x) * 2; } else if (pd.sd === 1) { bl.vz = Math.abs(bl.vz); bl.vx += (bl.x - pd.x) * 2; }
+            else if (pd.sd === 2) { bl.vx = Math.abs(bl.vx); bl.vz += (bl.z - pd.z) * 2; } else { bl.vx = -Math.abs(bl.vx); bl.vz += (bl.z - pd.z) * 2; }
+            const sp = Math.min(9.5, Math.hypot(bl.vx, bl.vz) * 1.04), l = Math.hypot(bl.vx, bl.vz) || 1; bl.vx = bl.vx / l * sp; bl.vz = bl.vz / l * sp; }
+          const H = ARCO.half, goal = sd => { if (ctx.lives[sd] > 0) { ctx.lives[sd]--; net.x.goal = [sd, Math.round(now)]; Object.assign(bl, { x: 0, z: 0 }); if (ctx.lives[sd] === 0) ctx.players.filter(id => ctx.side[id] === sd).forEach(id => { ctx.outAt[id] = Math.round(now); }); return true; } return false; };
+          if (bl.z > H) { if (!goal(0)) { bl.z = H; bl.vz = -Math.abs(bl.vz); } } if (bl.z < -H) { if (!goal(1)) { bl.z = -H; bl.vz = Math.abs(bl.vz); } }
+          if (bl.x < -H) { if (!goal(2)) { bl.x = -H; bl.vx = Math.abs(bl.vx); } } if (bl.x > H) { if (!goal(3)) { bl.x = H; bl.vx = -Math.abs(bl.vx); } }
+        }
+        net.x.balls = ctx.balls.map(bl => [+bl.x.toFixed(2), +bl.z.toFixed(2)]); net.x.lives = ctx.lives; net.x.out = ctx.outAt;
+        const alive2 = ctx.lives.filter(v => v > 0).length; if (alive2 <= 1 && !net.over) { net.over = true; if (ctx.teams) net.team = ctx.lives[0] > 0 ? 'A' : ctx.lives[1] > 0 ? 'B' : 'tie'; }
+        for (const id of Object.keys(ctx.outAt)) if (ctx.bots[id] && ctx.bots[id].score == null) { ctx.bots[id].score = 0; ctx.bots[id].st = 1; out[id] = 0; }
+      }
+      if (kind === 'agua') {
+        net.x.out = net.x.out || {}; net.x.wet = ctx.wet;
+        for (const pj of ctx.projs) { if (pj.te) continue; const k = (now - pj.t0) / 1000, x = pj.x + pj.dx * AGUA.speed * k, z = pj.z + pj.dz * AGUA.speed * k;
+          if (k * AGUA.speed > AGUA.range || Math.hypot(x, z) > AGUA.R + 1 || AGUA.crates.some(([cx, cz]) => Math.hypot(cx - x, cz - z) < 0.75)) { pj.te = Math.round(now); continue; }
+          for (const id of ctx.players) { if (id === pj.owner || net.x.out[id] != null || (ctx.teams && ctx.teamOf(id) === ctx.teamOf(pj.owner))) continue; const a = posOf(id); if (!a || Math.hypot(a[0] - x, a[1] - z) > 0.75) continue;
+            pj.te = Math.round(now); pj.hit = id; ctx.wet[id] = (ctx.wet[id] || 0) + 1; net.counts[pj.owner] = (net.counts[pj.owner] || 0) + 1;
+            if (ctx.wet[id] >= 3) { net.x.out[id] = Math.round(now); if (ctx.bots[id]) { ctx.bots[id].st = 1; ctx.bots[id].score = net.counts[id] || 0; out[id] = ctx.bots[id].score; } } break; } }
+        ctx.projs = ctx.projs.filter(pj => !pj.te || now - pj.te < 1500); net.ev = ctx.projs.map(pj => ({ id: pj.id, x: pj.x, z: pj.z, dx: pj.dx, dz: pj.dz, t0: pj.t0, te: pj.te || 0, hit: pj.hit || null }));
+        const live = ctx.players.filter(id => net.x.out[id] == null);
+        if (ctx.teams) { const la = live.filter(id => ctx.teamOf(id) === 'A').length, lb = live.length - la; if ((!la || !lb) && !net.over) { net.over = true; net.team = la ? 'A' : lb ? 'B' : 'tie'; } }
+        else if (live.length <= 1 && !net.over) net.over = true;
+      }
+      if (kind === 'corona') {
+        if (now > ctx.immune && now > 2000) { const h = posOf(ctx.holder); if (h) for (const id of ctx.players) { if (id === ctx.holder) continue; if (ctx.teams && ctx.teamOf(id) === ctx.teamOf(ctx.holder)) continue; const a = posOf(id); if (a && Math.hypot(a[0] - h[0], a[1] - h[1]) < 0.95) { ctx.holder = id; ctx.immune = now + 1000; break; } } }
+        if (now > 2000) net.counts[ctx.holder] = (net.counts[ctx.holder] || 0) + Math.round(dt * 1000);
+        net.x.holder = ctx.holder;
+      }
       // ---- bots
       for (const b of Object.values(ctx.bots)) {
         if (b.score != null && !['carrera'].includes(kind)) { if (b.st === 1) b.y -= 9 * dt; b.mv = 0; continue; }
@@ -444,9 +496,11 @@
             if (b.retarget <= 0) { b.retarget = 2 + Math.random() * 2; const a = Math.random() * 6.28, d = 2 + Math.random() * 3.5; b.tx = Math.cos(a) * d; b.tz = Math.sin(a) * d; }
             go(b.tx, b.tz, SPEED * 0.45);
             if (live && b.y <= 0) { const pa = Math.atan2(b.z, b.x), n = barCount(now, p), a1 = barAngle(now, p), a2 = barAngle(now + 300, p);
-              for (let j = 0; j < n; j++) { const off = j * Math.PI * 2 / n, d0 = wrap(a1 + off - pa), d1 = wrap(a2 + off - pa); if (Math.sign(d0) !== Math.sign(d1) && Math.abs(d1 - d0) < 1.5 && Math.abs(d0) > 0.05) { b.vy = jumpV(p); break; } } }
+              for (let j = 0; j < n; j++) { const off = j * Math.PI * 2 / n, d0 = wrap(a1 + off - pa), d1 = wrap(a2 + off - pa); if (Math.sign(d0) !== Math.sign(d1) && Math.abs(d1 - d0) < 1.5 && Math.abs(d0) > 0.05) {
+                if (barHigh(p, j)) b.duckUntil = now + 450; else b.vy = jumpV(p); break; } } }
             b.vy -= gravity(p) * dt; b.y = Math.max(0, b.y + b.vy * dt); if (b.y === 0) b.vy = 0;
-            if (barHit(prev, now, b.x, b.z, b.y, p)) finish(b, Math.round(now));
+            if (barHit(prev, now, b.x, b.z, b.y, p, now < (b.duckUntil || 0))) finish(b, Math.round(now));
+            b.mv = now < (b.duckUntil || 0) ? 2 : b.mv;
             break; }
           case 'bolas': {
             if (live) { let danger = null;
@@ -517,7 +571,13 @@
             if (b.retarget <= 0) { b.retarget = [0.5, 0.3, 0.15][k];
               if (now > (b.wanderUntil || 0) && Math.random() < [0.12, 0.06, 0.025][k]) { b.wanderUntil = now + 1800; b.wx = (Math.random() * 2 - 1) * 5; b.wz = (Math.random() * 2 - 1) * 5; }
               if (now < (b.wanderUntil || 0)) { b.tx = b.wx; b.tz = b.wz; } else { b.tx = zx + (Math.random() - 0.5) * zr; b.tz = zz + (Math.random() - 0.5) * zr; } }
-            go(b.tx, b.tz, SPEED * [0.6, 0.75, 0.9][k]); const [cx, cz, cr] = zoneAt(ctx.seed, now, p); if (Math.hypot(b.x - cx, b.z - cz) < cr) b.sc += dt * 1000; break; }
+            if (b.respawn && now < b.respawn) { b.st = 1; b.y = Math.max(-6, b.y - dt * 9); break; } if (b.respawn) { b.respawn = 0; b.x = 0; b.z = 0; b.y = 0; b.vx = b.vz = 0; b.st = 0; }
+            go(b.tx, b.tz, SPEED * [0.6, 0.75, 0.9][k]);
+            if (p.push) { const f = Math.exp(-dt * 3.6); b.x += b.vx * dt; b.z += b.vz * dt; b.vx *= f; b.vz *= f;
+              for (const id of ctx.players) { if (id === b.id) continue; const a = posOf(id); if (!a) continue; const d = Math.hypot(a[0] - b.x, a[1] - b.z);
+                if (d < 2 && now > (b.nextDash || 0) && Math.random() < [0.02, 0.04, 0.07][k]) { b.vx += (a[0] - b.x) / (d || 1) * PUSH.dash; b.vz += (a[1] - b.z) / (d || 1) * PUSH.dash; net.x.dash[b.id] = now + PUSH.dashMs; b.nextDash = now + PUSH.cool; } } }
+            if (fellOff('colina', p, now, b.x, b.z)) b.respawn = now + 1500;
+            const [cx, cz, cr] = zoneAt(ctx.seed, now, p); if (Math.hypot(b.x - cx, b.z - cz) < cr) b.sc += dt * 1000; break; }
           case 'laberinto': {
             const mz = ctx.mz; if (b.score != null) break;
             if (b.ri < b.route.length) { const [tx, tz] = b.ri === b.route.length - 1 ? mz.center(mz.exit) : mz.center(b.route[b.ri]); moveTo(b, tx, tz, SPEED * [0.4, 0.55, 0.7][k] * b.speedN, dt); if (Math.hypot(tx - b.x, tz - b.z) < 0.15) b.ri++; }
@@ -528,6 +588,52 @@
               if (avail.length && Math.random() < 0.85) host.action(ctx, b.id, { t: 'mggrab', id: avail[0].id }, now, net); }
             b.sc = net.counts[b.id] || 0; break; }
           case 'cuerda': { b.taps += dt * [5.5, 7.5, 9.5][k] * b.speedN; b.mv = 1; b.sc = Math.round(b.taps); break; }
+          case 'sumo': {
+            const ice = !!p.ice, acc = ice ? 9 : 16, fr = ice ? 0.9 : p.tilt ? 2.2 : 3.6, R = p.tilt ? RAFT - 1.2 : sumoR(p, now) - 1;
+            let tx = 0, tz = 0, near = null, nd = 1e9;
+            for (const id of ctx.players) { if (id === b.id || !alive(id)) continue; const a = posOf(id); const d = Math.hypot(a[0] - b.x, a[1] - b.z); if (d < nd) { nd = d; near = a; } }
+            if (near && (live || Math.random() < 0.5)) { tx = near[0] * 0.6; tz = near[1] * 0.6; if (Math.hypot(b.x, b.z) > R) { tx = 0; tz = 0; } }
+            if (p.tilt) { const [wx, wz] = waveForce(now); const comp = [0.12, 0.25, 0.4][k] * (live ? 1 : 0.2); tx -= wx * comp; tz -= wz * comp; }
+            const dx = tx - b.x, dz = tz - b.z, dl = Math.hypot(dx, dz) || 1;
+            b.vx += dx / dl * acc * [0.7, 0.85, 1][k] * dt; b.vz += dz / dl * acc * [0.7, 0.85, 1][k] * dt;
+            if (p.tilt) { const [wx, wz] = waveForce(now); b.vx += wx * dt; b.vz += wz * dt; }
+            if (near && nd < 2.4 && now > (b.nextDash || 0) && Math.random() < [0.02, 0.05, 0.09][k]) { const ux = (near[0] - b.x) / nd, uz = (near[1] - b.z) / nd; b.vx += ux * PUSH.dash; b.vz += uz * PUSH.dash; net.x.dash[b.id] = now + PUSH.dashMs; b.nextDash = now + PUSH.cool; }
+            const f = Math.exp(-dt * fr); b.vx *= f; b.vz *= f; b.x += b.vx * dt; b.z += b.vz * dt; b.mv = Math.hypot(b.vx, b.vz) > 0.4 ? 1 : 0; if (b.mv) b.ry = Math.atan2(b.vx, b.vz);
+            if (fellOff('sumo', p, now, b.x, b.z)) finish(b, Math.round(now));
+            break; }
+          case 'saltarin': {
+            if (now - b.hopT < SAL.hop * [1.3, 1.1, 1][k]) break; b.hopT = now;
+            const mine = ctx.teams ? (ctx.teamOf(b.id) === 'A' ? 0 : 1) : ctx.players.indexOf(b.id), owned = ctx.paint.filter(v => v === mine).length;
+            const here = pisoCellAt(b.x, b.z); let target = null;
+            const box = (net.x.boxes || [])[0]; if (box && owned >= [8, 6, 4][k]) target = box[1];
+            if (target == null || b.retarget <= 0) { if (target == null) { let best = null, bd = 1e9; for (let t2 = 0; t2 < 12; t2++) { const c = Math.floor(Math.random() * 64); if (ctx.paint[c] === mine) continue; const [cx, cz] = pisoCenter(c), d = Math.hypot(cx - b.x, cz - b.z); if (d < bd) { bd = d; best = c; } } target = best ?? here; } b.retarget = 1; b.tc = target; }
+            target = b.tc ?? here; const [tx, tz] = pisoCenter(target), dx = tx - b.x, dz = tz - b.z;
+            if (Math.abs(dx) > 0.1 || Math.abs(dz) > 0.1) { if (Math.abs(dx) >= Math.abs(dz)) b.x += Math.sign(dx) * PISO.size; else b.z += Math.sign(dz) * PISO.size; b.ry = Math.atan2(Math.sign(dx) * (Math.abs(dx) >= Math.abs(dz)), Math.sign(dz) * (Math.abs(dz) > Math.abs(dx))); }
+            else b.tc = null; b.mv = 1; b.sc = net.counts[b.id] || 0; break; }
+          case 'arco': {
+            if (ctx.lives[b.side] <= 0) break; const sd = b.side, horiz = sd < 2; let goal = 0, best = 1e9;
+            for (const bl of ctx.balls) { const toward = sd === 0 ? bl.vz > 0 : sd === 1 ? bl.vz < 0 : sd === 2 ? bl.vx < 0 : bl.vx > 0; if (!toward) continue;
+              const dist = sd === 0 ? ARCO.line - bl.z : sd === 1 ? bl.z + ARCO.line : sd === 2 ? bl.x + ARCO.line : ARCO.line - bl.x, v = Math.abs(horiz ? bl.vz : bl.vx) || 1, t = dist / v;
+              if (t < best) { best = t; goal = horiz ? bl.x + bl.vx * t : bl.z + bl.vz * t; } }
+            goal = Math.max(-5.4, Math.min(5.4, goal)); if (b.retarget <= 0) { b.retarget = [0.4, 0.22, 0.1][k]; b.ga = goal + (Math.random() - 0.5) * [1.6, 0.9, 0.4][k]; }
+            const da = (b.ga ?? 0) - b.a, sp = SPEED * [0.55, 0.75, 0.95][k]; b.a += Math.sign(da) * Math.min(Math.abs(da), sp * dt); [b.x, b.z] = arcoPos(sd, b.a); b.mv = Math.abs(da) > 0.1 ? 1 : 0;
+            b.ry = sd === 0 ? Math.PI : sd === 1 ? 0 : sd === 2 ? Math.PI / 2 : -Math.PI / 2; b.sc = ctx.lives[sd]; break; }
+          case 'agua': {
+            if (net.x.out[b.id] != null) break; let near = null, nd = 1e9, nid = null;
+            for (const id of ctx.players) { if (id === b.id || net.x.out[id] != null || (ctx.teams && ctx.teamOf(id) === ctx.teamOf(b.id))) continue; const a = posOf(id); if (!a) continue; const d = Math.hypot(a[0] - b.x, a[1] - b.z); if (d < nd) { nd = d; near = a; nid = id; } }
+            if (!near) break; const ux = (near[0] - b.x) / (nd || 1), uz = (near[1] - b.z) / (nd || 1);
+            if (b.retarget <= 0) { b.retarget = 0.8; b.strafe = Math.random() < 0.5 ? 1 : -1; }
+            const want = nd > 5 ? 1 : nd < 3.5 ? -1 : 0; go(b.x + ux * want * 2 + -uz * b.strafe * 1.5, b.z + uz * want * 2 + ux * b.strafe * 1.5, SPEED * [0.55, 0.7, 0.85][k]);
+            b.ry = Math.atan2(ux, uz);
+            if (nd < 8 && now - (ctx.lastThrow[b.id] || -9999) > AGUA.cool * [1.8, 1.3, 1.05][k]) { const err = [0.35, 0.2, 0.08][k] * (Math.random() * 2 - 1), a = Math.atan2(ux, uz) + err;
+              host.action(ctx, b.id, { t: 'mgact', throw: [b.x, b.z, Math.sin(a), Math.cos(a)] }, now, net); }
+            b.sc = net.counts[b.id] || 0; b.st = (ctx.wet[b.id] || 0) >= 3 ? 1 : 0; break; }
+          case 'corona': {
+            const isH = ctx.holder === b.id, h = posOf(ctx.holder);
+            if (isH) { let near = null, nd = 1e9; for (const id of ctx.players) { if (id === b.id) continue; const a = posOf(id); if (!a) continue; const d = Math.hypot(a[0] - b.x, a[1] - b.z); if (d < nd) { nd = d; near = a; } }
+              if (near && nd < 4.5) { const dx = b.x - near[0], dz = b.z - near[1], d = nd || 1; let tx = b.x + dx / d * 3 + (-dz / d) * 2, tz = b.z + dz / d * 3 + (dx / d) * 2; if (Math.hypot(tx, tz) > 5.6) { tx = -dz / d * 4.5; tz = dx / d * 4.5; } go(tx, tz, SPEED * 0.9 * [0.75, 0.88, 1][k]); } else b.mv = 0; }
+            else if (h && !(ctx.teams && ctx.teamOf(b.id) === ctx.teamOf(ctx.holder))) go(h[0], h[1], SPEED * [0.72, 0.86, 0.98][k] * (now < 2000 ? 0 : 1)); else b.mv = 0;
+            b.st = isH ? 2 : 0; b.sc = net.counts[b.id] || 0; break; }
           case 'corredor': { b.sc = Math.round(b.plan * Math.min(1, now / ctx.dur)); b.mv = 1; break; }
           case 'pesca': case 'vasos': { b.sc = Math.round(b.plan * Math.min(1, now / ctx.dur)); break; }
           default: { // planificados: memoria, reflejo, torre, contar, ruleta
@@ -549,6 +655,11 @@
         const c = ctx.targets[msg.id]; if (!c || now < c.t - 200 || now > c.t + c.life + 400) return;
         net.taken[msg.id] = pid; net.counts[pid] = (net.counts[pid] || 0) + targetValue(c);
       }
+      if (msg.t === 'mgact' && msg.dash && ctx.dash && now >= (ctx.dashCool && ctx.dashCool[pid] || 0)) { ctx.dashCool = ctx.dashCool || {}; ctx.dashCool[pid] = now + PUSH.cool - 150; net.x.dash = net.x.dash || {}; net.x.dash[pid] = now + PUSH.dashMs + 60; }
+      if (msg.t === 'mgact' && msg.fell && ctx.kind === 'monedas') net.counts[pid] = Math.max(0, (net.counts[pid] || 0) - 3);
+      if (msg.t === 'mgact' && msg.throw && ctx.kind === 'agua' && !(net.x.out && net.x.out[pid] != null) && now - (ctx.lastThrow[pid] || -9999) >= AGUA.cool - 100) {
+        const [x, z, dx, dz] = msg.throw.map(Number), l = Math.hypot(dx, dz) || 1; if (![x, z, dx, dz].every(Number.isFinite)) return;
+        ctx.lastThrow[pid] = now; ctx.projs.push({ id: ++ctx.pid, owner: pid, x: x + dx / l * 0.6, z: z + dz / l * 0.6, dx: dx / l, dz: dz / l, t0: Math.round(now), te: 0 }); }
       if (msg.t === 'mgact' && ctx.kind === 'canon' && pid === ctx.gunner && Number.isFinite(msg.x) && Number.isFinite(msg.z)) {
         if (now - (ctx.lastShot || -9999) < (p.big ? 1100 : 650)) return; ctx.lastShot = now;
         net.ev = (net.ev || []).filter(e => e.t > now - 1500);
@@ -566,6 +677,8 @@
       if (k === 'cazador') return id === ctx.hunter ? (net.x.caught || 0) : ctx.dur;
       if (k === 'zombi') return ctx.zombies[id] != null ? (ctx.zombies[id] || 0) : ctx.dur;
       if (k === 'pintar') return paintCount(ctx, id, net);
+      if (k === 'saltarin' || k === 'agua' || k === 'corona') return net.counts[id] || 0;
+      if (k === 'arco') return Math.max(0, ctx.lives[ctx.side[id]]);
       if (b.plan != null) return b.plan;
       return ctx.dur;
     },
@@ -576,6 +689,8 @@
         const b = ctx.bots[id];
         if (ctx.kind === 'monedas' || ctx.kind === 'tiro') scores[id] = net.counts[id] || 0;
         else if (ctx.kind === 'pintar') scores[id] = paintCount(ctx, id, net);
+        else if (ctx.kind === 'saltarin' || ctx.kind === 'agua' || ctx.kind === 'corona') scores[id] = net.counts[id] || 0;
+        else if (ctx.kind === 'arco') scores[id] = Math.max(0, ctx.lives[ctx.side[id]]);
         else if (ctx.kind === 'zombi' && ctx.zombies[id] != null) scores[id] = ctx.zombies[id];
         else if (ctx.kind === 'cazador' && id === ctx.hunter) scores[id] = net.x.caught || 0;
         else if (ctx.kind === 'canon' && id === ctx.gunner) scores[id] = Object.keys(outs).length;
@@ -590,5 +705,6 @@
   window.MGCAT = MGCAT;
   window.MGL = { rngOf, wrap, hashStr, SPEED, MISS, BYID, fmtScore, host, spawnPos, arenaOf, PISO, pisoSchedule, pisoCellAt, pisoState, pisoCenter, COIN, coinSchedule, coinValue,
     meteorSchedule, BARRA, barAngle, barCount, barHit, gravity, jumpV, BOLAS, ballSchedule, ballPos, ballHit, maze, mazeMove, zoneAt, targetSchedule, targetValue, targetPos, targetActive,
-    countSchedule, cupsSchedule, memSeq, runnerSchedule, runnerDist, fishBites, reflexRounds, clampCircle, clampRect };
+    countSchedule, cupsSchedule, memSeq, runnerSchedule, runnerDist, fishBites, reflexRounds, clampCircle, clampRect,
+    arenaR, coinR, sumoR, RAFT, fellOff, waveForce, PUSH, SAL, boxSchedule, ARCO, arcoSides, arcoPos, AGUA, barHigh };
 })();
