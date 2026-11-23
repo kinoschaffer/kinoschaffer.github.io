@@ -35,6 +35,12 @@ public class MainActivity extends Activity {
     }
 
     @Override
+    public void onBackPressed() {
+        if (web.canGoBack()) web.goBack();
+        else super.onBackPressed();
+    }
+
+    @Override
     protected void onPause() { super.onPause(); web.onPause(); }
 
     @Override
