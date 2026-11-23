@@ -313,7 +313,8 @@
     if (kind === 'bolas') return [n > 1 ? -4 + 8 * i / (n - 1) : 0, 3];
     if (kind === 'laberinto') return [-0.5 * (n - 1) * 0.3 + i * 0.3 - 6.4, -6.4];
     const STAGE_Z = { tiro: 3, memoria: -5, reflejo: -0.5, contar: -5.2, vasos: -2.6, ruleta: -1.6, pesca: -5.5, torre: -4, cuerda: 3 };
-    if (kind in STAGE_Z) return [(i - (n - 1) / 2) * (kind === 'reflejo' ? 2.2 : 1.6), STAGE_Z[kind]];
+    if (kind in STAGE_Z) { if (n > 5 && kind !== 'reflejo') { const per = Math.ceil(n / 2), row = Math.floor(i / per), j = i % per; return [(j - (per - 1) / 2) * 1.5 + row * 0.75, STAGE_Z[kind] - row * 1.3]; }
+      return [(i - (n - 1) / 2) * (kind === 'reflejo' ? (n > 4 ? 1.5 : 2.2) : 1.6), STAGE_Z[kind]]; }
     const rad = kind === 'barra' ? 4 : kind === 'pintar' ? 3.5 : 2.8, a = i / n * Math.PI * 2 + 0.4;
     return [Math.cos(a) * rad, Math.sin(a) * rad];
   }

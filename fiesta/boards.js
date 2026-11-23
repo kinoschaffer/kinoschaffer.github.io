@@ -77,6 +77,8 @@
       n.y = L.hills * (1 + Math.sin(n.x * 0.22 + L.seed) * 0.6 + Math.cos(n.z * 0.27) * 0.4); });
     // evitar dos casillas especiales seguidas en el camino principal
     for (let i = 1; i < nMain; i++) if ('VD'.includes(nodes[i].type) && 'VD'.includes(nodes[i - 1].type)) nodes[i].type = 'B';
+    // dos tiendas en el camino principal, lejos entre sí
+    [0.28, 0.72].forEach(f => { for (let d = 0; d < 6; d++) { const n = nodes[Math.round(nMain * f) + d]; if (n && !n.fork && n.prev.length === 1 && n.type !== 'S') { n.type = 'T'; break; } } });
     const R = Math.max(...nodes.map(n => Math.hypot(n.x, n.z)));
     return cache[theme] = { nodes, start: 0, nMain, landmark: sc(L.landmark), lmScale: L.lmScale, R, hills: L.hills };
   }

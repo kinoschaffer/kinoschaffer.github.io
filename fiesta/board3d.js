@@ -5,7 +5,7 @@ import * as SkeletonUtils from './lib/addons/utils/SkeletonUtils.js';
 
 const N = 24;
 const CHAR_H = 1.35;           // altura de los personajes
-const TILE_COL = { B: 0x3b82f6, R: 0xef4444, E: 0xa855f7, S: 0x22c55e, V: 0xff922b, D: 0x2b2d42 };
+const TILE_COL = { B: 0x3b82f6, R: 0xef4444, E: 0xa855f7, S: 0x22c55e, V: 0xff922b, D: 0x2b2d42, T: 0x12b886 };
 
 /* ---------------- Utilidades ---------------- */
 const mat = (color, o = {}) => new THREE.MeshStandardMaterial({ color, flatShading: true, roughness: 0.75, metalness: 0, ...o });
@@ -188,9 +188,9 @@ const ICON_TEX = {};
 
 function iconTex(type) {
   if (ICON_TEX[type]) return ICON_TEX[type];
-  const label = { B: '+3', R: '−3', E: '?', S: 'SALIDA', V: '⇄', D: '⚔' }[type];
+  const label = { B: '+3', R: '−3', E: '?', S: 'SALIDA', V: '⇄', D: '⚔', T: '🛒' }[type];
   const t = canvasTex(256, 256, (g) => {
-    g.font = `900 ${type === 'S' ? 58 : type === 'D' ? 120 : 130}px system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = `900 ${type === 'S' ? 58 : type === 'D' || type === 'T' ? 110 : 130}px system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.lineWidth = 16; g.strokeStyle = 'rgba(0,0,0,.35)'; g.strokeText(label, 128, 136); g.fillStyle = '#fff'; g.fillText(label, 128, 136);
   });
   t.userData.shared = true; return ICON_TEX[type] = t;
@@ -299,6 +299,20 @@ function buildWorld(theme, board) {
 }
 
 /* ---------------- Personajes ---------------- */
+const fxCache = {};
+function loadFx(id) {
+  if (!fxCache[id]) fxCache[id] = new Promise(res => loader.load(`models/${id}_fx.glb`, g => res(Object.fromEntries(g.animations.map(a => [a.name, a]))), undefined, () => res(null)));
+  return fxCache[id];
+}
+// Reproduce un gesto (festejo / enojo) en un personaje que tenga mixer
+function emote(av, name, loop) {
+  if (!av || !av.mixer || !av.fx || !av.fx[name] || av.anim) return;
+  if (av.emote) av.emote.a.stop();
+  const a = av.mixer.clipAction(av.fx[name]); if (av.walk) av.walk.stop();
+  a.reset(); a.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, loop ? Infinity : 1); a.clampWhenFinished = false; a.timeScale = 0.625; a.play();
+  av.emote = { a, until: loop ? Infinity : performance.now() + av.fx[name].duration * 1000 };
+}
+function endEmote(av) { if (!av.emote) return; av.emote.a.stop(); av.emote = null; if (av.walk) { av.walk.play(); av.walk.paused = true; av.walk.time = 0; av.mixer.update(0); } }
 function loadModel(id) {
   if (!modelCache[id]) modelCache[id] = new Promise(res => loader.load(`models/${id}.glb`, g => res(g), undefined, () => res(null)));
   return modelCache[id];
@@ -312,7 +326,8 @@ function makeAvatar(p) {
   // Mientras carga: ficha simple
   const ph = mesh(new THREE.CapsuleGeometry(0.3, 0.5, 4, 10), mat(p.color, { flatShading: false })); ph.position.y = 0.6; g.add(ph); av.placeholder = ph;
   av.label = labelFor(p); g.add(av.label);
-  attachModel(g, p.emoji, ph, (m, mixer, walk) => { if (!avatars.has(av.id)) return false; av.model = m; av.mixer = mixer; av.walk = walk; return true; });
+  attachModel(g, p.emoji, ph, (m, mixer, walk) => { if (!avatars.has(av.id)) return false; av.model = m; av.mixer = mixer; av.walk = walk;
+    const cid = (window.FIESTA_CHARS.find(c => c.emoji === p.emoji) || {}).id; if (cid) loadFx(cid).then(fx => { av.fx = fx; }); return true; });
   snapAvatar(av); return av;
 }
 // Carga el personaje 3D dentro del grupo g (reemplaza el marcador provisional ph)
@@ -352,7 +367,7 @@ function spawnChar(emoji, color, name) {
 function slotOffset(av) {
   const same = [...avatars.values()].filter(o => o.tile === av.tile && !o.anim && !o.queue.length);
   if (same.length <= 1) return new THREE.Vector3();
-  const k = same.indexOf(av), a = k / same.length * Math.PI * 2 + 0.6; const rad = same.length > 3 ? 0.62 : 0.5;
+  const k = same.indexOf(av), a = k / same.length * Math.PI * 2 + 0.6; const rad = same.length > 5 ? 0.78 : same.length > 3 ? 0.62 : 0.5;
   return new THREE.Vector3(Math.cos(a) * rad, 0, Math.sin(a) * rad);
 }
 function tilePos(i) { return tileTop[i] ? tileTop[i].clone() : new THREE.Vector3(); }
@@ -361,6 +376,8 @@ function snapAvatar(av) { if (!tileTop.length) return; av.anim = null; av.queue 
 
 function setWalking(av, on) {
   if (!av.walk) return;
+  if (on && av.emote) endEmote(av);
+  if (av.emote) return;
   if (on && av.walk.paused) { av.walk.paused = false; }
   if (!on && !av.walk.paused) { av.walk.paused = true; av.walk.time = 0; av.mixer.update(0); }
 }
@@ -402,6 +419,19 @@ function update(S, me) {
     if (crown.userData.idx < 0) { crown.position.copy(to); crown.userData.t = 1; } else { crown.userData.from.copy(crown.position); crown.userData.t = 0; }
     crown.userData.to.copy(to); crown.userData.idx = S.crown;
   }
+  // Gestos: festejo / enojo
+  const em = (id, name, loop) => emote(avatars.get(id), name, loop);
+  const prevE = lastEm;
+  if (prevE) {
+    S.players.forEach(p => { if (p.crowns > (prevE.crowns[p.id] || 0) && S.phase !== 'bonus') em(p.id, 'festejo'); });
+    if (S.phase === 'event' && S.msg !== prevE.msg && cur) { if (S.msg.startsWith('🔴')) em(cur.id, 'enojo'); if (S.msg.startsWith('🔵') && Math.random() < 0.3) em(cur.id, 'festejo'); }
+    if (prevE.phase === 'mg-results' && S.phase !== 'mg-results' && prevE.mg) prevE.mg.forEach(([id, prize]) => em(id, prize > 0 ? 'festejo' : prevE.duel ? 'enojo' : null));
+    if (S.phase === 'bonus' && S.bonusIdx !== prevE.bonusIdx && S.bonus && S.bonus[S.bonusIdx]) S.bonus[S.bonusIdx].ids.forEach(id => em(id, 'festejo'));
+    if (S.phase === 'end' && prevE.phase !== 'end' && S.focus) { em(S.focus, 'festejo', true); const last = S.players.slice().sort((a, b) => a.crowns - b.crowns || a.coins - b.coins)[0]; if (last && last.id !== S.focus) em(last.id, 'enojo'); }
+  }
+  if (S.phase !== 'end' && prevE && prevE.phase === 'end') avatars.forEach(endEmote);
+  lastEm = { phase: S.phase, msg: S.msg, bonusIdx: S.bonusIdx, crowns: Object.fromEntries(S.players.map(p => [p.id, p.crowns])),
+    mg: S.phase === 'mg-results' && S.mg && S.mg.ranking ? S.mg.ranking.map(e => [e.id, e.prize]) : (prevE && prevE.phase === 'mg-results' ? null : prevE && prevE.mg), duel: S.mg && S.mg.format === 'duel' };
   // Flechas en la bifurcación
   const fk = S.phase === 'fork' && S.fork && cur ? cur.pos + ':' + S.fork.opts.join(',') : null;
   if (fk !== forkKey) { forkKey = fk; forkArrows.forEach(a => { scene.remove(a); disposeTree(a); }); forkArrows = [];
@@ -448,14 +478,14 @@ function burstAt(pos) {
 
 /* ---------------- Bucle ---------------- */
 const tmp = new THREE.Vector3(), focusSm = new THREE.Vector3();
-let forkKey = null, forkArrows = [];
+let forkKey = null, forkArrows = [], low = false, lastEm = null;
 let camYaw = null, camJump = true, overlay = null, _frames = 0;
 function frame() {
   _frames++;
   const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
   if (visible && overlay) { const v = overlay.frame(dt, t); if (v) { renderer.render(v[0], v[1]); } return; }
   if (!visible || !lastS) return;
-  const S = lastS, cur = S.players[S.turn], curAv = cur && avatars.get(cur.id);
+  const S = lastS, cur = S.players[S.turn], curAv = avatars.get(S.focus && ['bonus', 'end'].includes(S.phase) ? S.focus : cur && cur.id);
   avatars.forEach(av => {
     if (!av.anim && av.queue.length) {
       const step = av.queue.shift();
@@ -487,6 +517,7 @@ function frame() {
       let diff = want - av.g.rotation.y; diff = Math.atan2(Math.sin(diff), Math.cos(diff)); av.g.rotation.y += diff * (1 - Math.exp(-dt * 4));
       if (av.model) { av.model.scale.y = av.model.scale.x * (1 + Math.sin(t * 3 + av.tile) * 0.015); }
     }
+    if (av.emote && performance.now() > av.emote.until) endEmote(av);
     if (av.mixer) av.mixer.update(dt * 1.6);
     const isCur = cur && av.id === cur.id;
     av.ring.scale.setScalar(isCur ? 1.25 + Math.sin(t * 6) * 0.12 : 1);
@@ -567,6 +598,8 @@ window.Board3D = {
   show(on) { if (!ok) return; if (on && !visible) camJump = true; visible = on; canvas.style.display = on ? 'block' : 'none'; if (on) { clock.getDelta(); } },
   localHit() { if (!lastS || dfx.mode !== 'hover') return; startHit(lastS.round + '-' + lastS.turn); },
   setOverlay(o) { overlay = o; camJump = true; },
+  setLow(on) { low = !!on; if (!renderer) return; renderer.setPixelRatio(on ? 1 : Math.min(window.devicePixelRatio || 1, 2)); sun.castShadow = !on; resize(); },
+  get low() { return low; },
   get _dice() { return { mode: dfx.mode, num: dfx.numShown, hitT: +dfx.hitT.toFixed(2), rid: dfx.rollId, vis: dice.visible, fr: _frames }; },
   spawnChar, textSprite, disposeTree, get renderer() { return renderer; }, get canvas() { return canvas; }, CHAR_H,
   update,

@@ -2,6 +2,7 @@
 // Cada celular simula su propio personaje; el anfitrión reparte posiciones, decide lo compartido y mueve a los bots.
 import * as THREE from 'three';
 const L = window.MGL;
+const X = n => window.SFX && window.SFX.play(n);
 
 /* ======================= Utilidades de dibujo ======================= */
 const mat = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.7, flatShading: true, ...o });
@@ -26,7 +27,7 @@ let G = null; // partida en curso
 function baseScene(sky, fogFar = 60) {
   const scene = new THREE.Scene(); scene.background = new THREE.Color(sky); scene.fog = new THREE.Fog(sky, fogFar * 0.6, fogFar);
   scene.add(new THREE.HemisphereLight(0xffffff, 0x555566, 1.15));
-  const sun = new THREE.DirectionalLight(0xffffff, 2.1); sun.position.set(8, 18, 10); sun.castShadow = true;
+  const sun = new THREE.DirectionalLight(0xffffff, 2.1); sun.position.set(8, 18, 10); sun.castShadow = !(window.Board3D && window.Board3D.low);
   sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16, near: 1, far: 60 }); sun.shadow.bias = -0.0008;
   scene.add(sun); return { scene, sun };
 }
@@ -93,8 +94,8 @@ K.monedas = {
     sc.life = G.p.life || L.COIN.life; },
   tick(dt, now, m, prev) {
     if (m.st !== 2) for (const c of G.sc.coins) { if (c.kind === 'bomb') continue;
-      if (G.taken[c.id] == null && !G.localTaken.has(c.id) && now >= c.t + L.COIN.fall && now < c.t + L.COIN.fall + G.sc.life && Math.hypot(c.x - m.x, c.z - m.z) < 0.8) { G.localTaken.add(c.id); G.send({ t: 'mggrab', key: G.key, id: c.id }); } }
-    for (const c of G.sc.coins) if (c.kind === 'bomb' && now >= c.t + L.COIN.fall && prev < c.t + L.COIN.fall && Math.hypot(c.x - m.x, c.z - m.z) < 1.7) { m.stunUntil = now + 1500; flash('💥 ¡Aturdido!', 1200); }
+      if (G.taken[c.id] == null && !G.localTaken.has(c.id) && now >= c.t + L.COIN.fall && now < c.t + L.COIN.fall + G.sc.life && Math.hypot(c.x - m.x, c.z - m.z) < 0.8) { G.localTaken.add(c.id); G.send({ t: 'mggrab', key: G.key, id: c.id }); X('coin'); } }
+    for (const c of G.sc.coins) if (c.kind === 'bomb' && now >= c.t + L.COIN.fall && prev < c.t + L.COIN.fall && Math.hypot(c.x - m.x, c.z - m.z) < 1.7) { m.stunUntil = now + 1500; flash('💥 ¡Aturdido!', 1200); X('boom'); }
     m.st = now < m.stunUntil ? 2 : 0; m.sc = G.counts[G.myId] || 0;
   },
   draw(now, t) { G.sc.coins.forEach(c => { const land = c.t + L.COIN.fall, taken = G.taken[c.id] != null || G.localTaken.has(c.id);
@@ -116,7 +117,7 @@ K.barra = {
     sc.bars = [0, 1, 2].map(() => { const g = new THREE.Group(); const b = mesh(new THREE.CylinderGeometry(0.17, 0.17, len, 12), barM); b.rotation.z = Math.PI / 2; b.position.set(0.9 + len / 2, 0.32, 0); g.add(b);
       const tip = mesh(new THREE.SphereGeometry(0.25, 10, 8), mat(0xe03131)); tip.position.set(L.BARRA.R + 0.3, 0.32, 0); g.add(tip); sc.scene.add(g); return g; }); },
   tick(dt, now, m, prev) {
-    if (G.input.jump && m.st === 0 && m.y <= 0) m.vy = L.jumpV(G.p); G.input.jump = false;
+    if (G.input.jump && m.st === 0 && m.y <= 0) { m.vy = L.jumpV(G.p); X('jump'); } G.input.jump = false;
     if (m.st === 0) { m.vy -= L.gravity(G.p) * dt; m.y = Math.max(0, m.y + m.vy * dt); if (m.y === 0) m.vy = 0;
       if (L.barHit(prev, now, m.x, m.z, m.y, G.p)) { m.vy = 9; const a = L.barAngle(now, G.p) + Math.PI / 2; m.fly = [Math.cos(a), Math.sin(a)]; out('¡Fuera!'); } }
     else { m.vy -= 20 * dt; m.y += m.vy * dt; m.x += m.fly[0] * 9 * dt; m.z += m.fly[1] * 9 * dt; }
@@ -135,7 +136,7 @@ K.bolas = {
       const x = mesh(geo, m); if (G.p.obj === 'log' || G.p.obj === 'barrel') x.rotation.z = Math.PI / 2; const g = new THREE.Group(); g.add(x); if (G.p.side) g.rotation.y = Math.PI / 2;
       g.visible = false; sc.scene.add(g); return { ...b, g, x }; }); },
   tick(dt, now, m) {
-    if (G.p.jump) { if (G.input.jump && m.st === 0 && m.y <= 0) m.vy = 7.4; G.input.jump = false; m.vy -= 24 * dt; m.y = Math.max(0, m.y + m.vy * dt); if (m.y === 0) m.vy = 0; }
+    if (G.p.jump) { if (G.input.jump && m.st === 0 && m.y <= 0) { m.vy = 7.4; X('jump'); } G.input.jump = false; m.vy -= 24 * dt; m.y = Math.max(0, m.y + m.vy * dt); if (m.y === 0) m.vy = 0; }
     if (m.st === 0 && L.ballHit(G.sc.balls, now, m.x, m.z, m.y, G.p)) out('¡Aplastado!');
   },
   draw(now) { G.sc.balls.forEach(b => { const [x, z] = L.ballPos(b, now, G.p); b.g.visible = now >= b.t && Math.abs(x) < 12 && z < 10;
@@ -154,7 +155,7 @@ K.meteoros = {
     if (G.me) G.me.lives = 3; },
   tick(dt, now, m, prev) { if (m.st === 1) return;
     for (const x of G.sc.mets) { const land = x.t + x.fall; if (land > now) break; if (land <= prev) continue;
-      if (Math.hypot(x.x - m.x, x.z - m.z) < x.rad) { m.lives--; flash(m.lives > 0 ? `💥 ¡Te dio! Vidas: ${m.lives}` : '💥 ¡Fuera!', 900); m.stunUntil = now + 600; if (m.lives <= 0) { out(); return; } } }
+      if (Math.hypot(x.x - m.x, x.z - m.z) < x.rad) { m.lives--; X('boom'); flash(m.lives > 0 ? `💥 ¡Te dio! Vidas: ${m.lives}` : '💥 ¡Fuera!', 900); m.stunUntil = now + 600; if (m.lives <= 0) { out(); return; } } }
     m.st = now < m.stunUntil ? 2 : 0; m.sc = m.lives; },
   draw(now, t) { G.sc.mets.forEach(x => { const land = x.t + x.fall, act = now >= x.t && now < land; x.o.visible = act; x.sh.visible = act;
     if (act) { const f = (now - x.t) / x.fall; x.o.position.set(x.x, 14 * (1 - f), x.z); x.o.rotation.x = t * 3; x.sh.scale.setScalar(0.3 + f * 0.7); } boom(x, now, land, x.rad * 1.4); }); },
@@ -238,7 +239,7 @@ K.canon = {
       ball: mesh(G.p.big ? new THREE.BoxGeometry(1, 0.6, 0.7) : new THREE.SphereGeometry(0.4, 12, 9), mat(0x212529)) };
       s.sh.rotation.x = -Math.PI / 2; s.sh.position.set(e.x, 0.04, e.z); G.sc.scene.add(s.sh, s.ball); }
     const left = e.t - now, act = left > 0; s.sh.visible = act; s.ball.visible = act; if (act) { const f = 1 - left / (G.p.big ? 1500 : 1000); s.ball.position.set(e.x * f, 2 + 10 * Math.sin(f * Math.PI * 0.9), -8 + (e.z + 8) * f); }
-    boom(s, now, e.t, e.r * 1.3); } },
+    if (now >= e.t && !s.sounded) { s.sounded = true; X('boom'); } boom(s, now, e.t, e.r * 1.3); } },
   hud() { return G.myId === G.sc.gunner ? `Eres el CAÑONERO 💣 · Toca el piso para disparar · Fuera: ${Object.keys(G.x.out || {}).length}` : aliveHud(); },
   final: () => G.myId === G.sc.gunner ? Object.keys(G.x.out || {}).length : G.dur,
 };
@@ -276,7 +277,7 @@ K.tiro = {
       o.visible = false; o.userData.id = c.id; sc.scene.add(o); return { ...c, o }; }); },
   onTap(ray) { const act = G.sc.targets.filter(c => c.o.visible); const hits = ray.intersectObjects(act.map(c => c.o), true); if (!hits.length) return;
     let o = hits[0].object; while (o && o.userData.id == null) o = o.parent; const c = G.sc.targets[o.userData.id]; if (!c) return;
-    G.localTaken.add(c.id); G.send({ t: 'mggrab', key: G.key, id: c.id }); popFx(c.o.position, c.bad ? '💥 −3' : c.gold ? '+3' : '+1', c.bad ? '#ff6b6b' : '#ffd43b'); },
+    G.localTaken.add(c.id); G.send({ t: 'mggrab', key: G.key, id: c.id }); X(c.bad ? 'bad' : 'coin'); popFx(c.o.position, c.bad ? '💥 −3' : c.gold ? '+3' : '+1', c.bad ? '#ff6b6b' : '#ffd43b'); },
   draw(now) { G.sc.targets.forEach(c => { const act = L.targetActive(c, now) && G.taken[c.id] == null && !G.localTaken.has(c.id); c.o.visible = act;
     if (act) { const [x, y] = L.targetPos(c, now, G.p); c.o.position.set(x, y, -4); if (G.p.target === 'topo') { const k = (now - c.t) / c.life; c.o.position.y = y - 0.6 + Math.sin(Math.min(1, k * 1.2) * Math.PI) * 0.9; } } }); },
   tick(dt, now, m) { m.sc = G.counts[G.myId] || 0; },
@@ -294,9 +295,9 @@ K.memoria = {
       m.position.set(Math.cos(a) * 2.6, 0.1, Math.sin(a) * 2.6 - 1.2); sc.scene.add(m); return m; });
     sc.seq = L.memSeq(G.seed, n); sc.level = 0; sc.phase = 'show'; sc.t0 = 600; sc.input = 0; sc.lit = {}; },
   buttons() { return PAD_COLS.slice(0, G.sc.n).map((c, i) => `<button data-i="${i}" style="background:${c};width:${G.sc.n > 4 ? 30 : 46}%;height:76px;border-radius:18px"></button>`).join(''); },
-  onButton(i) { const sc = G.sc; if (sc.phase !== 'input' || G.finished) return; light(i, 250);
+  onButton(i) { const sc = G.sc; if (sc.phase !== 'input' || G.finished) return; light(i, 250); X('beep');
     if (sc.seq[sc.input] === i) { sc.input++; if (sc.input >= sc.level + 3) { sc.level++; flash('✅ ¡Bien!', 600); sc.phase = 'show'; sc.t0 = G.now + 900; sc.input = 0; } }
-    else { flash('❌ ¡Uy!', 1200); sc.phase = 'over'; done(sc.level, null); } },
+    else { flash('❌ ¡Uy!', 1200); X('bad'); sc.phase = 'over'; done(sc.level, null); } },
   tick(dt, now, m) { m.sc = G.sc.level; },
   draw(now) { const sc = G.sc, step = G.p.fast ? 330 : 600;
     if (sc.phase === 'show' && G.me) { const len = sc.level + 3, k = Math.floor((now - sc.t0) / step);
@@ -323,7 +324,7 @@ K.reflejo = {
     if (sc.state === 'done' && now > rd.go + 1600) { sc.r++; sc.state = 'wait'; if (sc.r >= 3) { const tot = sc.res.reduce((a, b) => a + b, 0); done(tot, `Total: ${tot} ms`); } }
     m.sc = sc.res.length; },
   draw(now, t) { const sc = G.sc; if (sc.r >= 3) { K.reflejo.setSign(null); return; } const rd = sc.rounds[sc.r];
-    if (now >= rd.go && sc.state !== 'done') K.reflejo.setSign(G.p.fly ? '🪰 ¡AHORA!' : '¡YA!', '#51cf66');
+    if (now >= rd.go && sc.state !== 'done') { if (sc.signTxt !== '¡YA!' && sc.signTxt !== '🪰 ¡AHORA!') X('go'); } if (now >= rd.go && sc.state !== 'done') K.reflejo.setSign(G.p.fly ? '🪰 ¡AHORA!' : '¡YA!', '#51cf66');
     else if (rd.fake && now >= rd.fake && now < rd.fake + 900) K.reflejo.setSign('¡¿YA?!', '#fcc419');
     else K.reflejo.setSign(sc.state === 'done' ? null : '…', '#ffffff');
     if (sc.fly) { const landed = now >= rd.go; sc.fly.position.set(landed ? 0 : Math.sin(t * 7) * 2, landed ? 1.2 : 2.5 + Math.sin(t * 11) * 0.6, landed ? 1 : Math.cos(t * 5)); } },
@@ -344,7 +345,7 @@ K.cuerda = {
   place(id) { const sc = G.sc, team = G.teamOf(id), list = G.teams[team], k = list.indexOf(id);
     if (sc.boat) return [(team === 'A' ? -2 : 2) + (k - (list.length - 1) / 2) * 0.6, 6 - k * 0.8];
     return [(team === 'A' ? -1 : 1) * (1.6 + k * 1.1), 0]; },
-  tap() { const m = G.me; if (!m || G.finished) return; m.taps = (m.taps || 0) + 1; },
+  tap() { const m = G.me; if (!m || G.finished) return; m.taps = (m.taps || 0) + 1; X('tap'); },
   tick(dt, now, m) { m.sc = m.taps || 0; m.ry = G.sc.boat ? Math.PI : G.teamOf(G.myId) === 'A' ? Math.PI / 2 : -Math.PI / 2;
     if ((G.over || now >= G.dur) && !G.finished) done(m.taps || 0, '¡Fin!'); },
   draw(now, t) { const sc = G.sc, r = G.x.rope || 0;
@@ -367,7 +368,7 @@ K.torre = {
   onTap() { const sc = G.sc; if (!sc.mov || G.finished) return; const x = sc.mx, l = Math.max(x - sc.top.w / 2, sc.top.x - sc.top.w / 2), r = Math.min(x + sc.top.w / 2, sc.top.x + sc.top.w / 2), w = r - l;
     if (w <= 0.05) { sc.falling = sc.mov; sc.mov = null; done(sc.h, `🏗️ ${sc.h} pisos`); return; }
     const perfect = Math.abs(w - sc.top.w) < 0.06; sc.mov.geometry.dispose(); sc.mov.geometry = new THREE.BoxGeometry(w, 0.5, 2.6); sc.mov.position.x = (l + r) / 2; sc.top = { x: (l + r) / 2, w }; sc.h++; sc.speed *= 1.05;
-    if (perfect) flash('✨ ¡Perfecto!', 500); K.torre.next(); },
+    X(perfect ? 'coin' : 'tap'); if (perfect) flash('✨ ¡Perfecto!', 500); K.torre.next(); },
   tick(dt, now, m) { const sc = G.sc; if (sc.mov) { sc.mx += sc.dir * sc.speed * dt; if (Math.abs(sc.mx) > 3.2) { sc.dir *= -1; sc.mx = Math.sign(sc.mx) * 3.2; } sc.mov.position.x = sc.mx; }
     if (sc.falling) { sc.falling.position.y -= dt * 6; sc.falling.rotation.z += dt * 2; } m.sc = sc.h; m.x = -2.4; m.z = 1.8; m.y = 0; },
   camPos() { const y = G.sc.h * 0.5; return [[5, y + 3.5, 7.5], [0, y, 0]]; },
@@ -391,7 +392,7 @@ K.corredor = {
   tick(dt, now, m) { const sc = G.sc, dist = L.runnerDist(now, G.p); m.z = -dist; m.ry = Math.PI; m.mv = 1;
     const tx = sc.x0 + (m.lane || 0) * 1.1; m.x += (tx - m.x) * Math.min(1, dt * (G.p.fast ? 9 : 13));
     sc.items.forEach((it, i) => { if (sc.got.has(i) || Math.abs(it.z - dist) > 0.6 || Math.abs(sc.x0 + it.lane * 1.1 - m.x) > 0.6) return; sc.got.add(i); sc.meshes[i].visible = false;
-      if (it.kind === 'coin') sc.coins++; else if (now > (m.stunUntil || 0)) { sc.coins = Math.max(0, sc.coins - 2); m.stunUntil = now + 900; flash('💥 −2', 600); } });
+      if (it.kind === 'coin') { sc.coins++; X('coin'); } else if (now > (m.stunUntil || 0)) { X('bad'); sc.coins = Math.max(0, sc.coins - 2); m.stunUntil = now + 900; flash('💥 −2', 600); } });
     m.st = now < (m.stunUntil || 0) ? 2 : 0; m.sc = sc.coins; },
   draw(now, t) { G.sc.meshes.forEach(o => { if (o.geometry.type === 'CylinderGeometry') o.rotation.z = t * 3; }); },
   hud() { return `🪙 ${G.sc.coins} · Mejor rival: ${Math.max(0, ...G.players.filter(p => p.id !== G.myId).map(p => (G.net[p.id] || [])[5] || 0))}`; },
@@ -462,7 +463,7 @@ K.vasos = {
   startRound(at) { const sc = G.sc, rd = sc.rounds[sc.r]; sc.slot = [0, 1, 2]; sc.ball = rd.start; sc.t0 = (G.now || 0) + at; sc.phase = 'show'; sc.pick = null; refreshButtons(); },
   buttons() { return G.sc && G.sc.phase === 'pick' ? [0, 1, 2].map(i => `<button data-i="${i}" style="width:30%">${['⬅️', '⬆️', '➡️'][i]}</button>`).join('') : ''; },
   onButton(pos) { const sc = G.sc; if (sc.phase !== 'pick') return; const cup = sc.slot.indexOf(pos); sc.pick = cup; sc.phase = 'reveal'; sc.tr = G.now;
-    if (cup === sc.ball) { sc.ok++; flash('✅ ¡Ahí estaba!', 900); } else flash('❌ No era ese', 900); refreshButtons(); },
+    if (cup === sc.ball) { sc.ok++; X('coin'); flash('✅ ¡Ahí estaba!', 900); } else { X('bad'); flash('❌ No era ese', 900); } refreshButtons(); },
   tick(dt, now, m) { const sc = G.sc; if (sc.r >= 3) return;
     if (sc.phase === 'show' && now > sc.t0 + 1400) { sc.phase = 'swap'; sc.ts = now; }
     if (sc.phase === 'reveal' && now > sc.tr + 1400) { sc.r++; if (sc.r >= 3) done(sc.ok, `${sc.ok} de 3`); else K.vasos.startRound(300); }
@@ -501,7 +502,7 @@ K.ruleta = {
     if (sc.mode === 'ruleta') { const a = ((v.a % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2); err = Math.round(Math.abs(L.wrap(a - (v.target + 0.175))) * 180 / Math.PI); }
     else if (sc.mode === 'tren') err = Math.round(Math.abs(v.x - v.target) * 30);
     else err = Math.round(Math.abs(v.t - 5) * 100);
-    sc.tries.push(err); sc.stopped = true; sc.stopAt = now; sc.stopV = v; flash(err <= 3 ? `🎯 ¡Casi perfecto! (${err})` : `Error: ${err}`, 1000); },
+    sc.tries.push(err); X(err <= 5 ? 'coin' : 'tap'); sc.stopped = true; sc.stopAt = now; sc.stopV = v; flash(err <= 3 ? `🎯 ¡Casi perfecto! (${err})` : `Error: ${err}`, 1000); },
   tick(dt, now) { const sc = G.sc; if (sc.r >= 3) return; const lim = sc.mode === 'reloj' ? 9 : 7;
     if (!sc.stopped && now > sc.t0 + lim * 1000) { sc.tries.push(sc.mode === 'reloj' ? 400 : 99); sc.stopped = true; sc.stopAt = now; sc.stopV = K.ruleta.val(now); flash('⌛ ¡Se acabó el tiempo!', 900); }
     if (sc.stopped && now > sc.stopAt + 1300) { sc.r++; sc.stopped = false; sc.t0 = now + 600; if (sc.r >= 3) { const tot = sc.tries.reduce((a, b) => a + b, 0); done(tot, `Error total: ${tot}`); } } },
@@ -522,8 +523,8 @@ K.pesca = {
     sc.bites = L.fishBites(G.seed, G.myId, G.p); sc.pts = 0; sc.block = 0; sc.used = new Set(); sc.win = G.p.ice ? 800 : 950; },
   biteAt(now) { return G.sc.bites.findIndex(b => now >= b && now < b + G.sc.win); },
   onTap() { const sc = G.sc, now = G.now; if (!G.me || now < sc.block || G.finished) return; const i = K.pesca.biteAt(now);
-    if (i >= 0 && !sc.used.has(i)) { sc.used.add(i); sc.pts += G.p.ice ? 2 : 1; flash(G.p.ice ? '🐟 +2' : '🐟 +1', 700); }
-    else { sc.block = now + 1500; flash('😱 ¡Se espantó!', 900); } },
+    if (i >= 0 && !sc.used.has(i)) { sc.used.add(i); X('coin'); sc.pts += G.p.ice ? 2 : 1; flash(G.p.ice ? '🐟 +2' : '🐟 +1', 700); }
+    else { sc.block = now + 1500; X('bad'); flash('😱 ¡Se espantó!', 900); } },
   tick(dt, now, m) { m.sc = G.sc.pts; },
   draw(now, t) { const sc = G.sc, i = K.pesca.biteAt(now), biting = G.me && i >= 0 && !sc.used.has(i); sc.float.position.y = -0.75 + (biting ? -0.25 : Math.sin(t * 2) * 0.04); sc.float.position.x = biting ? Math.sin(t * 40) * 0.05 : 0; },
   hud() { return `🎣 Puntos: ${G.sc.pts} · ¡Toca cuando el corcho se hunda!`; },
@@ -592,7 +593,7 @@ function setupControls() {
 /* ======================= Ciclo de vida ======================= */
 function stOf(id) { return id === G.myId && G.me ? G.me.st : ((G.net[id] || [])[4] || 0); }
 function done(score, msg) { if (!G || G.finished || !G.me) return; G.finished = true; const d = G.done; setTimeout(() => d && d(score), 0); if (msg) flash(msg); }
-function out(msg) { const m = G.me; if (m.st === 1) return; m.st = 1; done(Math.round(G.now), msg || '¡Fuera!'); }
+function out(msg) { const m = G.me; if (m.st === 1) return; m.st = 1; X('lose'); done(Math.round(G.now), msg || '¡Fuera!'); }
 
 function prepare({ type, seed, players, myId, dur, key, teams, format }) {
   if (G && G.key === key) return;

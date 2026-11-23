@@ -126,12 +126,14 @@ body.b3d #app{max-width:none;padding:0}
 <script src="lib/peerjs.min.js"></script>
 <script src="boards.js"></script>
 <script src="minigames.js"></script>
+<script src="sfx.js"></script>
 <script>
 'use strict';
 /* ================= Config ================= */
 const PREFIX = 'fiestatablero-v1-';
 const CROWN_COST = 20;
-const COLORS = ['#ff4d6d','#4dabf7','#51cf66','#fcc419','#b197fc','#ff922b'];
+const MAX_PLAYERS = 8;
+const COLORS = ['#ff4d6d','#4dabf7','#51cf66','#fcc419','#b197fc','#ff922b','#20c997','#f783ac'];
 const CHARS = [
   {id:'rana', name:'Rana', emoji:'🐸'}, {id:'gato', name:'Gato', emoji:'🐱'}, {id:'panda', name:'Panda', emoji:'🐼'}, {id:'zorro', name:'Zorro', emoji:'🦊'},
   {id:'pinguino', name:'Pingüino', emoji:'🐧'}, {id:'cerdito', name:'Cerdito', emoji:'🐷'}, {id:'mono', name:'Mono', emoji:'🐵'}, {id:'tigre', name:'Tigre', emoji:'🐯'},
@@ -149,10 +151,20 @@ const THEMES = {
 };
 // S=salida, B=azul(+3), R=roja(-3), E=evento
 const graph = () => BOARDS.build((S && S.theme) || (H.state && H.state.theme) || 'isla');
-const PRIZES = [10, 6, 3, 1, 0, 0];
+const PRIZES = [10, 6, 4, 2, 1, 0, 0, 0];
 // Catálogo de minijuegos 3D (minigames.js)
 const MG = Object.fromEntries(MGCAT.map(m => [m.id, { ...m, td: true }]));
 const MG_KEYS = Object.keys(MG);
+// Objetos de la tienda
+const ITEMS = {
+  doble:   {name:'Dado Doble',   icon:'🎲', price:6,  desc:'Tiras 2 dados'},
+  triple:  {name:'Dado Triple',  icon:'🎰', price:12, desc:'Tiras 3 dados'},
+  tortuga: {name:'Dado Tortuga', icon:'🐢', price:3,  desc:'Sale 1, 2 o 3: para caer justo donde quieres'},
+  cambio:  {name:'Intercambio',  icon:'🔀', price:10, desc:'Cambias de lugar con un rival al azar'},
+  iman:    {name:'Imán',         icon:'🧲', price:8,  desc:'Le quitas 5 🪙 a un rival al azar'},
+  brujula: {name:'Brújula',      icon:'🧭', price:15, desc:'Te deja a 4 casillas de la corona'},
+};
+const MAX_ITEMS = 3;
 // Bots (modo vs IA): qué tan bien juegan cada minijuego según la dificultad
 const BOT_LEVELS = { facil:{name:'Fácil', k:0}, normal:{name:'Normal', k:1}, dificil:{name:'Difícil', k:2} };
 function botScore(type, lvl, seed){
@@ -189,6 +201,7 @@ const params = new URLSearchParams(location.search);
 const LOCAL = params.has('local'); // modo prueba: varias pestañas del mismo navegador
 
 let myId = ss.get('fid') || rid(); ss.set('fid', myId);
+const prefs = { sound: ls.get('fsound') !== '0', low: ls.get('flow') === '1' };
 const me = { name: ls.get('fname') || '', emoji: EMOJIS.includes(ls.get('femoji')) ? ls.get('femoji') : pick(EMOJIS) };
 let role = null;     // 'host' | 'client'
 let S = null;        // último estado del juego
@@ -240,7 +253,7 @@ function hostRecv(conn, msg){
   if (msg.t === 'join') {
     if (typeof msg.id !== 'string') return;
     const ok = joinPlayer(msg);
-    if (!ok) { try { conn.send({t:'reject', reason: H.state.phase === 'lobby' ? 'La sala está llena (máx. 6).' : 'La partida ya empezó.'}); } catch(e){} return; }
+    if (!ok) { try { conn.send({t:'reject', reason: H.state.phase === 'lobby' ? `La sala está llena (máx. ${MAX_PLAYERS}).` : 'La partida ya empezó.'}); } catch(e){} return; }
     conn._pid = msg.id; H.conns.set(msg.id, conn); broadcast(); return;
   }
   if (conn._pid) hostAction(conn._pid, msg);
@@ -307,6 +320,7 @@ function newState(code){
     msg:'', hostId:myId, mg:null, mgHist:[], seq:0, bonus:null, theme:'isla', fork:null, duelPick:null};
 }
 const findP = id => H.state.players.find(p => p.id === id);
+const T = ms => H.state && H.state.fast ? Math.round(ms * 0.6) : ms; // turnos rápidos
 const cur = () => H.state.players[H.state.turn];
 function randSpot(exclude, players){
   const nodes = graph().nodes, occ = new Set((players||[]).map(p => p.pos));
@@ -320,7 +334,7 @@ function addPlayer(id, name, emoji){
     color:COLORS.find(c => !used.includes(c)), pos:0, coins:10, crowns:0, wins:0, connected:true});
 }
 function addBot(lvl){
-  const s = H.state; if (s.players.length >= 6) return;
+  const s = H.state; if (s.players.length >= MAX_PLAYERS) return;
   const used = s.players.map(p => p.emoji);
   const c = CHARS.find(c => !used.includes(c.emoji)) || pick(CHARS);
   addPlayer('bot-' + rid(), c.name + ' IA', c.emoji);
@@ -329,7 +343,7 @@ function addBot(lvl){
 function joinPlayer(msg){
   const p = findP(msg.id);
   if (p) { p.connected = true; if (H.state.phase === 'lobby') { p.name = String(msg.name||p.name).slice(0,12); if (EMOJIS.includes(msg.emoji)) p.emoji = msg.emoji; } return true; }
-  if (H.state.phase !== 'lobby' || H.state.players.length >= 6) return false;
+  if (H.state.phase !== 'lobby' || H.state.players.length >= MAX_PLAYERS) return false;
   addPlayer(msg.id, msg.name, msg.emoji); return true;
 }
 
@@ -337,6 +351,7 @@ function hostAction(pid, msg){
   const s = H.state, p = findP(pid); if (!p) return;
   const isHost = pid === s.hostId;
   switch (msg.t) {
+    case 'fast': if (isHost && s.phase === 'lobby') { s.fast = !!msg.v; broadcast(); } break;
     case 'rounds': if (isHost && s.phase === 'lobby') { s.maxRounds = Math.max(3, Math.min(20, msg.n|0)); broadcast(); } break;
     case 'theme': if (isHost && s.phase === 'lobby' && THEMES[msg.v]) { s.theme = msg.v; broadcast(); } break;
     case 'fork': if (s.phase === 'fork' && cur().id === pid && s.fork && s.fork.opts.includes(msg.to) && H.forkResolve) H.forkResolve(msg.to); break;
@@ -345,6 +360,8 @@ function hostAction(pid, msg){
     case 'delbot': if (isHost && s.phase === 'lobby') { s.players = s.players.filter(x => !(x.bot && x.id === msg.id)); broadcast(); } break;
     case 'start': if (isHost && s.phase === 'lobby' && s.players.length >= 2) startGame(); break;
     case 'roll': if (s.phase === 'turn' && cur().id === pid) doRoll(); break;
+    case 'use': if (s.phase === 'turn' && cur().id === pid && !s.itemUsed && p.items.includes(msg.item)) useItem(p, msg.item); break;
+    case 'buy': if (s.phase === 'shop' && cur().id === pid && H.shopResolve) H.shopResolve(msg.item || null); break;
     case 'crown': if (s.phase === 'crown' && cur().id === pid && H.crownResolve) H.crownResolve(!!msg.buy); break;
     case 'score':
       if (s.phase === 'mg-play' && s.mg && msg.key === s.mg.key && !(pid in s.mg.scores) && Number.isFinite(+msg.v)) {
@@ -357,47 +374,90 @@ function hostAction(pid, msg){
       if (s.phase === 'mg-play' && s.mg && msg.key === s.mg.key && H.mgCtx && s.mg.players.includes(pid))
         MGL.host.action(H.mgCtx, pid, msg, performance.now() - H.mgT0, H.mgNet);
       break;
-    case 'again': if (isHost && s.phase === 'end') { s.phase = 'lobby'; s.bonus = null; s.mg = null; broadcast(); } break;
+    case 'again': if (isHost && s.phase === 'end') { s.phase = 'lobby'; s.bonus = null; s.focus = null; s.mg = null; broadcast(); } break;
   }
 }
 
 function startGame(){
   const s = H.state;
-  s.players.forEach(p => { p.pos = 0; p.dir = 1; p.color = p.color; p.tile = null; p.coins = 10; p.crowns = 0; p.wins = 0; });
+  s.players.forEach(p => { p.pos = 0; p.dir = 1; p.tile = null; p.coins = 10; p.crowns = 0; p.wins = 0; p.items = [];
+    p.stats = { earned: 0, red: 0, steps: 0, bought: 0, duels: 0, events: 0, mg: 0 }; });
+  s.helped = false;
   s.round = 1; s.turn = 0; s.crown = randSpot(-1, s.players); s.mgHist = [];
   beginTurn();
 }
 
 function beginTurn(){
   const s = H.state, p = cur();
-  s.phase = 'turn'; s.dice = null; s.msg = `Turno de ${p.emoji} ${p.name}`;
+  s.phase = 'turn'; s.dice = null; s.diceMode = null; s.itemUsed = null; s.msg = `Turno de ${p.emoji} ${p.name}`;
   if (s.turn === 0 && s.round === s.maxRounds) s.msg = '🔥 ¡ÚLTIMA RONDA! ' + s.msg;
   broadcast();
   const tok = ++H.turnToken;
-  setTimeout(() => { if (H.turnToken === tok && s.phase === 'turn') doRoll(); }, p.bot ? 1300 + Math.random() * 900 : p.connected ? 30000 : 2500);
+  if (p.bot) setTimeout(() => { if (H.turnToken === tok && s.phase === 'turn') botUseItem(p); }, 700);
+  setTimeout(() => { if (H.turnToken === tok && s.phase === 'turn') doRoll(); }, p.bot ? 1500 + Math.random() * 900 : p.connected ? 30000 : 2500);
+}
+function useItem(p, id){
+  const s = H.state, g = graph(), it = ITEMS[id]; p.items.splice(p.items.indexOf(id), 1); s.itemUsed = id; p.stats.bought++;
+  const rivals = s.players.filter(x => x !== p);
+  let extra = '';
+  if (id === 'doble' || id === 'triple' || id === 'tortuga') s.diceMode = id;
+  else if (id === 'cambio' && rivals.length) { const r = pick(rivals); [p.pos, r.pos] = [r.pos, p.pos]; extra = ` y cambia de lugar con ${r.name}`; }
+  else if (id === 'iman' && rivals.length) { const r = rivals.slice().sort((a, b) => b.coins - a.coins)[0], l = Math.min(5, r.coins); r.coins -= l; p.coins += l; p.stats.earned += l; extra = `: le quita ${l} 🪙 a ${r.name}`; }
+  else if (id === 'brujula') { // a 4 pasos antes de la corona, siguiendo el camino hacia atrás
+    let n = s.crown; for (let k = 0; k < 4; k++) n = g.nodes[n].prev[0]; p.pos = n; p.dir = 1; extra = ': aparece cerca de la corona'; }
+  s.msg = `🎒 ${p.name} usa ${it.icon} ${it.name}${extra}`; broadcast();
+}
+function botUseItem(p){
+  const s = H.state, g = graph(); if (!p.items.length || s.itemUsed) return;
+  const d = BOARDS.dist(g, p.pos, s.crown, p.dir), rich = p.coins >= CROWN_COST;
+  const want = p.items.find(i => (i === 'brujula' && rich) || (i === 'iman') || ((i === 'doble' || i === 'triple') && d > 6) || (i === 'tortuga' && d >= 1 && d <= 3 && rich) || (i === 'cambio' && s.players.some(x => x !== p && BOARDS.dist(g, x.pos, s.crown, 1) < d - 4)));
+  if (want) useItem(p, want);
+}
+async function shopTile(p){
+  const s = H.state, offer = Object.keys(ITEMS).sort(() => Math.random() - 0.5).slice(0, 4);
+  if (p.items.length >= MAX_ITEMS) { s.msg = `🛒 ${p.name} ya tiene la mochila llena`; broadcast(); await sleep(T(1800)); return; }
+  s.phase = 'shop'; s.shop = {offer}; s.msg = `🛒 ¡Tienda! ${p.name} puede comprar un objeto`; broadcast();
+  const buy = await new Promise(res => { H.shopResolve = res;
+    if (p.bot) { const afford = offer.filter(i => ITEMS[i].price <= p.coins - (p.coins >= CROWN_COST + 6 ? 0 : 4)).sort((a, b) => ITEMS[b].price - ITEMS[a].price);
+      setTimeout(() => res(afford.length && Math.random() < 0.8 ? afford[0] : null), 1400); }
+    else setTimeout(() => res(null), p.connected ? 20000 : 1500); });
+  H.shopResolve = null; s.shop = null; s.phase = 'event';
+  if (buy && offer.includes(buy) && ITEMS[buy].price <= p.coins) { p.coins -= ITEMS[buy].price; p.items.push(buy); s.msg = `🛒 ${p.name} compra ${ITEMS[buy].icon} ${ITEMS[buy].name}`; }
+  else s.msg = `🛒 ${p.name} no compra nada`;
+  broadcast(); await sleep(T(1600));
 }
 
 async function doRoll(){
   const s = H.state, p = cur(); H.turnToken++;
-  s.phase = 'rolling'; s.dice = 1 + Math.floor(Math.random() * 6); s.rollId++;
-  s.msg = `${p.name} tira el dado…`; broadcast();
-  await sleep(1100);
-  s.phase = 'moving'; s.msg = `${p.name} saca un ${s.dice}`;
+  const d6 = () => 1 + Math.floor(Math.random() * 6), mode = s.diceMode;
+  const parts = mode === 'doble' ? [d6(), d6()] : mode === 'triple' ? [d6(), d6(), d6()] : mode === 'tortuga' ? [1 + Math.floor(Math.random() * 3)] : [d6()];
+  s.phase = 'rolling'; s.dice = parts.reduce((a, b) => a + b, 0); s.rollId++;
+  s.msg = `${p.name} tira ${parts.length > 1 ? parts.length + ' dados' : 'el dado'}…`; broadcast();
+  await sleep(T(1100));
+  s.phase = 'moving'; s.msg = parts.length > 1 ? `${p.name} saca ${parts.join(' + ')} = ${s.dice}` : `${p.name} saca un ${s.dice}`;
+  p.stats.steps += s.dice;
   const g = graph();
   for (let steps = s.dice; steps > 0; steps--) {
-    await sleep(340);
+    await sleep(T(340));
     const node = g.nodes[p.pos], opts = (p.dir < 0 ? node.prev : node.next);
     let to = opts[0];
     if (opts.length > 1) to = await chooseFork(p, opts, steps);
     p.pos = to; s.steps = steps - 1; broadcast();
     if (p.pos === s.crown) await crownStop(p);
   }
-  await sleep(450);
+  await sleep(T(450));
   await landOn(p);
   s.turn++;
   if (s.turn >= s.players.length) { s.turn = 0; await roundMinigame(); nextRound(); } else beginTurn();
 }
-function nextRound(){ const s = H.state; if (s.round >= s.maxRounds) endGame(); else { s.round++; s.turn = 0; beginTurn(); } }
+async function nextRound(){ const s = H.state; if (s.round >= s.maxRounds) return endGame(); s.round++; s.turn = 0;
+  if (s.round === Math.max(2, s.maxRounds - 2) && !s.helped && s.players.length > 1) { // ayuda al que va último
+    s.helped = true; const last = s.players.slice().sort((a, b) => a.crowns - b.crowns || a.coins - b.coins)[0];
+    s.phase = 'event'; s.msg = '🔥 ¡Quedan 3 rondas! Desde ahora las casillas azules y rojas valen el doble.'; broadcast(); await sleep(T(3000));
+    if (Math.random() < 0.5 || last.items.length >= MAX_ITEMS) { last.coins += 15; last.stats.earned += 15; s.msg = `🎁 Ayuda al último: ${last.name} recibe 15 🪙`; }
+    else { last.items.push('triple'); s.msg = `🎁 Ayuda al último: ${last.name} recibe un 🎰 Dado Triple`; }
+    broadcast(); await sleep(T(3000)); }
+  beginTurn(); }
 
 async function chooseFork(p, opts, stepsLeft){
   const s = H.state, g = graph();
@@ -414,7 +474,7 @@ async function chooseFork(p, opts, stepsLeft){
 
 async function crownStop(p){
   const s = H.state;
-  if (p.coins < CROWN_COST) { s.msg = `${p.name} no tiene ${CROWN_COST} 🪙 para la corona 👑`; broadcast(); await sleep(1600); s.phase = 'moving'; return; }
+  if (p.coins < CROWN_COST) { s.msg = `${p.name} no tiene ${CROWN_COST} 🪙 para la corona 👑`; broadcast(); await sleep(T(1600)); s.phase = 'moving'; return; }
   s.phase = 'crown'; s.msg = `¿${p.name} compra la corona por ${CROWN_COST} 🪙?`; broadcast();
   const buy = await new Promise(res => { H.crownResolve = res;
     if (p.bot) setTimeout(() => res(p.lvl !== 'facil' || Math.random() < 0.6), 1300);
@@ -422,18 +482,20 @@ async function crownStop(p){
   H.crownResolve = null;
   if (buy) { p.coins -= CROWN_COST; p.crowns++; s.msg = `👑 ¡${p.name} consigue una corona! La corona se mueve…`; s.crown = randSpot(s.crown, s.players); }
   else s.msg = `${p.name} deja pasar la corona`;
-  s.phase = 'moving'; broadcast(); await sleep(1900);
+  s.phase = 'moving'; broadcast(); await sleep(T(1900));
 }
 
 async function landOn(p){
   const s = H.state, t = graph().nodes[p.pos].type;
   s.phase = 'event'; p.tile = t === 'S' ? 'B' : t;
-  if (t === 'B' || t === 'S') { p.coins += 3; s.msg = `🔵 ${p.name} gana 3 🪙`; }
-  else if (t === 'R') { const l = Math.min(3, p.coins); p.coins -= l; s.msg = `🔴 ${p.name} pierde ${l} 🪙`; }
+  const late = s.round > s.maxRounds - 3; // en las últimas 3 rondas, las casillas valen el doble
+  if (t === 'B' || t === 'S') { const g2 = late ? 6 : 3; p.coins += g2; p.stats.earned += g2; s.msg = `🔵 ${p.name} gana ${g2} 🪙`; }
+  else if (t === 'R') { const l = Math.min(late ? 6 : 3, p.coins); p.coins -= l; p.stats.red++; s.msg = `🔴 ${p.name} pierde ${l} 🪙`; }
+  else if (t === 'T') { broadcast(); await shopTile(p); return; }
   else if (t === 'V') { p.dir = -(p.dir || 1); s.msg = p.dir < 0 ? `🔄 ¡Cambio de sentido! ${p.name} ahora avanza hacia atrás` : `🔄 ¡Cambio de sentido! ${p.name} vuelve a avanzar hacia adelante`; }
   else if (t === 'D') { broadcast(); await duelTile(p); return; }
-  else s.msg = randomEvent(p);
-  broadcast(); await sleep(2300);
+  else { p.stats.events++; s.msg = randomEvent(p); }
+  broadcast(); await sleep(T(2300));
 }
 async function duelTile(p){
   const s = H.state, rivals = s.players.filter(x => x !== p);
@@ -444,7 +506,7 @@ async function duelTile(p){
     else setTimeout(() => res(pick(rivals).id), p.connected ? 20000 : 1500); });
   H.duelResolve = null; s.duelPick = null;
   const opp = findP(oppId);
-  s.phase = 'event'; s.msg = `⚔️ ${p.name} reta a ${opp.name}. ¡El ganador se lleva hasta 10 🪙!`; broadcast(); await sleep(2000);
+  s.phase = 'event'; s.msg = `⚔️ ${p.name} reta a ${opp.name}. ¡El ganador se lleva hasta 10 🪙!`; broadcast(); await sleep(T(2000));
   await playMinigame({ players: [p.id, opp.id], format: 'duel', teams: {A: [p.id], B: [opp.id]}, wager: 10 });
 }
 
@@ -469,6 +531,9 @@ function randomEvent(p){
 function roundMinigame(){
   const s = H.state, A = [], B = [];
   s.players.forEach(p => { const c = p.tile === 'B' || p.tile === 'R' ? p.tile : (Math.random() < 0.5 ? 'B' : 'R'); (c === 'B' ? A : B).push(p.id); p.team = c; });
+  // con muchos jugadores, no dejar equipos muy desparejos (p. ej. 1 contra 7 → 3 contra 5)
+  if (A.length && B.length) while (Math.abs(A.length - B.length) > 2) { const [big, small] = A.length > B.length ? [A, B] : [B, A]; small.push(big.splice(Math.floor(Math.random() * big.length), 1)[0]); }
+  s.players.forEach(p => p.team = A.includes(p.id) ? 'B' : 'R');
   let format = 'ffa';
   if (s.players.length >= 3 && A.length && B.length) format = (A.length === 1 || B.length === 1) ? '1vN' : 'team';
   const teams = format === 'ffa' ? null : {A, B};
@@ -535,7 +600,7 @@ function finishMinigame(){
   arr.forEach((e, i) => { e.rank = (i > 0 && e.v === arr[i-1].v) ? arr[i-1].rank : i; e.prize = 0; });
   const P = id => findP(id), win = ids => ids.forEach(id => P(id).wins++);
   if (m.format === 'ffa') {
-    arr.forEach(e => { e.prize = e.v === null ? 0 : PRIZES[e.rank]; P(e.id).coins += e.prize; if (e.rank === 0 && e.v !== null) P(e.id).wins++; });
+    arr.forEach(e => { e.prize = e.v === null ? 0 : PRIZES[e.rank]; P(e.id).coins += e.prize; P(e.id).stats.earned += e.prize; if (e.rank === 0 && e.v !== null) P(e.id).wins++; });
   } else {
     // equipos: gana el equipo con mejor promedio (o lo que decida el propio minijuego)
     const worst = lower ? 1e9 : -1e9, val = id => (id in m.scores ? m.scores[id] : worst);
@@ -545,27 +610,59 @@ function finishMinigame(){
     m.result = {winner};
     if (winner !== 'tie') {
       const W = m.teams[winner], L = m.teams[winner === 'A' ? 'B' : 'A'];
-      if (m.format === 'duel') { const l = P(L[0]), take = Math.min(m.wager, l.coins); l.coins -= take; P(W[0]).coins += take; m.result.take = take;
+      if (m.format === 'duel') { const l = P(L[0]), take = Math.min(m.wager, l.coins); l.coins -= take; P(W[0]).coins += take; P(W[0]).stats.earned += take; P(W[0]).stats.duels++; m.result.take = take;
         arr.forEach(e => e.prize = e.id === W[0] ? take : -take); }
-      else { W.forEach(id => { P(id).coins += 10; }); arr.forEach(e => e.prize = W.includes(e.id) ? 10 : 0); }
+      else { W.forEach(id => { P(id).coins += 10; P(id).stats.earned += 10; }); arr.forEach(e => e.prize = W.includes(e.id) ? 10 : 0); }
       win(W);
     }
   }
   m.ranking = arr; s.phase = 'mg-results'; broadcast();
   setTimeout(() => { const r = H.mgResolve; H.mgResolve = null; if (r) r(); }, 7000);
 }
-function endGame(){
-  const s = H.state;
-  const maxW = Math.max(...s.players.map(p => p.wins));
-  s.bonus = null;
-  if (maxW > 0) { const champs = s.players.filter(p => p.wins === maxW); champs.forEach(p => p.crowns++); s.bonus = {ids: champs.map(p => p.id), wins:maxW}; }
-  s.phase = 'end'; broadcast();
+// Premios sorpresa: se eligen 3 al azar y se revelan uno por uno
+const BONUSES = [
+  {k:'mg', title:'Rey de los minijuegos', icon:'🏅', val:p => p.wins, unit:'ganados'},
+  {k:'earned', title:'Millonario', icon:'💰', val:p => p.stats.earned, unit:'🪙 ganadas'},
+  {k:'red', title:'Mala suerte', icon:'🍀', val:p => p.stats.red, unit:'casillas rojas'},
+  {k:'steps', title:'Caminante', icon:'👟', val:p => p.stats.steps, unit:'pasos'},
+  {k:'bought', title:'Comprador', icon:'🛍️', val:p => p.stats.bought, unit:'objetos usados'},
+  {k:'duels', title:'Duelista', icon:'⚔️', val:p => p.stats.duels, unit:'duelos ganados'},
+  {k:'events', title:'Curioso', icon:'❓', val:p => p.stats.events, unit:'sorpresas'},
+];
+async function endGame(){
+  const s = H.state, pool = BONUSES.slice().sort(() => Math.random() - 0.5), chosen = [];
+  for (const b of pool) { const best = Math.max(...s.players.map(b.val)); if (best <= 0) continue; chosen.push({ title:b.title, icon:b.icon, unit:b.unit, value:best, ids:s.players.filter(p => b.val(p) === best).map(p => p.id) }); if (chosen.length === 3) break; }
+  s.bonus = chosen; s.phase = 'bonus'; s.bonusIdx = -1; s.msg = '🎉 ¡Premios sorpresa!'; broadcast(); await sleep(2500);
+  for (let i = 0; i < chosen.length; i++) { s.bonusIdx = i; s.focus = chosen[i].ids[0]; chosen[i].ids.forEach(id => findP(id).crowns++); broadcast(); await sleep(4000); }
+  s.focus = s.players.slice().sort((a, b) => b.crowns - a.crowns || b.coins - a.coins)[0].id; s.phase = 'end'; broadcast();
 }
 
 /* ================= Render ================= */
 const has3D = () => !!(window.Board3D && Board3D.ok) && !params.has('2d');
+// Música y efectos según lo que pasa en la partida
+function sounds(prev, s){
+  if (!window.SFX) return; const X = n => SFX.play(n);
+  const ph = s.phase, was = prev ? prev.phase : null;
+  const board = ['turn', 'rolling', 'moving', 'crown', 'event', 'fork', 'duel-pick'].includes(ph);
+  SFX.music(ph === 'lobby' ? 'lobby' : board ? (s.theme || 'isla') : (ph === 'mg-intro' || ph === 'mg-play') ? 'mg' : null);
+  const c = s.players[s.turn];
+  if (ph === 'turn' && c && c.id === myId && (was !== 'turn' || prev.turn !== s.turn)) X('turn');
+  if (ph === 'rolling' && (!prev || prev.rollId !== s.rollId) && !(c && c.id === myId)) X('dice');
+  if (prev && c && ph === 'moving' && prev.pos[c.id] !== c.pos) X('step');
+  if (ph === 'fork' && was !== 'fork') X('fork');
+  if (ph === 'duel-pick' && was !== 'duel-pick') X('duel');
+  if (ph === 'event' && prev && prev.msg !== s.msg) { const m = s.msg || '';
+    X(m.startsWith('🔵') ? 'coin' : m.startsWith('🔴') ? 'lose' : m.startsWith('❓') ? 'event' : m.startsWith('🔄') ? 'whoosh' : m.startsWith('⚔') ? 'duel' : m.startsWith('🛒') ? 'shop' : m.startsWith('🎒') ? 'item' : 'event'); }
+  if (prev && s.players.some(p => p.crowns > (prev.crowns[p.id] || 0)) && ph !== 'end') X('crown');
+  if (ph === 'mg-play' && was !== 'mg-play') X('go');
+  if (ph === 'mg-results' && was !== 'mg-results' && s.mg && s.mg.ranking) { const e = s.mg.ranking.find(x => x.id === myId); if (e) X(e.prize > 0 ? 'win' : 'lose'); }
+  if (ph === 'end' && was !== 'end') X('fanfare');
+}
 function onState(s){
-  const prev = S && S.phase; S = s;
+  const prev = S && S.phase; const snap = S ? { phase: S.phase, turn: S.turn, rollId: S.rollId, msg: S.msg, pos: Object.fromEntries(S.players.map(p => [p.id, p.pos])), crowns: Object.fromEntries(S.players.map(p => [p.id, p.crowns])) } : ui.snap;
+  try { sounds(snap, s); } catch (e) {}
+  ui.snap = { phase: s.phase, turn: s.turn, rollId: s.rollId, msg: s.msg, pos: Object.fromEntries(s.players.map(p => [p.id, p.pos])), crowns: Object.fromEntries(s.players.map(p => [p.id, p.crowns])) };
+  S = s;
   if (has3D()) { try { Board3D.update(s, myId); } catch (e) { console.error(e); Board3D.ok = false; Board3D.show(false); } }
   if (prev === 'lobby' && s.phase !== 'lobby') keepAwake();
   render();
@@ -584,7 +681,7 @@ function render(){
   if (key && key === ui.viewKey) return;
   if (ui.viewKey && ui.viewKey !== key && ui.mgCleanup) { ui.mgCleanup(); ui.mgCleanup = null; }
   ui.viewKey = key;
-  const boardPhase = ['turn', 'rolling', 'moving', 'crown', 'event', 'fork', 'duel-pick'].includes(ph);
+  const boardPhase = ['turn', 'rolling', 'moving', 'crown', 'event', 'fork', 'duel-pick', 'shop', 'bonus', 'end'].includes(ph);
   const mg3d = (ph === 'mg-intro' || ph === 'mg-play') && S.mg && MG[S.mg.type].td && has3D() && !!window.MG3D;
   if (!mg3d && window.MG3D) MG3D.stop();
   const use3d = (boardPhase && has3D()) || mg3d;
@@ -599,7 +696,8 @@ function render(){
     else { app.innerHTML = '<div class="mg" id="mg"></div>'; runMinigame(); }
   }
   else if (ph === 'mg-results') app.innerHTML = viewMgResults();
-  else if (ph === 'end') app.innerHTML = viewEnd();
+  else if (ph === 'end') { app.innerHTML = viewEnd(); }
+  else if (ph === 'bonus') app.innerHTML = viewBonus();
   else { app.innerHTML = use3d ? viewBoard3D() : viewBoard(); afterBoard(); }
 }
 
@@ -608,7 +706,7 @@ function viewConnecting(){
 }
 function viewHome(){
   return `<h1>🎲 Fiesta Tablero</h1>
-  <p class="sub">Juego de tablero y minijuegos para 2–6 jugadores.<br>Cada uno juega desde su celular.</p>
+  <p class="sub">Juego de tablero y minijuegos para 2 a 8 jugadores.<br>Cada uno juega desde su celular.</p>
   <div class="card">
     <label for="name">Tu nombre</label>
     <input id="name" maxlength="12" placeholder="Escribe tu nombre" value="${esc(me.name)}" autocomplete="off">
@@ -631,6 +729,10 @@ function viewHome(){
     6. Al final de cada ronda hay minijuego (${MG_KEYS.length} distintos): todos contra todos, 2 contra 2 o 1 contra 3, según el color de tu última casilla.<br>
     Gana quien tenga más 👑 (empate: más 🪙).
   </div>
+  <div class="card"><b>⚙️ Ajustes</b>
+    <div class="row"><button data-act="pref" data-k="sound" class="${prefs.sound ? '' : 'sec'}">${prefs.sound ? '🔊 Sonido: sí' : '🔇 Sonido: no'}</button>
+    <button data-act="pref" data-k="low" class="${prefs.low ? '' : 'sec'}">${prefs.low ? '🐢 Gráficos: bajos' : '✨ Gráficos: altos'}</button></div>
+    <p class="note">Usa gráficos bajos si tu celular va lento.</p></div>
   ${APP ? '' : `<a href="fiesta-tablero.apk" download><button class="sec">📱 Descargar app para Android</button></a>
     <p class="note">Quien no tenga la app puede jugar igual desde el navegador.</p>`}`;
 }
@@ -649,21 +751,22 @@ function viewLobby(){
     <div class="codebig">${S.code}</div>
     <button class="sec" data-act="share">📤 Invitar amigos</button>
   </div>`}
-  <div class="card"><b>Jugadores (${n}/6)</b>${S.players.map(p => plRow(p)).join('')}
+  <div class="card"><b>Jugadores (${n}/${MAX_PLAYERS})</b>${S.players.map(p => plRow(p)).join('')}
     ${host ? `<div class="note" style="margin-top:10px;text-align:left"><b>Dificultad de la IA</b></div>
       <div class="row">${Object.entries(BOT_LEVELS).map(([k, v]) => `<button data-act="botlvl" data-v="${k}" class="${lvl === k ? '' : 'sec'}" style="margin-top:6px">${v.name}</button>`).join('')}</div>
-      <button class="sec" data-act="addbot" ${n >= 6 ? 'disabled' : ''}>🤖 Agregar bot (${BOT_LEVELS[lvl].name})</button>` : ''}
+      <button class="sec" data-act="addbot" ${n >= MAX_PLAYERS ? 'disabled' : ''}>🤖 Agregar bot (${BOT_LEVELS[lvl].name})</button>` : ''}
   </div>
   <div class="card">
     ${host ? `<b>Mundo</b><div class="themes">${Object.entries(THEMES).map(([k, t]) => `<button data-act="theme" data-v="${k}" class="${S.theme === k ? '' : 'sec'}"><b>${t.icon}</b>${t.name}</button>`).join('')}</div>
       <p class="note">${THEMES[S.theme].desc}</p>
+      <b>Velocidad</b><div class="row"><button data-act="fast" data-v="0" class="${S.fast ? 'sec' : ''}">Normal</button><button data-act="fast" data-v="1" class="${S.fast ? '' : 'sec'}">⚡ Turnos rápidos</button></div>
       <b>Rondas</b><div class="row">${[5, 8, 12].map(r => `<button data-act="rounds" data-v="${r}" class="${S.maxRounds === r ? '' : 'sec'}">${r}</button>`).join('')}</div>
       <button class="big" data-act="start" ${n < 2 ? 'disabled' : ''}>${n < 2 ? 'Esperando jugadores…' : '¡Empezar partida!'}</button>
       ${S.solo ? '' : '<p class="note">⚠️ Tu celular es el anfitrión: no cierres esta página ni bloquees la pantalla durante la partida.</p>'}`
     : `<div class="wait">${THEMES[S.theme].icon} ${THEMES[S.theme].name} · ${S.maxRounds} rondas.<br>Esperando a que el anfitrión empiece…</div>`}
   </div>`;
 }
-const TILE_NAME = {S:'🏁 Salida', B:'🔵 Azul', R:'🔴 Roja', E:'❓ Sorpresa', V:'🔄 Cambio de sentido', D:'⚔️ Duelo'};
+const TILE_NAME = {S:'🏁 Salida', B:'🔵 Azul', R:'🔴 Roja', E:'❓ Sorpresa', V:'🔄 Cambio de sentido', D:'⚔️ Duelo', T:'🛒 Tienda'};
 function viewBoard(){
   const s = S, mp = meP(), c = s.players[s.turn], g = graph();
   return `<div class="top"><span class="pill">${mp ? esc(mp.name) : ''}</span><span class="pill">👑 ${mp ? mp.crowns : 0} · 🪙 ${mp ? mp.coins : 0}</span></div>
@@ -676,12 +779,20 @@ function myRoll(){
   if (!S || S.phase !== 'turn' || !S.players[S.turn] || S.players[S.turn].id !== myId || ui.rolled === S.round + '-' + S.turn) return;
   ui.rolled = S.round + '-' + S.turn;
   if (has3D()) Board3D.localHit(); // el personaje salta y golpea el dado al instante
+  if (window.SFX) { SFX.play('jump'); setTimeout(() => SFX.play('hit'), 220); }
   send({t:'roll'});
 }
 window.addEventListener('board-tap', myRoll);
 function boardAction(){
   const s = S, c = s.players[s.turn], myTurn = c && c.id === myId;
-  if (s.phase === 'turn' && myTurn) return ui.rolled === s.round + '-' + s.turn ? '' : `<button class="big" data-act="roll">👊 ¡Golpear el dado!</button><div class="note" style="margin-top:6px">o toca la pantalla</div>`;
+  if (s.phase === 'turn' && myTurn) { if (ui.rolled === s.round + '-' + s.turn) return ''; const me2 = meP();
+    const inv = me2 && me2.items && me2.items.length && !s.itemUsed ? `<div class="note" style="margin:6px 0 2px">🎒 Usa un objeto antes de tirar:</div><div class="row">${me2.items.map(i => `<button class="sec" data-act="use" data-v="${i}" style="font-size:.85rem;padding:10px 4px">${ITEMS[i].icon} ${ITEMS[i].name}</button>`).join('')}</div>` : '';
+    const mode = s.diceMode ? `<div class="note">${ITEMS[s.diceMode].icon} ${ITEMS[s.diceMode].name} activado</div>` : '';
+    return `<button class="big" data-act="roll">👊 ¡Golpear el dado!</button><div class="note" style="margin-top:6px">o toca la pantalla</div>${mode}${inv}`; }
+  if (s.phase === 'shop' && myTurn && s.shop) return `<div class="note" style="margin-bottom:4px">🛒 Tienes ${meP().coins} 🪙. Elige un objeto (máx. ${MAX_ITEMS} en la mochila):</div>
+    ${s.shop.offer.map(i => `<button class="sec" data-act="buy" data-v="${i}" ${ITEMS[i].price > meP().coins ? 'disabled' : ''} style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;text-align:left"><span>${ITEMS[i].icon} <b>${ITEMS[i].name}</b><br><small style="font-weight:600">${ITEMS[i].desc}</small></span><span>${ITEMS[i].price} 🪙</span></button>`).join('')}
+    <button class="no" data-act="buy" data-v="">No comprar nada</button>`;
+  if (s.phase === 'shop') return `<div class="wait">${esc(c.name)} está mirando la tienda… 🛒</div>`;
   if (s.phase === 'crown' && myTurn) return `<div class="row"><button data-act="buy">👑 Comprar (${CROWN_COST} 🪙)</button><button class="no" data-act="nobuy">No, gracias</button></div>`;
   if (s.phase === 'turn') return `<div class="wait">Esperando a que ${esc(c.name)} tire el dado…</div>`;
   if (s.phase === 'fork' && myTurn && s.fork) {
@@ -731,7 +842,7 @@ function prepMg3d(){ MG3D.prepare({ type:S.mg.type, seed:S.mg.seed, players:S.mg
 const FORMAT_NAME = { ffa: 'Todos contra todos', team: 'Equipos', '1vN': 'Uno contra todos', duel: '⚔️ Duelo' };
 function teamLine(ids, col){ return ids.map(id => { const p = S.players.find(x => x.id === id); return p ? `<span class="av" style="display:inline-block;width:28px;height:28px;border:2px solid ${col};border-radius:50%;vertical-align:middle">${avImg(p)}</span>` : ''; }).join(''); }
 function formatBanner(m){
-  if (!m.teams) return `<div class="note">Todos contra todos · Premios: 🥇 +10 · 🥈 +6 · 🥉 +3 · 4º +1</div>`;
+  if (!m.teams) return `<div class="note">Todos contra todos · Premios: 🥇 +10 · 🥈 +6 · 🥉 +4 · 4º +2 · 5º +1</div>`;
   const a = m.teams.A, b = m.teams.B, lbl = m.format === 'duel' ? '⚔️ DUELO' : `${a.length} contra ${b.length}`;
   return `<div style="font-weight:900;margin:4px 0">${lbl}</div>
     <div style="display:flex;justify-content:center;align-items:center;gap:8px">${teamLine(a, '#4dabf7')}<b>VS</b>${teamLine(b, '#ff6b6b')}</div>
@@ -749,12 +860,12 @@ function viewIntro(){
   const d = MG[S.mg.type];
   return `<div class="mg"><div class="note">¡MINIJUEGO!</div><div style="font-size:4rem">${d.icon}</div>
     <div class="mgname">${d.name}</div><div class="card">${d.desc}</div>
-    <div class="note">Premios: 🥇 +10 · 🥈 +6 · 🥉 +3 · 4º +1</div><div class="cd" id="cd">5</div></div>`;
+    <div class="note">Premios: 🥇 +10 · 🥈 +6 · 🥉 +4 · 4º +2 · 5º +1</div><div class="cd" id="cd">5</div></div>`;
 }
 function runCountdown(){
   const end = Date.now() + 5600;
   const t = setInterval(() => { const el = $('#cd'); if (!el) return clearInterval(t);
-    const r = Math.min(5, Math.ceil((end - Date.now()) / 1000)); el.textContent = r > 0 ? r : '¡YA!'; }, 100);
+    const r = Math.min(5, Math.ceil((end - Date.now()) / 1000)); if (el.textContent !== String(r > 0 ? r : '¡YA!') && r > 0 && window.SFX) SFX.play('beep'); el.textContent = r > 0 ? r : '¡YA!'; }, 100);
   ui.mgCleanup = () => clearInterval(t);
 }
 function fmtScore(type, v){
@@ -772,7 +883,7 @@ function fmtScore(type, v){
   }
 }
 function viewMgResults(){
-  const m = S.mg, medals = ['🥇', '🥈', '🥉', '4º', '5º', '6º'];
+  const m = S.mg, medals = ['🥇', '🥈', '🥉', '4º', '5º', '6º', '7º', '8º'];
   let head = '';
   if (m.teams && m.result) {
     const w = m.result.winner, names = ids => ids.map(id => esc((S.players.find(p => p.id === id) || {}).name || '')).join(' y ');
@@ -787,15 +898,28 @@ function viewMgResults(){
       <div class="prize">${e.prize >= 0 ? '+' : ''}${e.prize} 🪙</div></div>`; }).join('')}
     <div class="note">${m.format === 'duel' ? 'Volviendo al tablero…' : S.round >= S.maxRounds ? 'Calculando ganador…' : 'Siguiente ronda en un momento…'}</div></div>`;
 }
+function bonusCard(b, big){
+  const names = b.ids.map(id => esc((S.players.find(p => p.id === id) || {}).name || '')).join(' y ');
+  return big ? `<div style="font-size:3rem">${b.icon}</div><div class="mgname" style="font-size:1.6rem">${b.title}</div><div style="margin:6px 0"><b>${names}</b> · ${b.value} ${b.unit}</div><div style="font-size:1.4rem;font-weight:900;color:var(--gold)">+1 👑</div>`
+    : `<div class="note" style="text-align:left">${b.icon} ${b.title}: <b>${names}</b> +1 👑</div>`;
+}
+function viewBonus(){
+  const i = S.bonusIdx, list = S.bonus || [];
+  const body = i < 0 ? `<div style="font-size:3rem">🎁</div><div class="mgname">¡Premios sorpresa!</div><div>Se reparten ${list.length} coronas extra…</div>` : bonusCard(list[i], true);
+  return `<div class="hud"><div class="hud-top"><span class="pill">🎉 Fin del juego</span></div>
+    <div class="hud-bottom glass" style="text-align:center">${body}${list.slice(0, Math.max(0, i)).map(b => bonusCard(b)).join('')}</div></div>`;
+}
 function viewEnd(){
   const ranking = standings(), w = ranking[0];
-  const bonus = S.bonus ? `<div class="card note">🏅 Premio extra: ${S.bonus.ids.map(id => esc(S.players.find(p => p.id === id).name)).join(' y ')} gana${S.bonus.ids.length > 1 ? 'n' : ''} +1 👑 por ganar más minijuegos (${S.bonus.wins}).</div>` : '';
-  return `<h1>🏆 ¡Fin de la partida!</h1>
-    <div class="podium"><img src="models/${charOf(w.emoji).id}.jpg" alt="${w.emoji}" style="width:150px;height:150px;border-radius:50%;border:5px solid ${w.color}" onerror="this.outerHTML='${w.emoji}'"></div><h2>¡${esc(w.name)} gana!</h2>${bonus}
-    <div class="card">${ranking.map((p, i) => `<div class="pl"><div style="width:28px;font-weight:900">${i + 1}º</div>
-      <div class="av" style="border-color:${p.color};background:#fff">${avImg(p)}</div><div class="nm">${esc(p.name)}</div>
-      <div class="st">👑 ${p.crowns} · 🪙 ${p.coins}</div></div>`).join('')}</div>
+  if (!has3D()) return `<h1>🏆 ¡Fin de la partida!</h1><h2>¡${esc(w.name)} gana!</h2>${(S.bonus || []).map(b => `<div class="card">${bonusCard(b)}</div>`).join('')}
+    <div class="card">${ranking.map((p, i) => `<div class="pl"><div style="width:28px;font-weight:900">${i + 1}º</div><div class="av" style="border-color:${p.color};background:#fff">${avImg(p)}</div><div class="nm">${esc(p.name)}</div><div class="st">👑 ${p.crowns} · 🪙 ${p.coins}</div></div>`).join('')}</div>
     ${role === 'host' ? '<button class="big" data-act="again">Jugar otra vez</button>' : '<div class="wait">El anfitrión puede iniciar otra partida.</div>'}`;
+  return `<div class="hud"><div class="hud-top" style="justify-content:center"><span class="pill" style="font-size:1.2rem">🏆 ¡${esc(w.name)} gana!</span></div>
+    <div class="hud-bottom glass" style="max-height:52vh;overflow:auto">
+      ${(S.bonus || []).map(b => bonusCard(b)).join('')}
+      ${ranking.map((p, i) => `<div class="pl"><div style="width:28px;font-weight:900">${['🥇','🥈','🥉'][i] || (i + 1) + 'º'}</div><div class="av" style="border-color:${p.color};background:#fff">${avImg(p)}</div><div class="nm">${esc(p.name)}</div><div class="st">👑 ${p.crowns} · 🪙 ${p.coins}</div></div>`).join('')}
+      ${role === 'host' ? '<button class="big" data-act="again">Jugar otra vez</button>' : '<div class="wait">El anfitrión puede iniciar otra partida.</div>'}
+    </div></div>`;
 }
 
 /* ================= Minijuegos ================= */
@@ -899,6 +1023,8 @@ document.addEventListener('click', async e => {
   const act = b.dataset.act;
   if (act === 'emoji') { me.emoji = b.dataset.v; ls.set('femoji', me.emoji);
     document.querySelectorAll('.chars button').forEach(x => x.classList.toggle('sel', x === b)); }
+  else if (act === 'pref') { const k = b.dataset.k; prefs[k] = !prefs[k]; ls.set(k === 'sound' ? 'fsound' : 'flow', prefs[k] ? '1' : '0');
+    if (k === 'low' && window.Board3D && Board3D.ok) Board3D.setLow(prefs.low); if (k === 'sound' && window.SFX) SFX.enable(prefs.sound); render(); }
   else if (act === 'botlvl') { ui.botLvl = b.dataset.v; render(); }
   else if (act === 'addbot') send({t:'addbot', lvl: ui.botLvl || 'normal'});
   else if (act === 'delbot') send({t:'delbot', id: b.dataset.v});
@@ -921,6 +1047,9 @@ document.addEventListener('click', async e => {
   }
   else if (act === 'rounds') send({t:'rounds', n:+b.dataset.v});
   else if (act === 'theme') send({t:'theme', v:b.dataset.v});
+  else if (act === 'fast') send({t:'fast', v:b.dataset.v === '1'});
+  else if (act === 'use') { send({t:'use', item:b.dataset.v}); }
+  else if (act === 'buy') { b.parentNode.querySelectorAll('button').forEach(x => x.disabled = true); send({t:'buy', item:b.dataset.v}); }
   else if (act === 'fork') { b.parentNode.querySelectorAll('button').forEach(x => x.disabled = true); send({t:'fork', to:+b.dataset.v}); }
   else if (act === 'duel') { b.parentNode.querySelectorAll('button').forEach(x => x.disabled = true); send({t:'duel', id:b.dataset.v}); }
   else if (act === 'view') { ui.cam = Board3D.toggleView(); b.textContent = ui.cam === 'overview' ? '🎥' : '🗺️'; }
@@ -944,7 +1073,8 @@ document.addEventListener('visibilitychange', () => {
 });
 window.addEventListener('beforeunload', e => { if (role === 'host' && S && S.phase !== 'lobby' && S.phase !== 'end') { e.preventDefault(); e.returnValue = ''; } });
 
-window.addEventListener('board3d-ready', () => { if (window.Board3D.ok) Board3D.preload(CHARS.map(c => c.id)); if (S) { ui.viewKey = null; onState(S); } });
+if (window.SFX) SFX.enable(prefs.sound);
+window.addEventListener('board3d-ready', () => { if (window.Board3D.ok) { Board3D.preload(CHARS.map(c => c.id)); Board3D.setLow(prefs.low); } if (S) { ui.viewKey = null; onState(S); } });
 if (typeof Peer === 'undefined' && !LOCAL) ui.error = 'No se pudo cargar el módulo de conexión. Revisa tu internet y recarga.';
 // Si veníamos de una partida como invitado (recarga de página), reconectar automáticamente
 const prevCode = ss.get('fcode');
