@@ -736,7 +736,11 @@ function sounds(prev, s){
   const mgt = s.mg && MG[s.mg.type];
   SFX.music(ph === 'lobby' ? 'lobby' : board ? (s.theme || 'isla') : ph === 'mg-intro' ? 'mg_intro' : ph === 'mg-play' && mgt ? mgSong(mgt) : null);
   if (SFX.ambient) SFX.ambient((ph === 'mg-play' || ph === 'mg-count') && mgt ? mgAmbient(mgt) : null);
-  if (ph === 'mg-results' && was === 'mg-play') X('fanfare');
+  // resultados: voz y melodía según cómo te fue
+  if (ph === 'mg-results' && was !== 'mg-results' && s.mg && s.mg.ranking) { const m = s.mg, e = m.ranking.find(x => x.id === myId), lastR = Math.max(...m.ranking.map(x => x.rank));
+    const tie = m.result && m.result.winner === 'tie', mineWin = e && (m.teams && m.result ? m.result.winner !== 'tie' && m.teams[m.result.winner].includes(myId) : e.rank === 0);
+    if (tie) { X('fanfare'); setTimeout(() => X('v_tie'), 900); } else if (mineWin) { X('win'); setTimeout(() => X('v_youwin'), 900); }
+    else if (e && (e.rank === lastR || (m.teams && m.result))) { X('sad'); setTimeout(() => X('v_youlose'), 900); } else X('fanfare'); }
   const c = s.players[s.turn];
   if (ph === 'turn' && c && c.id === myId && (was !== 'turn' || prev.turn !== s.turn)) X('turn');
   if (ph === 'rolling' && (!prev || prev.rollId !== s.rollId) && !(c && c.id === myId)) X('dice');
@@ -744,11 +748,11 @@ function sounds(prev, s){
   if (ph === 'fork' && was !== 'fork') X('fork');
   if (ph === 'duel-pick' && was !== 'duel-pick') X('duel');
   if (ph === 'event' && prev && prev.msg !== s.msg) { const m = s.msg || '';
-    X(m.startsWith('🔵') ? 'coin' : m.startsWith('🔴') ? 'lose' : m.startsWith('❓') ? 'event' : m.startsWith('🔄') ? 'whoosh' : m.startsWith('⚔') ? 'duel' : m.startsWith('🛒') ? 'shop' : m.startsWith('🎒') ? 'item' : 'event'); }
+    X(m.startsWith('🔵') ? 'coins' : m.startsWith('🔴') ? 'bad' : m.startsWith('❓') ? 'event' : m.startsWith('🔄') ? 'whoosh' : m.startsWith('⚔') ? 'duel' : m.startsWith('🛒') ? 'shop' : m.startsWith('🎒') ? 'item' : 'event'); }
   if (prev && s.players.some(p => p.crowns > (prev.crowns[p.id] || 0)) && ph !== 'end') X('crown');
-  if (ph === 'mg-play' && was !== 'mg-play') X('go');
-  if (ph === 'mg-results' && was !== 'mg-results' && s.mg && s.mg.ranking) { const e = s.mg.ranking.find(x => x.id === myId); if (e) X(e.prize > 0 ? 'win' : 'lose'); }
-  if (ph === 'end' && was !== 'end') X('fanfare');
+  if (ph === 'lobby') ui.saidFinal = false;
+  if (ph === 'turn' && prev && s.round === s.maxRounds && was !== 'turn' && s.turn === 0 && !ui.saidFinal) { ui.saidFinal = true; X('v_final'); }
+  if (ph === 'end' && was !== 'end') { X('finale'); setTimeout(() => X('v_congrats'), 1900); }
 }
 function onState(s){
   const prev = S && S.phase; const snap = S ? { phase: S.phase, turn: S.turn, rollId: S.rollId, msg: S.msg, pos: Object.fromEntries(S.players.map(p => [p.id, p.pos])), crowns: Object.fromEntries(S.players.map(p => [p.id, p.crowns])) } : ui.snap;
@@ -1065,7 +1069,7 @@ function viewCount(){ const m = S.mg, d = MG[m.type];
 function runBigCountdown(){ const t0 = Date.now(), steps = ['3', '2', '1', S.mg.practice ? '¡PRACTICA!' : '¡A JUGAR!'], cols = ['#ff6b6b', '#fcc419', '#51cf66', '#4dabf7']; let last = -1;
   const it = setInterval(() => { const el = $('#bcnum'); if (!el) return clearInterval(it); const k = Math.min(3, Math.floor((Date.now() - t0) / 850));
     if (k !== last) { last = k; el.textContent = steps[k]; el.style.color = cols[k]; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); el.classList.toggle('go', k === 3);
-      if (window.SFX) SFX.play(k === 3 ? 'go' : 'beep'); if (k === 3) document.body.classList.add('flashgo'), setTimeout(() => document.body.classList.remove('flashgo'), 400); } }, 50);
+      if (window.SFX) { SFX.play(k === 3 ? 'v_go' : 'v_' + (3 - k)); if (k === 3) SFX.play('whoosh'); } if (k === 3) document.body.classList.add('flashgo'), setTimeout(() => document.body.classList.remove('flashgo'), 400); } }, 50);
   ui.mgCleanup = () => clearInterval(it); }
 function viewIntro(){
   const d = MG[S.mg.type];

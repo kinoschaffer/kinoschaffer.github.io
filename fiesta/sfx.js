@@ -1,7 +1,19 @@
-// Música y efectos de sonido sintetizados (WebAudio): no usa archivos de audio.
+// Música sintetizada (WebAudio) y efectos de sonido grabados (Kenney, CC0, carpeta sfx/).
+// Si un efecto grabado aún no cargó, suena su versión sintetizada.
 // window.SFX.play(nombre), SFX.music(tema | null), SFX.enable(bool)
 (function () {
   'use strict';
+  let smpGain = null; const BUF = {};
+  // efectos grabados: se cargan una vez (sonidos.json lista los archivos de cada efecto)
+  function loadSamples() {
+    fetch('sfx/sonidos.json').then(r => r.json()).then(m => { for (const [k, files] of Object.entries(m)) { BUF[k] = []; files.forEach(f => fetch('sfx/' + f).then(r => r.arrayBuffer())
+      .then(a => new Promise((ok, no) => ctx.decodeAudioData(a, ok, no))).then(b => BUF[k].push(b)).catch(() => { })); } }).catch(() => { });
+  }
+  function sample(name, t) { const list = BUF[name]; if (!list || !list.length) return false;
+    const src = ctx.createBufferSource(), g = ctx.createGain(); src.buffer = list[Math.floor(Math.random() * list.length)];
+    const voice = name.startsWith('v_'), jingle = ['win', 'fanfare', 'finale', 'sad', 'crown'].includes(name);
+    if (!voice && !jingle) src.playbackRate.value = 0.95 + Math.random() * 0.1; // variar un poco para que no canse
+    g.gain.value = voice ? 1.1 : jingle ? 0.75 : name === 'step' ? 0.45 : name === 'tick' ? 0.6 : 0.85; src.connect(g); g.connect(smpGain); src.start(t); return true; }
   let ctx = null, master = null, musicGain = null, sfxGain = null, enabled = true, current = null, timer = null;
   function init() {
     if (ctx) return ctx;
@@ -9,7 +21,8 @@
     ctx = new AC(); master = ctx.createGain(); master.gain.value = enabled ? 1 : 0; master.connect(ctx.destination);
     musicGain = ctx.createGain(); musicGain.gain.value = 0.09; musicGain.connect(master);
     sfxGain = ctx.createGain(); sfxGain.gain.value = 0.35; sfxGain.connect(master);
-    return ctx;
+    smpGain = ctx.createGain(); smpGain.gain.value = 0.8; smpGain.connect(master);
+    loadSamples(); return ctx;
   }
   // Los navegadores exigen un toque del usuario antes de sonar
   const unlock = () => { init(); if (ctx && ctx.state === 'suspended') ctx.resume(); };
@@ -65,9 +78,10 @@
   };
   let lastPlay = {};
   function play(name) {
-    if (!enabled || !init() || ctx.state !== 'running' || !FX[name]) return;
+    if (!enabled || !init() || ctx.state !== 'running') return;
     const now = performance.now(); if (now - (lastPlay[name] || 0) < 40) return; lastPlay[name] = now; // evitar saturar
-    FX[name](ctx.currentTime + 0.01);
+    const t = ctx.currentTime + 0.01;
+    if (!sample(name, t) && FX[name]) FX[name](t);
   }
 
   // ----- Música: secuenciador simple con bajo, acordes y melodía generada

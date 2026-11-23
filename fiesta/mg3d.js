@@ -737,9 +737,9 @@ function hudTick(now) {
   // reloj
   const rem = Math.max(0, G.dur - now), secs = Math.ceil(rem / 1000), tEl = G.hud.querySelector('.mg-time'), clock = G.hud.querySelector('.mg-clock');
   if (tEl.textContent !== String(secs)) { tEl.textContent = secs;
-    if (rem > 0 && secs <= 10 && G.dur >= 15000 && !G.finShown) { X(secs <= 3 ? 'tickhi' : 'tick'); if (!G.hurry) { G.hurry = true; clock.classList.add('hurry'); flash('⏰ ¡ÚLTIMOS 10 SEGUNDOS!', 1200); if (window.SFX && SFX.tempo) SFX.tempo(1.18); } } }
+    if (rem > 0 && secs <= 10 && G.dur >= 15000 && !G.finShown) { X(secs <= 3 ? 'tickhi' : 'tick'); if (!G.hurry) { G.hurry = true; clock.classList.add('hurry'); flash('⏰ ¡ÚLTIMOS 10 SEGUNDOS!', 1200); X('v_hurry'); if (window.SFX && SFX.tempo) SFX.tempo(1.18); } } }
   if ((rem <= 0 || G.over) && !G.finShown) { G.finShown = true; clock.classList.remove('hurry'); if (window.SFX && SFX.tempo) SFX.tempo(1);
-    const f = document.createElement('div'); f.className = 'mg-fin'; f.textContent = '¡FIN!'; G.hud.appendChild(f); X('whistle'); setTimeout(() => f.remove(), 1600); }
+    const f = document.createElement('div'); f.className = 'mg-fin'; f.textContent = '¡FIN!'; G.hud.appendChild(f); X('whistle'); if (rem <= 0) setTimeout(() => X('v_timeover'), 450); setTimeout(() => f.remove(), 1600); }
 }
 function makeHud() {
   const d = document.createElement('div'); d.id = 'mgui';

@@ -80,6 +80,12 @@ public class MainActivity extends Activity {
         if (p.endsWith(".jpg")) return "image/jpeg";
         if (p.endsWith(".png")) return "image/png";
         if (p.endsWith(".json")) return "application/json";
+        if (p.endsWith(".mp3")) return "audio/mpeg";
+        if (p.endsWith(".ogg")) return "audio/ogg";
+        if (p.endsWith(".webp")) return "image/webp";
+        if (p.endsWith(".woff2")) return "font/woff2";
+        if (p.endsWith(".css")) return "text/css";
+        if (p.endsWith(".txt")) return "text/plain";
         return "application/octet-stream";
     }
 

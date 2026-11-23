@@ -1,0 +1,146 @@
+{
+"tap": [
+"tap.mp3"
+],
+"step": [
+"step0.mp3",
+"step1.mp3",
+"step2.mp3",
+"step3.mp3",
+"step4.mp3"
+],
+"dice": [
+"dice.mp3"
+],
+"hit": [
+"hit0.mp3",
+"hit1.mp3",
+"hit2.mp3"
+],
+"coin": [
+"coin.mp3"
+],
+"coins": [
+"coins.mp3"
+],
+"lose": [
+"lose.mp3"
+],
+"crown": [
+"crown.mp3"
+],
+"event": [
+"event.mp3"
+],
+"whoosh": [
+"whoosh.mp3"
+],
+"fork": [
+"fork.mp3"
+],
+"duel": [
+"duel.mp3"
+],
+"turn": [
+"turn.mp3"
+],
+"beep": [
+"beep.mp3"
+],
+"jump": [
+"jump.mp3"
+],
+"boom": [
+"boom0.mp3",
+"boom1.mp3"
+],
+"bad": [
+"bad.mp3"
+],
+"win": [
+"win.mp3"
+],
+"fanfare": [
+"fanfare.mp3"
+],
+"finale": [
+"finale.mp3"
+],
+"sad": [
+"sad.mp3"
+],
+"shop": [
+"shop.mp3"
+],
+"item": [
+"item.mp3"
+],
+"ready": [
+"ready.mp3"
+],
+"tick": [
+"tick.mp3"
+],
+"tickhi": [
+"tickhi.mp3"
+],
+"hurt": [
+"hurt.mp3"
+],
+"pop": [
+"pop.mp3"
+],
+"splash": [
+"splash.mp3"
+],
+"kick": [
+"kick0.mp3",
+"kick1.mp3"
+],
+"cards": [
+"cards0.mp3",
+"cards1.mp3"
+],
+"v_ready": [
+"v_ready.mp3"
+],
+"v_go": [
+"v_go.mp3"
+],
+"v_1": [
+"v_1.mp3"
+],
+"v_2": [
+"v_2.mp3"
+],
+"v_3": [
+"v_3.mp3"
+],
+"v_hurry": [
+"v_hurry.mp3"
+],
+"v_timeover": [
+"v_timeover.mp3"
+],
+"v_youwin": [
+"v_youwin.mp3"
+],
+"v_youlose": [
+"v_youlose.mp3"
+],
+"v_tie": [
+"v_tie.mp3"
+],
+"v_final": [
+"v_final.mp3"
+],
+"v_congrats": [
+"v_congrats.mp3"
+],
+"v_gameover": [
+"v_gameover.mp3"
+],
+"v_winner": [
+"v_winner.mp3"
+]
+}
