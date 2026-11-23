@@ -79,7 +79,7 @@ th{font-family:Cinzel,serif;font-size:12px;color:var(--gold)}
 <div class="wrap">
   <a class="back" href="index.html">← Menú</a>
   <h1>LÍNEAS DEL TRONO</h1>
-  <div class="sub">Alinea cinco estandartes de una misma casa y conquista el Trono</div>
+  <div class="sub">Alinea cinco bolas del mismo color y conquista el Trono</div>
 
   <div class="hud">
     <div class="panel">
@@ -107,20 +107,20 @@ th{font-family:Cinzel,serif;font-size:12px;color:var(--gold)}
     <button id="btnSound">🔊 Sonido</button>
   </div>
 
-  <div class="houses" id="houses"></div>
+  
 
   <details>
     <summary>Reglas y puntuación</summary>
-    <p>Toca un estandarte y luego una casilla vacía: se moverá si existe un camino libre (sin diagonales).
-    Tras cada movimiento que no forme línea, llegan 3 nuevos estandartes (los pequeños indican dónde aparecerán).</p>
-    <p>Forma líneas de <b>5 o más</b> de la misma casa en horizontal, vertical o diagonal para eliminarlas. Si formas línea, no llegan nuevos estandartes ese turno.
-    Las líneas que se forman al aparecer los nuevos estandartes también puntúan. La partida termina cuando el tablero se llena.</p>
+    <p>Toca una bola y luego una casilla vacía: se moverá si existe un camino libre (sin diagonales).
+    Tras cada movimiento que no forme línea, llegan 3 nuevos bolas (los pequeños indican dónde aparecerán).</p>
+    <p>Forma líneas de <b>5 o más</b> de la misma casa en horizontal, vertical o diagonal para eliminarlas. Si formas línea, no llegan nuevos bolas ese turno.
+    Las líneas que se forman al aparecer los nuevos bolas también puntúan. La partida termina cuando el tablero se llena.</p>
     <table>
-      <tr><th>Estandartes</th><th>Gloria</th></tr>
+      <tr><th>Bolas</th><th>Gloria</th></tr>
       <tr><td>5</td><td>10</td></tr><tr><td>6</td><td>12</td></tr><tr><td>7</td><td>18</td></tr>
       <tr><td>8</td><td>28</td></tr><tr><td>9</td><td>42</td></tr><tr><td>n</td><td>10 + 2·(n−5)²</td></tr>
     </table>
-    <p>Varias líneas a la vez suman todos los estandartes eliminados y reciben un <b>bonus ×1,5 por cada línea extra</b>.
+    <p>Varias líneas a la vez suman todos los bolas eliminados y reciben un <b>bonus ×1,5 por cada línea extra</b>.
     Encadenar turnos consecutivos con líneas da <b>+2 por racha</b>. Deshacer cuesta la mitad de la gloria del último turno.</p>
   </details>
 </div>
@@ -141,13 +141,13 @@ th{font-family:Cinzel,serif;font-size:12px;color:var(--gold)}
 (()=>{
 const N=9, NEW=3, LINE=5;
 const HOUSES=[
-  {name:'Casa Grifo',   motto:'Del cielo, la ley',      icon:'🦅', c:'#c9a227', hi:'#fff2b0', lo:'#6b4f05'},
-  {name:'Casa Brasa',   motto:'Ardemos sin ceder',      icon:'🔥', c:'#b3261e', hi:'#ff9a8a', lo:'#4a0705'},
-  {name:'Casa Escarcha',motto:'El invierno no olvida',  icon:'❄️', c:'#5f8fb8', hi:'#d9eeff', lo:'#1c3550'},
-  {name:'Casa Osa',     motto:'Firmes como la montaña', icon:'🐻', c:'#6b4a2b', hi:'#c89a6b', lo:'#2a1a0c'},
-  {name:'Casa Sierpe',  motto:'Paciencia y veneno',     icon:'🐍', c:'#2f7a3a', hi:'#9be3a3', lo:'#0b2e10'},
-  {name:'Casa Luna',    motto:'Velamos en la noche',    icon:'🌙', c:'#6a4c9c', hi:'#d2bdf5', lo:'#24123f'},
-  {name:'Casa Corona',  motto:'Nacidos para reinar',    icon:'👑', c:'#8a8a8a', hi:'#ffffff', lo:'#2e2e2e'},
+  {name:'Casa Grifo',   motto:'Del cielo, la ley',      icon:'🦅', c:'#ffff00', hi:'#ffffc0', lo:'#808000'},
+  {name:'Casa Brasa',   motto:'Ardemos sin ceder',      icon:'🔥', c:'#ff0000', hi:'#ffb0b0', lo:'#800000'},
+  {name:'Casa Escarcha',motto:'El invierno no olvida',  icon:'❄️', c:'#0000ff', hi:'#a0a0ff', lo:'#000080'},
+  {name:'Casa Osa',     motto:'Firmes como la montaña', icon:'🐻', c:'#a05000', hi:'#ffc080', lo:'#502800'},
+  {name:'Casa Sierpe',  motto:'Paciencia y veneno',     icon:'🐍', c:'#00c000', hi:'#b0ffb0', lo:'#006000'},
+  {name:'Casa Luna',    motto:'Velamos en la noche',    icon:'🌙', c:'#ff00ff', hi:'#ffc0ff', lo:'#800080'},
+  {name:'Casa Corona',  motto:'Nacidos para reinar',    icon:'👑', c:'#00c0c0', hi:'#c0ffff', lo:'#006060'},
 ];
 const RANKS=[[0,'Escudero'],[50,'Caballero'],[150,'Señor del castillo'],[300,'Gran Señor'],[500,'Mano del Rey'],[800,'Guardián del Reino'],[1200,'Rey de los Siete Tronos'],[2000,'Leyenda eterna']];
 const $=id=>document.getElementById(id);
@@ -192,7 +192,7 @@ for(let r=0;r<N;r++)for(let c=0;c<N;c++){
   d.addEventListener('click',()=>onCell(r*N+c));boardEl.appendChild(d);cells.push(d);
 }
 function tokHTML(h,cls=''){const H=HOUSES[h];
-  return `<div class="tok ${cls}" style="--c:${H.c};--hi:${H.hi};--lo:${H.lo}"><span>${H.icon}</span></div>`}
+  return `<div class="tok ${cls}" style="--c:${H.c};--hi:${H.hi};--lo:${H.lo}"></div>`}
 function render(i){ // render one cell
   const d=cells[i];
   if(grid[i]>=0) d.innerHTML=tokHTML(grid[i], sel===i?'sel':'');
@@ -330,13 +330,12 @@ function newGame(){
   grid=new Array(N*N).fill(-1); score=0; sel=null; busy=false; history=[]; streak=0;
   // start: 5 tokens on board like the classic
   const e=empties(); for(let k=0;k<5;k++){const j=rnd(e.length);grid[e.splice(j,1)[0]]=rnd(HOUSES.length)}
-  makePreview(); say('Elige un estandarte'); renderAll();
+  makePreview(); say('Elige una bola'); renderAll();
 }
 $('btnNew').onclick=()=>{ if(busy&&!$('over').classList.contains('show'))return; if(score>0&&!confirm('¿Abandonar esta partida?'))return; newGame(); };
 $('btnUndo').onclick=undo;
 const sb=()=>$('btnSound').textContent=sound?'🔊 Sonido':'🔇 Sonido';
 $('btnSound').onclick=()=>{sound=!sound;save('lt_sound',sound);sb()}; sb();
-$('houses').innerHTML=HOUSES.map((H,i)=>`<div class="house">${tokHTML(i)}<div><b>${H.name}</b><br><i>${H.motto}</i></div></div>`).join('');
 newGame();
 })();
 </script>

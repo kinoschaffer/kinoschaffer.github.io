@@ -1,16 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.lineasdeltrono.app" android:versionCode="4" android:versionName="4.0">
+    package="com.lineasdeltrono.app" android:versionCode="5" android:versionName="5.0">
   <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="34"/>
   <uses-permission android:name="android.permission.INTERNET"/>
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+  <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32"/>
+  <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
+  <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
+  <uses-permission android:name="android.permission.VIBRATE"/>
+  <uses-permission android:name="android.permission.WAKE_LOCK"/>
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
+  <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
   <application android:label="Juegos del Trono" android:icon="@mipmap/ic_launcher"
       android:theme="@android:style/Theme.Black.NoTitleBar" android:hardwareAccelerated="true">
     <activity android:name=".MainActivity" android:exported="true" android:screenOrientation="portrait"
-        android:configChanges="orientation|screenSize|keyboardHidden">
+        android:launchMode="singleTask" android:configChanges="orientation|screenSize|keyboardHidden">
       <intent-filter>
         <action android:name="android.intent.action.MAIN"/>
         <category android:name="android.intent.category.LAUNCHER"/>
       </intent-filter>
     </activity>
+    <activity android:name=".RingActivity" android:exported="false" android:screenOrientation="portrait"
+        android:launchMode="singleInstance" android:excludeFromRecents="true" android:taskAffinity=""
+        android:showWhenLocked="true" android:turnScreenOn="true"/>
+    <receiver android:name=".AlarmReceiver" android:exported="false"/>
+    <receiver android:name=".SnoozeCancelReceiver" android:exported="false"/>
+    <receiver android:name=".BootReceiver" android:exported="true">
+      <intent-filter>
+        <action android:name="android.intent.action.BOOT_COMPLETED"/>
+        <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED"/>
+        <action android:name="android.intent.action.TIME_SET"/>
+        <action android:name="android.intent.action.TIMEZONE_CHANGED"/>
+        <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+      </intent-filter>
+    </receiver>
+    <service android:name=".AlarmService" android:exported="false" android:foregroundServiceType="mediaPlayback"/>
   </application>
 </manifest>

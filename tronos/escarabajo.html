@@ -38,7 +38,7 @@ button:active,button.on{transform:translateY(2px);box-shadow:0 1px 0 #120d08;bac
 </style>
 <link rel="stylesheet" href="win98.css">
 </head>
-<body data-icon="🪲">
+<body data-icon="🪲" class="esc">
 <div class="wrap">
   <div class="top"><a class="back" href="index.html">← Menú</a><h1>ESCARABAJO REAL</h1><span style="width:50px"></span></div>
   <div class="hud">
@@ -56,11 +56,6 @@ button:active,button.on{transform:translateY(2px);box-shadow:0 1px 0 #120d08;bac
       <span></span><button data-d="2">▼</button><span></span>
     </div>
     <div class="side"><button id="btnSound">🔊</button></div>
-  </div>
-  <div class="legend">
-    Recoge todas las <b>monedas</b> y <b>corazones</b> del castillo. Empuja las <b>puertas giratorias</b> (verdes) para pasar: tú puedes girarlas, los enemigos no.
-    Cada <b>❤</b> aumenta el multiplicador (×2, ×3, ×5). Las <b>💀 calaveras</b> matan a quien las pisa, ¡también a los enemigos!
-    Cada vez que la línea amarilla del borde completa una vuelta, sale un enemigo de la guarida. La <b>💎 gema</b> del centro vale 800.
   </div>
 </div>
 <div class="overlay" id="over"><div class="modal">
@@ -124,7 +119,7 @@ const isLair=(x,y)=>x===LX&&y===LY;
 /* ---------- state ---------- */
 let items, player, enemies, score, best=load('er_best',0), lives, level, mult, multIdx, timer, relIdx, state, stateT, want, gem, nextLife, paused=false, sound=load('lt_sound',true);
 const MULTS=[1,2,3,5];
-const ENEMY_KINDS=[{e:'🕷️',c:'#7d3cff'},{e:'🦂',c:'#d1462f'},{e:'🐝',c:'#e8b81f'},{e:'🦗',c:'#3fa34d'}];
+const ENEMY_KINDS=[{k:'spider'},{k:'ant'},{k:'wasp'},{k:'mantis'}];
 
 function newGame(){score=0;lives=3;level=1;nextLife=10000;startLevel();}
 function startLevel(){
@@ -199,8 +194,9 @@ function die(){if(state!=='play')return;state='dying';stateT=0;sfx.die();}
 
 /* ---------- loop ---------- */
 let last=0;
+let animT=0;
 function frame(ts){
-  const dt=Math.min((ts-last)/1000,0.05);last=ts;
+  const dt=Math.min((ts-last)/1000,0.05);last=ts;if(!paused)animT+=dt;
   if(!paused)update(dt);
   draw();requestAnimationFrame(frame);
 }
@@ -274,22 +270,62 @@ function draw(){
   for(const e of enemies){
     let ep;if(e.act)ep=pos(e);else if(enemies.filter(z=>!z.act)[0]===e&&state!=='clear')ep={x:LX,y:LY};else continue;
     ctx.save();ctx.translate(cx(ep.x),cy(ep.y));
-    ctx.fillStyle=e.c+"aa";ctx.beginPath();ctx.arc(0,0,S*0.42,0,7);ctx.fill();
     ctx.rotate([0,Math.PI/2,Math.PI,-Math.PI/2][e.face]);
-    ctx.font=`${S*0.66}px serif`;ctx.fillText(e.e,0,2);ctx.restore();}
+    const moving=e.act&&e.mv&&state==='play'&&!paused;
+    const ph=moving?animT*14+enemies.indexOf(e)*1.7:enemies.indexOf(e);
+    drawBug(e.k,S*0.42,ph,moving);ctx.restore();}
   // player
   if(state!=='over'){const pp=pos(player);ctx.save();ctx.translate(cx(pp.x),cy(pp.y));
     let rot=[0,Math.PI/2,Math.PI,-Math.PI/2][player.face];
     if(state==='dying'){rot+=stateT*12;ctx.globalAlpha=Math.max(0,1-stateT/1.6);}
-    ctx.rotate(rot);drawScarab(S*0.4);ctx.restore();}
+    ctx.rotate(rot);drawScarab(S*0.4,player.mv&&state==='play'&&!paused?animT*14:0);ctx.restore();}
   if(state==='clear'||(state==='play'&&paused)){ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillRect(0,0,w,w);
     ctx.fillStyle='#ffff00';ctx.font=`bold ${S*0.8}px 'MS Sans Serif',Tahoma,sans-serif`;ctx.fillText(paused?'PAUSA':'¡NIVEL SUPERADO!',w/2,w/2);}
 }
-function drawScarab(r){
-  // legs
-  ctx.strokeStyle='#3a2a10';ctx.lineWidth=r*0.12;ctx.beginPath();
-  for(const s of [-1,1])for(const k of [-0.35,0.1,0.5]){ctx.moveTo(s*r*0.5,r*k);ctx.lineTo(s*r*0.98,r*(k+0.15));}
+function legs(r,n,ph,len,col,w){
+  ctx.strokeStyle=col;ctx.lineWidth=r*(w||0.11);ctx.lineCap='round';ctx.beginPath();
+  for(const sd of [-1,1])for(let j=0;j<n;j++){
+    const k=n===1?0:-0.45+0.9*j/(n-1), sw=Math.sin(ph+j*Math.PI+(sd>0?Math.PI:0))*0.28;
+    const ax=sd*r*0.35, ay=r*k, mx=sd*r*(0.35+len*0.55), my=ay+r*(k*0.4+sw*0.6), ex=sd*r*(0.35+len), ey=ay+r*(k*0.9+sw);
+    ctx.moveTo(ax,ay);ctx.lineTo(mx,my-r*0.12);ctx.lineTo(ex,ey);}
   ctx.stroke();
+}
+function oval(x,y,rx,ry,col){ctx.fillStyle=col;ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,7);ctx.fill();}
+function drawBug(k,r,ph,moving){
+  const bob=moving?Math.sin(ph*2)*r*0.05:0; ctx.translate(0,bob);
+  if(moving)ctx.rotate(Math.sin(ph)*0.08);
+  if(k==='spider'){
+    legs(r,4,ph,0.75,'#ff00ff',0.09);
+    oval(0,r*0.3,r*0.48,r*0.55,'#8000ff');oval(0,-r*0.4,r*0.3,r*0.28,'#5000a0');
+    oval(-r*0.12,-r*0.5,r*0.07,r*0.07,'#ff0000');oval(r*0.12,-r*0.5,r*0.07,r*0.07,'#ff0000');
+    ctx.fillStyle='#ff80ff';ctx.fillRect(-r*0.06,r*0.05,r*0.12,r*0.5);
+  } else if(k==='ant'){
+    legs(r,3,ph,0.6,'#ff4040',0.1);
+    oval(0,r*0.5,r*0.32,r*0.4,'#ff0000');oval(0,0,r*0.2,r*0.24,'#c00000');oval(0,-r*0.48,r*0.27,r*0.25,'#ff0000');
+    ctx.strokeStyle='#ff8080';ctx.lineWidth=r*0.07;ctx.beginPath();const a=Math.sin(ph*1.5)*0.15;
+    ctx.moveTo(-r*0.1,-r*0.68);ctx.lineTo(-r*(0.35+a),-r*1.0);ctx.moveTo(r*0.1,-r*0.68);ctx.lineTo(r*(0.35-a),-r*1.0);ctx.stroke();
+    oval(-r*0.1,-r*0.52,r*0.05,r*0.05,'#fff');oval(r*0.1,-r*0.52,r*0.05,r*0.05,'#fff');
+  } else if(k==='wasp'){
+    legs(r,3,ph,0.5,'#808080',0.08);
+    const wf=moving?0.35+Math.abs(Math.sin(ph*3))*0.65:0.8;
+    ctx.globalAlpha*=0.7;oval(-r*0.45,-r*0.05,r*0.42*wf,r*0.22,'#00ffff');oval(r*0.45,-r*0.05,r*0.42*wf,r*0.22,'#00ffff');ctx.globalAlpha/=0.7;
+    oval(0,r*0.4,r*0.3,r*0.5,'#ffff00');
+    ctx.fillStyle='#000';for(const y of [0.2,0.45,0.7])ctx.fillRect(-r*0.3,r*y,r*0.6,r*0.1);
+    oval(0,-r*0.2,r*0.22,r*0.22,'#ffff00');oval(0,-r*0.55,r*0.24,r*0.2,'#000');
+    oval(-r*0.1,-r*0.6,r*0.06,r*0.06,'#ff0000');oval(r*0.1,-r*0.6,r*0.06,r*0.06,'#ff0000');
+  } else {
+    legs(r,2,ph,0.55,'#00c000',0.09);
+    ctx.strokeStyle='#00ff00';ctx.lineWidth=r*0.13;ctx.beginPath();const h=Math.sin(ph)*0.2;
+    ctx.moveTo(-r*0.25,r*0.35);ctx.lineTo(-r*0.85,r*(0.0+h));ctx.lineTo(-r*0.7,r*0.95);
+    ctx.moveTo(r*0.25,r*0.35);ctx.lineTo(r*0.85,r*(0.0-h));ctx.lineTo(r*0.7,r*0.95);ctx.stroke();
+    oval(0,r*0.3,r*0.26,r*0.62,'#00ff00');oval(0,-r*0.5,r*0.3,r*0.22,'#00c000');
+    oval(-r*0.2,-r*0.58,r*0.09,r*0.09,'#ffff00');oval(r*0.2,-r*0.58,r*0.09,r*0.09,'#ffff00');
+    ctx.strokeStyle='#80ff80';ctx.lineWidth=r*0.06;ctx.beginPath();
+    ctx.moveTo(-r*0.08,-r*0.7);ctx.quadraticCurveTo(-r*0.3,-r*1.1,-r*(0.5+h),-r*1.0);ctx.moveTo(r*0.08,-r*0.7);ctx.quadraticCurveTo(r*0.3,-r*1.1,r*(0.5-h),-r*1.0);ctx.stroke();
+  }
+}
+function drawScarab(r,ph){
+  legs(r,3,ph,0.55,'#3a2a10',0.12);
   // body
   const g=ctx.createRadialGradient(-r*0.25,-r*0.1,r*0.1,0,r*0.1,r);g.addColorStop(0,'#fff0a8');g.addColorStop(0.5,'#d4a72c');g.addColorStop(1,'#6b4f05');
   ctx.fillStyle=g;ctx.beginPath();ctx.ellipse(0,r*0.15,r*0.62,r*0.78,0,0,7);ctx.fill();

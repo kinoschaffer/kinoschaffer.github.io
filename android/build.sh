@@ -1,9 +1,9 @@
 #!/bin/bash
-# Compila el APK sin Gradle. Requiere ANDROID_HOME con build-tools 34 y platform 34,
+# Compila el APK sin Gradle. Requiere ANDROID_HOME con build-tools 35 y platform 34,
 # y la clave en $KEYSTORE (por defecto android/release.keystore, alias "trono").
 set -e
 cd "$(dirname "$0")"
-SDK=${ANDROID_HOME:-/opt/android-sdk}; BT=$SDK/build-tools/34.0.0; JAR=$SDK/platforms/android-34/android.jar
+SDK=${ANDROID_HOME:-/opt/android-sdk}; BT=$SDK/build-tools/35.0.0; JAR=$SDK/platforms/android-34/android.jar
 KEYSTORE=${KEYSTORE:-release.keystore}; OUT=${OUT:-../tronos/JuegosDelTrono.apk}
 B=$(mktemp -d); mkdir -p $B/classes $B/dex
 cp ../tronos/*.html ../tronos/win98.css ../tronos/win98.js assets/

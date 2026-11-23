@@ -76,3 +76,4 @@ canvas{border-radius:0!important;box-shadow:inset 0 0 0 0,-1px -1px var(--sh),1p
 .tile .nm{text-shadow:none!important}
 .tile .nu{font-family:"Courier New",monospace!important;font-weight:bold}
 .side button{min-width:0!important;padding:6px 8px!important}
+.esc .wrap>*:not(.w98-title){margin-left:3px!important;margin-right:3px!important}.esc .wrap{padding-bottom:6px!important}
