@@ -114,6 +114,16 @@ body.b3d #app{max-width:none;padding:0}
 .viewbtn{position:fixed;right:10px;top:calc(env(safe-area-inset-top) + 56px);width:48px;height:48px;padding:0;font-size:1.4rem;border-radius:50%;z-index:6;margin:0}
 .tag{font-size:.75rem;background:#7c5cc4;padding:2px 6px;border-radius:999px;font-weight:700;white-space:nowrap}
 .pl button.x{width:34px;height:34px;padding:0;margin:0;font-size:.9rem;background:#64748b;color:#fff;box-shadow:none}
+#stkBtn{position:fixed;right:10px;bottom:calc(env(safe-area-inset-bottom) + 205px);width:52px;height:52px;padding:0;margin:0;border-radius:50%;font-size:1.6rem;z-index:9;display:none;
+  background:#fff;box-shadow:0 4px 0 #adb5bd,0 4px 14px #0006}
+#stkTray{position:fixed;right:10px;bottom:calc(env(safe-area-inset-bottom) + 265px);z-index:9;display:none;grid-template-columns:repeat(3,76px);gap:6px;padding:8px;border-radius:18px;background:rgba(30,11,58,.92);box-shadow:0 6px 20px #0008}
+#stkTray img{width:76px;height:76px;cursor:pointer;transition:transform .1s}#stkTray img:active{transform:scale(.9)}
+#stkShow{position:fixed;right:8px;top:calc(env(safe-area-inset-top) + 120px);z-index:8;display:flex;flex-direction:column;gap:6px;pointer-events:none;align-items:flex-end}
+#stkShow .stk{display:flex;flex-direction:column;align-items:center;animation:stkIn .45s ease-out;transition:opacity .4s,transform .4s}
+#stkShow .stk img{width:86px;height:86px;filter:drop-shadow(0 3px 6px #0007)}
+#stkShow .stk span{margin-top:-6px;font-size:.7rem;font-weight:800;background:rgba(30,11,58,.85);padding:1px 8px;border-radius:999px;color:#fff}
+#stkShow .stk.bye{opacity:0;transform:translateX(40px)}
+@keyframes stkIn{0%{transform:scale(0) rotate(-25deg)}60%{transform:scale(1.15) rotate(6deg)}100%{transform:scale(1) rotate(0)}}
 #banner{position:fixed;left:0;right:0;top:0;z-index:50;background:#b91c1c;color:#fff;text-align:center;padding:10px;font-weight:700;display:none}
 #banner button{width:auto;padding:6px 14px;margin:0 0 0 8px;font-size:.95rem}
 .podium{font-size:3.5rem;text-align:center}
@@ -121,6 +131,7 @@ body.b3d #app{max-width:none;padding:0}
 </head>
 <body>
 <div id="banner"></div>
+<button id="stkBtn" title="Stickers">😊</button><div id="stkTray"></div><div id="stkShow"></div>
 <div id="app"></div>
 <script type="importmap">{"imports":{"three":"./lib/three.module.min.js"}}</script>
 <script src="lib/peerjs.min.js"></script>
@@ -167,6 +178,9 @@ const ITEMS = {
   brujula: {name:'Brújula',      icon:'🧭', price:15, desc:'Te deja a 4 casillas de la corona'},
 };
 const MAX_ITEMS = 3;
+// Stickers: imágenes de cada personaje con una expresión
+const MOODS = ['bien', 'mal', 'feliz', 'confundido', 'furioso', 'impaciente'];
+const stickerUrl = (emoji, mood) => `stickers/${charOf(emoji).id}_${mood}.webp`;
 // Bots (modo vs IA): qué tan bien juegan cada minijuego según la dificultad
 const BOT_LEVELS = { facil:{name:'Fácil', k:0}, normal:{name:'Normal', k:1}, dificil:{name:'Difícil', k:2} };
 function botScore(type, lvl, seed){
@@ -308,6 +322,7 @@ function clientRecv(d){
   if (!d) return;
   if (d.t === 'state') { clearTimeout(net.to); setBanner(''); onState(d.s); }
   else if (d.t === 'mgp') { if (window.MG3D) MG3D.net(d); }
+  else if (d.t === 'stk') showSticker(d.id, d.s);
   else if (d.t === 'reject') { fail(d.reason); }
 }
 function lost(){ if (role !== 'client') return;
@@ -362,6 +377,7 @@ function hostAction(pid, msg){
     case 'delbot': if (isHost && s.phase === 'lobby') { s.players = s.players.filter(x => !(x.bot && x.id === msg.id)); broadcast(); } break;
     case 'start': if (isHost && s.phase === 'lobby' && s.players.length >= 2) startGame(); break;
     case 'roll': if (s.phase === 'turn' && cur().id === pid) doRoll(); break;
+    case 'sticker': if (MOODS.includes(msg.s) && Date.now() - ((H.stkT || {})[pid] || 0) > 2000) { H.stkT = H.stkT || {}; H.stkT[pid] = Date.now(); relaySticker(pid, msg.s); } break;
     case 'use': if (s.phase === 'turn' && cur().id === pid && !s.itemUsed && p.items.includes(msg.item)) useItem(p, msg.item); break;
     case 'buy': if (s.phase === 'shop' && cur().id === pid && H.shopResolve) H.shopResolve(msg.item || null); break;
     case 'crown': if (s.phase === 'crown' && cur().id === pid && H.crownResolve) H.crownResolve(!!msg.buy); break;
@@ -395,9 +411,13 @@ function beginTurn(){
   if (s.turn === 0 && s.round === s.maxRounds) s.msg = '🔥 ¡ÚLTIMA RONDA! ' + s.msg;
   broadcast();
   const tok = ++H.turnToken;
+  if (!p.bot) setTimeout(() => { if (H.turnToken === tok && s.phase === 'turn') botSticker(pick(s.players.filter(x => x.bot) .concat([null]).filter(Boolean)) , 'impaciente', 0.7); }, 12000);
   if (p.bot) setTimeout(() => { if (H.turnToken === tok && s.phase === 'turn') botUseItem(p); }, 700);
   setTimeout(() => { if (H.turnToken === tok && s.phase === 'turn') doRoll(); }, p.bot ? 1500 + Math.random() * 900 : p.connected ? 30000 : 2500);
 }
+function relaySticker(id, mood){ const m = {t:'stk', id, s:mood}; for (const c of H.conns.values()) { try { c.send(m); } catch(e){} } showSticker(id, mood); }
+// los bots también mandan stickers de vez en cuando
+function botSticker(p, mood, prob){ if (!p || !p.bot || Math.random() > prob) return; H.stkT = H.stkT || {}; if (Date.now() - (H.stkT[p.id] || 0) < 4000) return; H.stkT[p.id] = Date.now(); setTimeout(() => relaySticker(p.id, mood), 500 + Math.random() * 900); }
 function useItem(p, id){
   const s = H.state, g = graph(), it = ITEMS[id]; p.items.splice(p.items.indexOf(id), 1); s.itemUsed = id; p.stats.bought++;
   const rivals = s.players.filter(x => x !== p);
@@ -482,7 +502,7 @@ async function crownStop(p){
     if (p.bot) setTimeout(() => res(p.lvl !== 'facil' || Math.random() < 0.6), 1300);
     else setTimeout(() => res(true), p.connected ? 20000 : 1500); });
   H.crownResolve = null;
-  if (buy) { p.coins -= CROWN_COST; p.crowns++; s.msg = `👑 ¡${p.name} consigue una corona! La corona se mueve…`; s.crown = randSpot(s.crown, s.players); }
+  if (buy) { p.coins -= CROWN_COST; p.crowns++; s.msg = `👑 ¡${p.name} consigue una corona! La corona se mueve…`; s.crown = randSpot(s.crown, s.players); botSticker(p, 'feliz', 0.6); s.players.filter(x => x !== p).forEach(x => botSticker(x, 'furioso', 0.15)); }
   else s.msg = `${p.name} deja pasar la corona`;
   s.phase = 'moving'; broadcast(); await sleep(T(1900));
 }
@@ -491,8 +511,8 @@ async function landOn(p){
   const s = H.state, t = graph().nodes[p.pos].type;
   s.phase = 'event'; p.tile = t === 'S' ? 'B' : t;
   const late = s.round > s.maxRounds - 3; // en las últimas 3 rondas, las casillas valen el doble
-  if (t === 'B' || t === 'S') { const g2 = late ? 6 : 3; p.coins += g2; p.stats.earned += g2; s.msg = `🔵 ${p.name} gana ${g2} 🪙`; }
-  else if (t === 'R') { const l = Math.min(late ? 6 : 3, p.coins); p.coins -= l; p.stats.red++; s.msg = `🔴 ${p.name} pierde ${l} 🪙`; }
+  if (t === 'B' || t === 'S') { const g2 = late ? 6 : 3; p.coins += g2; p.stats.earned += g2; s.msg = `🔵 ${p.name} gana ${g2} 🪙`; botSticker(p, 'bien', 0.12); }
+  else if (t === 'R') { const l = Math.min(late ? 6 : 3, p.coins); p.coins -= l; p.stats.red++; s.msg = `🔴 ${p.name} pierde ${l} 🪙`; botSticker(p, Math.random() < 0.5 ? 'mal' : 'furioso', 0.35); }
   else if (t === 'T') { broadcast(); await shopTile(p); return; }
   else if (t === 'V') { p.dir = -(p.dir || 1); s.msg = p.dir < 0 ? `🔄 ¡Cambio de sentido! ${p.name} ahora avanza hacia atrás` : `🔄 ¡Cambio de sentido! ${p.name} vuelve a avanzar hacia adelante`; }
   else if (t === 'D') { broadcast(); await duelTile(p); return; }
@@ -620,6 +640,7 @@ function finishMinigame(){
     }
   }
   m.ranking = arr; s.phase = 'mg-results'; broadcast();
+  arr.forEach(e => { const pl = findP(e.id); if (e.prize > 0 && (e.rank === 0 || m.format !== 'ffa')) botSticker(pl, 'feliz', 0.4); else if (e.prize < 0 || (m.format === 'ffa' && e.rank === arr.length - 1)) botSticker(pl, Math.random() < 0.5 ? 'mal' : 'confundido', 0.3); });
   setTimeout(() => { const r = H.mgResolve; H.mgResolve = null; if (r) r(); }, 7000);
 }
 // Premios sorpresa: se eligen 3 al azar y se revelan uno por uno
@@ -673,7 +694,24 @@ function onState(s){
 const meP = () => S && S.players.find(p => p.id === myId);
 function standings(){ return [...S.players].sort((a, b) => b.crowns - a.crowns || b.coins - a.coins); }
 
+function showSticker(id, mood){
+  const p = S && S.players.find(x => x.id === id); if (!p || !MOODS.includes(mood)) return;
+  const box = $('#stkShow'), el = document.createElement('div'); el.className = 'stk';
+  el.innerHTML = `<img src="${stickerUrl(p.emoji, mood)}" alt="${mood}"><span>${esc(p.name)}</span>`; box.appendChild(el);
+  while (box.children.length > 3) box.firstChild.remove();
+  if (window.SFX) SFX.play('tap');
+  setTimeout(() => el.classList.add('bye'), 3200); setTimeout(() => el.remove(), 3700);
+}
+function stickerUI(){
+  const btn = $('#stkBtn'), tray = $('#stkTray'), mp = meP(), show = !!(S && mp && S.phase !== 'mg-play');
+  btn.style.display = show ? 'grid' : 'none'; if (!show) tray.style.display = 'none';
+  if (show && tray.dataset.emoji !== mp.emoji) { tray.dataset.emoji = mp.emoji; tray.innerHTML = MOODS.map(m => `<img data-stk="${m}" src="${stickerUrl(mp.emoji, m)}" alt="${m}">`).join(''); }
+}
+$('#stkBtn').addEventListener('click', () => { const t = $('#stkTray'); t.style.display = t.style.display === 'grid' ? 'none' : 'grid'; });
+$('#stkTray').addEventListener('click', e => { const im = e.target.closest('[data-stk]'); if (!im) return; $('#stkTray').style.display = 'none';
+  if (Date.now() - (ui.stkT || 0) < 2200) return; ui.stkT = Date.now(); send({t:'sticker', s: im.dataset.stk}); });
 function render(){
+  try { stickerUI(); } catch(e){}
   const app = $('#app');
   if (!S) { ui.viewKey = null; app.innerHTML = ui.screen === 'connecting' ? viewConnecting() : viewHome(); return; }
   const ph = S.phase;
