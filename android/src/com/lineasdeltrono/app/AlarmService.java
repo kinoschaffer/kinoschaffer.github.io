@@ -9,6 +9,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
 import android.media.AudioAttributes;
+import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.media.RingtoneManager;
 import android.net.Uri;
@@ -41,6 +42,7 @@ public class AlarmService extends Service {
     private Vibrator vibrator;
     private PowerManager.WakeLock wakeLock;
     private int currentId;
+    private int savedVolume = -1;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable autoStop = () -> stopRinging(true);
 
@@ -67,6 +69,8 @@ public class AlarmService extends Service {
         currentLabel = label.isEmpty() ? (currentId == -1 ? "Prueba de alarma" : "Alarma") : label;
         currentSnooze = a != null ? a.optInt("snooze", 10) : 5;
         boolean vib = a == null || a.optBoolean("vib", true);
+        String sound = a != null ? a.optString("sound", "") : "";
+        int vol = a != null ? a.optInt("vol", 80) : 80;
         Calendar c = Calendar.getInstance();
         currentTime = String.format(Locale.US, "%02d:%02d", c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE));
 
@@ -80,7 +84,7 @@ public class AlarmService extends Service {
         if (!ringing) {
             ringing = true;
             acquireWakeLock();
-            startSound();
+            startSound(sound, vol);
             if (vib) startVibration();
         }
         handler.removeCallbacks(autoStop);
@@ -149,22 +153,63 @@ public class AlarmService extends Service {
         nm.notify(SnoozeCancelReceiver.NOTIF_ID, b.build());
     }
 
-    private void startSound() {
-        Uri uri = RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_ALARM);
-        if (uri == null) uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
-        if (uri == null) uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
-        try {
-            player = new MediaPlayer();
-            player.setAudioAttributes(new AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_ALARM)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build());
-            player.setDataSource(this, uri);
-            player.setLooping(true);
-            player.prepare();
-            player.start();
-        } catch (Exception e) {
-            player = null;
+    static Uri rawUri(Context c, String name) {
+        return Uri.parse("android.resource://" + c.getPackageName() + "/raw/" + name);
+    }
+
+    /** Crea un MediaPlayer para la alarma probando el tono elegido y, si falla, otros de respaldo. */
+    static MediaPlayer createPlayer(Context c, String sound, boolean loop) {
+        java.util.ArrayList<Uri> tries = new java.util.ArrayList<>();
+        if (sound != null && !sound.isEmpty()) tries.add(Uri.parse(sound));
+        Uri def = RingtoneManager.getActualDefaultRingtoneUri(c, RingtoneManager.TYPE_ALARM);
+        if (def != null) tries.add(def);
+        tries.add(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM));
+        tries.add(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE));
+        tries.add(rawUri(c, "clasico")); // siempre existe dentro de la app
+        for (Uri u : tries) {
+            if (u == null) continue;
+            MediaPlayer mp = new MediaPlayer();
+            try {
+                mp.setAudioAttributes(new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_ALARM)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build());
+                mp.setDataSource(c, u);
+                mp.setLooping(loop);
+                mp.prepare();
+                return mp;
+            } catch (Exception e) {
+                mp.release();
+            }
         }
+        return null;
+    }
+
+    /** Fija el volumen del canal de alarma (0-100) y devuelve el anterior, o -1 si no se pudo. */
+    static int applyAlarmVolume(Context c, int percent) {
+        try {
+            AudioManager am = (AudioManager) c.getSystemService(Context.AUDIO_SERVICE);
+            int max = am.getStreamMaxVolume(AudioManager.STREAM_ALARM);
+            int old = am.getStreamVolume(AudioManager.STREAM_ALARM);
+            int v = Math.max(1, Math.round(max * Math.max(5, Math.min(100, percent)) / 100f));
+            am.setStreamVolume(AudioManager.STREAM_ALARM, v, 0);
+            return old;
+        } catch (Exception e) {
+            return -1;
+        }
+    }
+
+    static void restoreAlarmVolume(Context c, int old) {
+        if (old < 0) return;
+        try {
+            ((AudioManager) c.getSystemService(Context.AUDIO_SERVICE))
+                    .setStreamVolume(AudioManager.STREAM_ALARM, old, 0);
+        } catch (Exception ignored) { }
+    }
+
+    private void startSound(String sound, int vol) {
+        savedVolume = applyAlarmVolume(this, vol);
+        player = createPlayer(this, sound, true);
+        if (player != null) player.start();
     }
 
     private void startVibration() {
@@ -189,6 +234,8 @@ public class AlarmService extends Service {
         handler.removeCallbacks(autoStop);
         ringing = false;
         if (player != null) { try { player.stop(); player.release(); } catch (Exception ignored) { } player = null; }
+        restoreAlarmVolume(this, savedVolume);
+        savedVolume = -1;
         if (vibrator != null) { vibrator.cancel(); vibrator = null; }
         if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
         RingActivity.closeIfOpen();

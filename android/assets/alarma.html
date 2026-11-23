@@ -63,6 +63,8 @@ input[type=text],select{font-size:14px;padding:4px;background:#fff;border:none;f
   <div class="field"><label>Repetir:</label><div class="days" id="fDays"></div></div>
   <div class="field"><label>Nombre:</label><input type="text" id="fLabel" maxlength="40" placeholder="Alarma"></div>
   <div class="field"><label>Posponer:</label><select id="fSnooze"><option>5</option><option selected>10</option><option>15</option><option>20</option><option>30</option></select> min</div>
+  <div class="field"><label>Sonido:</label><select id="fSound"></select><button id="fPlay" style="min-width:0!important;padding:4px 10px!important">▶</button></div>
+  <div class="field"><label>Volumen:</label><input type="range" id="fVol" min="10" max="100" step="10" value="80" style="flex:1"><span id="fVolT" style="width:40px">80%</span></div>
   <div class="field"><label>Vibrar:</label><select id="fVib"><option value="1">Sí</option><option value="0">No</option></select></div>
   <div class="bar"><button id="dOk">Aceptar</button><button id="dCancel">Cancelar</button><button id="dDel">Eliminar</button></div>
 </div></div>
@@ -72,7 +74,22 @@ input[type=text],select{font-size:14px;padding:4px;background:#fff;border:none;f
 const $=id=>document.getElementById(id);
 const DN=['L','M','X','J','V','S','D'], DL=['lun','mar','mié','jue','vie','sáb','dom'];
 const N=window.AlarmaNativa||null;
-let alarms=[], editing=null;
+let alarms=[], editing=null, custom=null, playing=false;
+const BUILTIN=[['clasico','Clásico 98'],['campanas','Campanas'],['digital','Reloj digital'],['sirena','Sirena']];
+const rawUri=n=>N?N.rawSound(n):'raw:'+n;
+function fillSounds(sel,name){
+  const o=[['','Predeterminado del teléfono']].concat(BUILTIN.map(([k,t])=>[rawUri(k),t+' (app)']));
+  if(custom)o.push([custom.uri,'♪ '+custom.name]);
+  o.push(['#tono','Elegir tono del teléfono…'],['#archivo','Elegir archivo de música…']);
+  $('fSound').innerHTML=o.map(([v,t])=>`<option value="${esc(v)}">${esc(t)}</option>`).join('');
+  $('fSound').value=sel;$('fSound').dataset.prev=sel;
+}
+function soundName(a){
+  if(!a.sound)return 'Predeterminado';
+  const b=BUILTIN.find(([k])=>a.sound===rawUri(k)); if(b)return b[1];
+  return a.soundName||'Personalizado';
+}
+window.onSonidoElegido=(uri,name)=>{custom={uri,name};fillSounds(uri);};
 const pad=n=>String(n).padStart(2,'0');
 
 function load(){
@@ -99,7 +116,7 @@ function render(){
   else L.innerHTML=alarms.map((a,i)=>`<div class="al ${a.on?'':'off'}">
     <div class="chk" data-t="${i}">${a.on?'✔':''}</div>
     <div class="t" data-e="${i}">${pad(a.h)}:${pad(a.m)}</div>
-    <div class="info" data-e="${i}"><div class="lb">${esc(a.label||'Alarma')}</div><div class="d">${daysText(a.days)} · posponer ${a.snooze} min</div></div>
+    <div class="info" data-e="${i}"><div class="lb">${esc(a.label||'Alarma')}</div><div class="d">${daysText(a.days)} · 🔊 ${esc(soundName(a))}</div></div>
     <button data-e="${i}">✎</button></div>`).join('');
   $('cnt').textContent=alarms.filter(a=>a.on).length+' activa(s)';
   tick();
@@ -122,19 +139,32 @@ $('list').addEventListener('click',e=>{
 $('fDays').innerHTML=DN.map((d,i)=>`<button data-i="${i}">${d}</button>`).join('');
 $('fDays').addEventListener('click',e=>{const b=e.target.closest('button');if(b)b.classList.toggle('on')});
 function openDlg(i){
-  editing=i; const a=i==null?{h:7,m:0,days:0,label:'',snooze:10,vib:true}:alarms[i];
+  editing=i; const a=i==null?{h:7,m:0,days:0,label:'',snooze:10,vib:true,sound:'',vol:80}:alarms[i];
+  custom=(a.sound&&!BUILTIN.some(([k])=>a.sound===rawUri(k)))?{uri:a.sound,name:a.soundName||'Personalizado'}:null;
+  fillSounds(a.sound||''); $('fVol').value=a.vol||80; $('fVolT').textContent=(a.vol||80)+'%';
   $('dlgT').textContent=i==null?'Nueva alarma':'Editar alarma';
   $('fTime').value=pad(a.h)+':'+pad(a.m); $('fLabel').value=a.label||''; $('fSnooze').value=String(a.snooze); $('fVib').value=a.vib===false?'0':'1';
   [...$('fDays').children].forEach((b,k)=>b.classList.toggle('on',!!(a.days&(1<<k))));
   $('dDel').style.display=i==null?'none':''; $('dlg').classList.add('show');
 }
 $('btnAdd').onclick=()=>{askPerms();openDlg(null)};
-$('dCancel').onclick=()=>$('dlg').classList.remove('show');
-$('dDel').onclick=()=>{alarms.splice(editing,1);$('dlg').classList.remove('show');store();say('Alarma eliminada');};
+function stopPlay(){if(playing&&N)N.stopPreview();playing=false;$('fPlay').textContent='▶';}
+$('dCancel').onclick=()=>{stopPlay();$('dlg').classList.remove('show');};
+$('fSound').onchange=()=>{const v=$('fSound').value;stopPlay();
+  if(v==='#tono'||v==='#archivo'){$('fSound').value=$('fSound').dataset.prev||'';
+    if(N)N.pickSound(v.slice(1),$('fSound').value);else say('Disponible solo en la app Android');}
+  else $('fSound').dataset.prev=v;};
+$('fPlay').onclick=()=>{if(!N){say('Disponible solo en la app Android');return;}
+  if(playing){stopPlay();return;} N.preview($('fSound').value,+$('fVol').value);playing=true;$('fPlay').textContent='■';
+  setTimeout(()=>{if(playing){playing=false;$('fPlay').textContent='▶';}},6000);};
+$('fVol').oninput=()=>{$('fVolT').textContent=$('fVol').value+'%';};
+$('dDel').onclick=()=>{stopPlay();alarms.splice(editing,1);$('dlg').classList.remove('show');store();say('Alarma eliminada');};
 $('dOk').onclick=()=>{
   const [h,m]=($('fTime').value||'07:00').split(':').map(Number);
   let days=0;[...$('fDays').children].forEach((b,k)=>{if(b.classList.contains('on'))days|=1<<k});
-  const a={id:editing==null?Date.now()%1000000000:alarms[editing].id,h,m,days,label:$('fLabel').value.trim(),snooze:+$('fSnooze').value,vib:$('fVib').value==='1',on:true};
+  stopPlay(); const snd=$('fSound').value;
+  const a={id:editing==null?Date.now()%1000000000:alarms[editing].id,h,m,days,label:$('fLabel').value.trim(),snooze:+$('fSnooze').value,vib:$('fVib').value==='1',on:true,
+    sound:snd,soundName:(custom&&custom.uri===snd)?custom.name:'',vol:+$('fVol').value};
   if(editing==null)alarms.push(a);else alarms[editing]=a;
   $('dlg').classList.remove('show');store();
   const t=nextTime(a,new Date()),mins=Math.round((t-new Date())/60000);

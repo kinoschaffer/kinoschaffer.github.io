@@ -80,7 +80,7 @@ function buildMaze(){
   for(let y=0;y<=H;y++){hW[y]=[];for(let x=0;x<W;x++)hW[y][x]=(y===0||y===H)}
   gates=[];
   const V=(x,y)=>vW[x][y]=true, Hh=(x,y)=>hW[y][x]=true;
-  const gate=(gx,gy,o)=>gates.push({gx,gy,o,ang:o?Math.PI/2:0});
+  const gate=(gx,gy,o)=>gates.push({gx,gy,o,ang:o?Math.PI/2:0,tgt:o?Math.PI/2:0});
   // "molinete": habitación 2x2 con puerta giratoria en el centro y una salida por lado
   function room(px,py,o,flip){
     const x0=px-1,y0=py-1;
@@ -139,13 +139,17 @@ function resetActors(){
   release();
 }
 function release(){ if(relIdx<enemies.length){const e=enemies.find(e=>!e.act); if(e){Object.assign(e,{x:LX,y:LY,d:0,t:0,mv:false,act:true});} relIdx++; }}
-const spd=()=>({p:3.6, e:Math.min(2.6+level*0.25,4.0), tm:Math.max(12-level*1.2,5)});
+const spd=()=>({p:4.4, e:Math.min(3.0+level*0.25,4.6), tm:Math.max(12-level*1.2,5)});
 
 /* ---------- movement ---------- */
 function playerTry(d){
   const {x,y}=player, nx=x+DX[d], ny=y+DY[d];
   if(d<0||wall(x,y,d)||isLair(nx,ny))return false;
-  const g=gateOn(x,y,d); if(g){ g.o=1-g.o; sfx.gate(); }
+  const g=gateOn(x,y,d);
+  if(g){ // gira en el sentido del empujón
+    const ax=x+0.5+DX[d]*0.5-g.gx, ay=y+0.5+DY[d]*0.5-g.gy, z=ax*DY[d]-ay*DX[d];
+    g.o=1-g.o; g.tgt+= (z>0?-1:1)*Math.PI/2; sfx.gate();
+  }
   player.d=d;player.face=d;player.mv=true;return true;
 }
 function enemyOpts(e){
@@ -201,13 +205,18 @@ function frame(ts){
   draw();requestAnimationFrame(frame);
 }
 function update(dt){
-  for(const g of gates){const tgt=g.o?Math.PI/2:0;g.ang+=(tgt-g.ang)*Math.min(1,dt*18);}
+  for(const g of gates){const diff=g.tgt-g.ang,st=dt*Math.PI*7;g.ang=Math.abs(diff)<=st?g.tgt:g.ang+Math.sign(diff)*st;}
   if(state==='dying'){stateT+=dt;if(stateT>1.6){lives--;if(lives<=0){gameOver();}else{state='play';resetActors();}}return;}
   if(state==='clear'){stateT+=dt;if(stateT>1.8){level++;state='play';startLevel();}return;}
   if(state!=='play')return;
   const s=spd();
   // instant reverse
   if(want>=0&&player.mv&&want===(player.d+2)%4){player.x+=DX[player.d];player.y+=DY[player.d];player.t=1-player.t;player.d=want;player.face=want;}
+  // giro anticipado: si acaba de salir de una casilla y se pide girar, vuelve al centro y gira
+  else if(want>=0&&player.mv&&want!==player.d&&player.t<0.3){
+    const sv={d:player.d,t:player.t};player.t=0;player.mv=false;
+    if(!playerTry(want)){player.d=sv.d;player.t=sv.t;player.mv=true;}
+  }
   advance(player,s.p*dt,playerArrive);
   if(state!=='play')return;
   timer+=dt/s.tm;

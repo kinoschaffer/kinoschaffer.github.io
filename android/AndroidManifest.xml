@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.lineasdeltrono.app" android:versionCode="5" android:versionName="5.0">
+    package="com.lineasdeltrono.app" android:versionCode="6" android:versionName="6.0">
   <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="34"/>
   <uses-permission android:name="android.permission.INTERNET"/>
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>

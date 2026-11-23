@@ -6,7 +6,14 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.database.Cursor;
+import android.media.MediaPlayer;
+import android.media.Ringtone;
+import android.media.RingtoneManager;
 import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
+import android.provider.OpenableColumns;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.PowerManager;
@@ -19,7 +26,47 @@ import android.webkit.WebViewClient;
 import org.json.JSONObject;
 
 public class MainActivity extends Activity {
+    private static final int REQ_TONO = 21;
+    private static final int REQ_ARCHIVO = 22;
     private WebView web;
+    private MediaPlayer preview;
+    private int previewOldVol = -1;
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private final Runnable stopPreviewTask = new Runnable() { public void run() { stopPreviewNow(); } };
+
+    private void stopPreviewNow() {
+        handler.removeCallbacks(stopPreviewTask);
+        if (preview != null) { try { preview.stop(); preview.release(); } catch (Exception ignored) { } preview = null; }
+        AlarmService.restoreAlarmVolume(this, previewOldVol);
+        previewOldVol = -1;
+    }
+
+    private void sendSound(String uri, String name) {
+        final String js = "window.onSonidoElegido&&window.onSonidoElegido(" + JSONObject.quote(uri) + "," + JSONObject.quote(name) + ")";
+        web.post(new Runnable() { public void run() { web.evaluateJavascript(js, null); } });
+    }
+
+    @Override
+    protected void onActivityResult(int req, int res, Intent data) {
+        super.onActivityResult(req, res, data);
+        if (res != RESULT_OK || data == null) return;
+        if (req == REQ_TONO) {
+            Uri u = data.getParcelableExtra(RingtoneManager.EXTRA_RINGTONE_PICKED_URI);
+            if (u == null) return;
+            String name = "Tono del teléfono";
+            try { Ringtone r = RingtoneManager.getRingtone(this, u); if (r != null) name = r.getTitle(this); } catch (Exception ignored) { }
+            sendSound(u.toString(), name);
+        } else if (req == REQ_ARCHIVO) {
+            Uri u = data.getData();
+            if (u == null) return;
+            try { getContentResolver().takePersistableUriPermission(u, Intent.FLAG_GRANT_READ_URI_PERMISSION); } catch (Exception ignored) { }
+            String name = "Archivo de audio";
+            try (Cursor c = getContentResolver().query(u, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+                if (c != null && c.moveToFirst()) name = c.getString(0);
+            } catch (Exception ignored) { }
+            sendSound(u.toString(), name);
+        }
+    }
 
     @Override
     protected void onCreate(Bundle state) {
@@ -69,6 +116,52 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public void test() { AlarmScheduler.testIn(MainActivity.this, 5); }
+
+        /** kind: "tono" abre el selector de tonos del sistema, "archivo" abre los archivos del teléfono. */
+        @JavascriptInterface
+        public void pickSound(final String kind, final String current) {
+            runOnUiThread(new Runnable() { public void run() {
+                stopPreviewNow();
+                try {
+                    if ("archivo".equals(kind)) {
+                        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                                .setType("audio/*")
+                                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+                        startActivityForResult(i, REQ_ARCHIVO);
+                    } else {
+                        Intent i = new Intent(RingtoneManager.ACTION_RINGTONE_PICKER)
+                                .putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALL)
+                                .putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Sonido de la alarma")
+                                .putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, false)
+                                .putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                                .putExtra(RingtoneManager.EXTRA_RINGTONE_DEFAULT_URI,
+                                        RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM));
+                        if (current != null && current.startsWith("content:"))
+                            i.putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, Uri.parse(current));
+                        startActivityForResult(i, REQ_TONO);
+                    }
+                } catch (Exception ignored) { }
+            }});
+        }
+
+        @JavascriptInterface
+        public void preview(final String sound, final int vol) {
+            runOnUiThread(new Runnable() { public void run() {
+                stopPreviewNow();
+                previewOldVol = AlarmService.applyAlarmVolume(MainActivity.this, vol);
+                preview = AlarmService.createPlayer(MainActivity.this, sound, true);
+                if (preview != null) preview.start();
+                handler.postDelayed(stopPreviewTask, 6000);
+            }});
+        }
+
+        @JavascriptInterface
+        public void stopPreview() {
+            runOnUiThread(new Runnable() { public void run() { stopPreviewNow(); } });
+        }
+
+        @JavascriptInterface
+        public String rawSound(String name) { return AlarmService.rawUri(MainActivity.this, name).toString(); }
 
         @JavascriptInterface
         public void requestPermissions() {
@@ -135,7 +228,7 @@ public class MainActivity extends Activity {
     }
 
     @Override
-    protected void onPause() { super.onPause(); web.onPause(); }
+    protected void onPause() { super.onPause(); stopPreviewNow(); web.onPause(); }
 
     @Override
     protected void onResume() { super.onResume(); web.onResume(); }
