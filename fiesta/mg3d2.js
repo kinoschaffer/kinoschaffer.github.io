@@ -84,7 +84,7 @@ M.register('escondite', {
   ctrl: 'joy',
   speed() { const g = G(); return g.myId === g.sc.seeker ? (g.now < 5000 ? 0 : 1.05) : 0.92; },
   build(sc) { const g = G(), H = XS.HOUSE; sc.seeker = roleOf(); sc.scene.background = new THREE.Color(0x0b0d1a); sc.scene.fog = new THREE.Fog(0x0b0d1a, 6, 16);
-    sc.scene.children.filter(o => o.isLight).forEach(l => l.intensity *= 0.12);
+    sc.scene.children.filter(o => o.isLight).forEach(l => l.intensity *= 0.25);
     const floor = mesh(new THREE.BoxGeometry(H.half * 2, 0.3, H.half * 2), mat(0x5c3b1e, { flatShading: false })); floor.position.y = -0.15; sc.scene.add(floor);
     [[0, H.half, H.half * 2, 0.3], [0, -H.half, H.half * 2, 0.3], [H.half, 0, 0.3, H.half * 2], [-H.half, 0, 0.3, H.half * 2]].forEach(([x, z, w, d]) => { const wl = mesh(new THREE.BoxGeometry(w, 2, d), mat(0x495057)); wl.position.set(x, 1, z); sc.scene.add(wl); });
     const cols = [0x8d5524, 0x6741d9, 0x1971c2, 0xc92a2a, 0x2f9e44]; H.boxes.forEach(([x, z, hx, hz], i) => { const b = mesh(new THREE.BoxGeometry(hx * 2, 1.3, hz * 2), mat(cols[i % cols.length])); b.position.set(x, 0.65, z); sc.scene.add(b); });
@@ -124,7 +124,7 @@ M.register('gigante', {
 
 // ===== Portero (1 contra 3)
 M.register('portero', {
-  ctrl: 'joy', cam: [0, 6.5, 10.5], look: [0, 0.5, -3],
+  ctrl: 'joy', cam: [0, 10, 11.5], look: [0, 0, -1.2],
   speed() { const g = G(); return g.myId === g.sc.keeper ? XS.GOAL.keeperSpeed : 0; },
   extra() { const g = G(); return g.myId === g.sc.keeper ? [] : [['⚽ ¡PATEAR!', () => { const s = g.x.shot; if (!s || s.shooter !== g.myId || s.phase !== 'aim' || g.shotSent === s.i) return; g.shotSent = s.i; g.send({ t: 'mgact', key: g.key, shoot: +g.sc.aimX.toFixed(2) }); X('hit'); }]]; },
   build(sc) { const g = G(), Q = XS.GOAL; addUnder(sc, PAL.grass); sc.keeper = roleOf();

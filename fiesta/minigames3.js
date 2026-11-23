@@ -9,7 +9,7 @@
   // id, nombre, icono, descripción, tipo de juego
   const GAMES = {
     caracoles: { name: 'Carrera de Caracoles', icon: '🐌', desc: 'Elige un caracol. Lluvia, sal y turbos al azar deciden la carrera.', type: 'race', style: 'snail', racers: 5 },
-    globos: { name: 'Globos Aerostáticos', icon: '🎈', desc: 'Elige un globo. El viento cambia y cualquiera puede ganar.', type: 'race', style: 'balloon', racers: 5 },
+    aerostaticos: { name: 'Globos Aerostáticos', icon: '🎈', desc: 'Elige un globo. El viento cambia y cualquiera puede ganar.', type: 'race', style: 'balloon', racers: 5 },
     patos: { name: 'Patos de Goma', icon: '🦆', desc: 'Elige un pato. El río tiene remolinos que los hacen girar.', type: 'race', style: 'duck', racers: 6 },
     cohetes: { name: 'Cohetes Caprichosos', icon: '🚀', desc: 'Cohetes potentes pero que pueden fallar, o lentos pero seguros. ¿Cuál eliges?', type: 'race', style: 'rocket', racers: 4 },
     tortugas: { name: 'Tortugas Dormilonas', icon: '🐢', desc: 'Elige una tortuga. Cualquiera se puede quedar dormida en plena carrera.', type: 'race', style: 'turtle', racers: 5 },

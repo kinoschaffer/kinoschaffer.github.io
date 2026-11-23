@@ -660,7 +660,7 @@ css.textContent = `#mgui{position:fixed;inset:0;z-index:7;pointer-events:none;fo
 #mgui .mg-btns{position:absolute;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom) + 16px);display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;pointer-events:none}
 #mgui .mg-btns button{pointer-events:auto;width:96px;height:96px;border-radius:50%;border:0;font:900 1.1rem system-ui;color:#1e0b3a;background:#fcc419;box-shadow:0 5px 0 #b8860b;touch-action:none;margin:0}
 #mgui .mg-btns.wide{justify-content:center}#mgui .mg-btns.wide button{border-radius:20px;height:84px;font-size:1.8rem}
-#mgui .mg-btns.race{justify-content:space-between}#mgui .mg-btns.race button{width:44%;height:110px;border-radius:24px;font-size:2rem}
+#mgui .mg-btns.race{justify-content:space-between}#mgui .mg-btns.race3 button{width:30%!important}#mgui .mg-btns.race button{width:44%;height:110px;border-radius:24px;font-size:2rem}
 #mgui .mg-btns button.on{transform:translateY(4px);box-shadow:0 1px 0 #b8860b}#mgui .mg-btns button:disabled{opacity:1}
 #mgui .hint{position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 130px);text-align:center;font-weight:700;opacity:.85;text-shadow:0 2px 4px #000;padding:0 12px}`;
 document.head.appendChild(css);
@@ -693,7 +693,7 @@ function setupControls() {
     on(window, 'pointerup', end); on(window, 'pointercancel', end);
   } else if (ctrl === 'tap2') { btn('◀ IZQ', () => k.tap('L'), 'race'); btn('DER ▶', () => k.tap('R')); hint('¡Toca IZQ y DER alternando!'); }
   else if (ctrl === 'mash') { btn('¡TOCA!', () => k.tap(), 'wide').style.width = '80%'; hint('¡Toca lo más rápido que puedas!'); }
-  else if (ctrl === 'lanes') { btn('◀', () => k.lane(-1), 'race'); (k.extra ? k.extra() : []).forEach(([l, f]) => btn(l, f)); btn('▶', () => k.lane(1)); hint(G.kind === 'encaja' ? 'Cambia de carril · 🙇 para agacharte' : 'Cambia de carril: junta monedas y esquiva rocas'); }
+  else if (ctrl === 'lanes') { btn('◀', () => k.lane(-1), k.extra ? 'race race3' : 'race'); (k.extra ? k.extra() : []).forEach(([l, f]) => btn(l, f)); btn('▶', () => k.lane(1)); hint(G.kind === 'encaja' ? 'Cambia de carril · 🙇 para agacharte' : 'Cambia de carril: junta monedas y esquiva rocas'); }
   else if (ctrl === 'stop') { btn('✋ ¡ALTO!', () => k.onStop(), 'wide').style.width = '80%'; }
   else if (ctrl === 'buttons') refreshButtons();
   if (ctrl === 'tapscreen') { const ray = new THREE.Raycaster(), v = new THREE.Vector2();
@@ -809,7 +809,7 @@ function frame(dt, t) {
     if (st === 1 && ['bolas', 'meteoros', 'canon'].includes(G.kind)) ch.g.scale.set(cs * 1.3, cs * 0.15, cs * 1.3); else if (mv === 2) ch.g.scale.set(cs * 1.15, cs * 0.5, cs * 1.15); else ch.g.scale.setScalar(cs);
     if (st === 2 && ['monedas', 'meteoros'].includes(G.kind)) ch.g.rotation.y += dt * 12;
     if (st === 1 && ['cazador', 'papa'].includes(G.kind)) { ch.g.rotation.x = -1.4; ch.g.position.y = 0.2; } else ch.g.rotation.x = 0;
-    ch.g.visible = G.kind !== 'tiro' && !(st === 1 && ch.g.position.y < -6);
+    ch.g.visible = !(G.kind === 'tiro' || G.kind === 'bolos') && !(st === 1 && ch.g.position.y < -6);
     if (ch.label) ch.label.material.opacity = st === 1 ? 0.35 : 1;
   });
   for (let i = G.fx.length - 1; i >= 0; i--) { const f = G.fx[i]; f.t += dt; f.o.position.y += dt; f.o.material.opacity = 1 - f.t; if (f.t > 1) { sc.scene.remove(f.o); G.fx.splice(i, 1); } }

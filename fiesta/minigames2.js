@@ -267,7 +267,7 @@
       final(ctx, id) { const b = ctx.bots[id]; return b ? MISS + Math.round((TRACK.len * TRACK.laps - b.s) * 100) : MISS; },
     },
     // ===== Bolos / Ritmo / Encaja (cada uno juega su partida; los bots tienen un puntaje planeado)
-    bolos: { spawn(i, n) { return [(i - (n - 1) / 2) * 2.4, 5]; },
+    bolos: { spawn(i, n) { return [0, 4.6]; },
       botInit(ctx, b) { b.plan = PLAN(b, [[7, 12], [10, 15], [13, 19]]); b.planAt = ctx.dur * (0.55 + Math.random() * 0.35); },
       bot(ctx, b, dt, now, net, H, { finish }) { b.sc = Math.round(b.plan * Math.min(1, now / b.planAt)); if (now >= b.planAt) finish(b, b.plan, 3); },
       final(ctx, id) { return ctx.bots[id] ? ctx.bots[id].plan : 0; } },
