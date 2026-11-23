@@ -15,7 +15,7 @@
     ['gigante', 'gigante', 'El Gigante', '🦶', 'El solitario es un gigante que da PISOTONES. Los demás corren: si los alcanza la onda, quedan fuera.', 30, {}, ['1vN']],
     ['portero', 'portero', 'Portero', '🥅', 'Los tiradores detienen la mira para patear. El portero se mueve para atajar.', 40, {}, ['1vN']],
     ['escalada', 'escalada', 'Escalada de Lava', '🧗', 'Salta de plataforma en plataforma hacia arriba: ¡la lava sube! Gana quien llegue más alto.', 40, {}],
-    ['karts', 'karts', 'Karts', '🏎️', 'Dos vueltas al circuito. Gira con el dedo; las flechas amarillas dan turbo.', 45, {}],
+    ['karts', 'karts', 'Karts', '🏎️', 'Dos vueltas al circuito. Mantén ACELERAR y gira con ◀ ▶. La pista tiene bordes. Las flechas amarillas dan turbo.', 45, {}],
     ['bolos', 'bolos', 'Bolos', '🎳', 'Toca para fijar la dirección y otra vez para la fuerza. 4 tiros: ¡derriba todos los pinos!', 40, {}],
     ['ritmo', 'ritmo', 'Ritmo Fiestero', '🎵', 'Toca la flecha correcta cuando llegue a la línea. ¡Al compás!', 30, {}],
     ['encaja', 'encaja', 'Encaja la Figura', '🧱', 'Llegan paredes con un hueco: cámbiate de carril y AGÁCHATE si el hueco es bajo. Tienes 3 vidas.', 35, {}],

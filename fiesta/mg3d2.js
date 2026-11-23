@@ -174,8 +174,19 @@ M.register('escalada', {
 });
 
 // ===== Karts
+// Botones que se mantienen apretados (acelerar, girar)
+function holdBtns(defs) { const g = G(), box = g.hud.querySelector('.mg-btns'); box.className = 'mg-btns kart'; box.innerHTML = ''; g.hold = {};
+  for (const [k, html, cls] of defs) { const b = document.createElement('button'); b.innerHTML = html; if (cls) b.className = cls;
+    const on = e => { e.preventDefault(); g.hold[k] = true; b.classList.add('on'); try { b.setPointerCapture(e.pointerId); } catch (_) { } }, off = () => { g.hold[k] = false; b.classList.remove('on'); };
+    b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('lostpointercapture', off); box.appendChild(b); } }
+const kcss = document.createElement('style');
+kcss.textContent = `#mgui .mg-btns.kart{justify-content:space-between;align-items:flex-end}#mgui .mg-btns.kart button{width:84px;height:84px;font-size:2rem}
+#mgui .mg-btns.kart button.gas{width:118px;height:118px;font-size:1.05rem;background:#51cf66;box-shadow:0 6px 0 #2b8a3e;order:3;margin-left:auto}
+#mgui .mg-btns.kart button.on{transform:translateY(4px);filter:brightness(1.15)}`;
+document.head.appendChild(kcss);
+
 M.register('karts', {
-  ctrl: 'joy', selfMove: true,
+  ctrl: 'kart', selfMove: true,
   build(sc) { const g = G(), T = XS.TRACK; addUnder(sc, PAL.grass); sc.scene.fog = new THREE.Fog(0x9be3ff, 25, 60);
     const ground = mesh(new THREE.PlaneGeometry(60, 60), mat(0x69db7c, { flatShading: false }), false); ground.rotation.x = -Math.PI / 2; ground.position.y = -0.02; sc.scene.add(ground);
     const roadM = mat(0x495057, { flatShading: false }); for (let i = 0; i < T.pts.length; i++) { const a = T.pts[i], b = T.pts[(i + 1) % T.pts.length], len = Math.hypot(b[0] - a[0], b[1] - a[1]);
@@ -186,18 +197,24 @@ M.register('karts', {
     // los personajes van en karts
     for (const p of g.players) { const ch = g.chars[p.id]; if (!ch) continue; const kart = mesh(new THREE.BoxGeometry(0.9, 0.35, 1.4), mat(new THREE.Color(p.color).getHex())); kart.position.y = 0.2; ch.g.add(kart); }
     if (g.me) { const s0 = g.players.findIndex(p => p.id === g.myId); const p = XS.trackAt(-1.5 - Math.floor(s0 / 2) * 1.8); Object.assign(g.me, { kv: 0, kdir: p.dir, s: -1.5 - Math.floor(s0 / 2) * 1.8, near: 0, lapS: 0 }); } },
-  tick(dt, now, m) { const g = G(), T = XS.TRACK; if (m.st === 3) return; if (now < 2500) { if (now > 600) flash(now < 1500 ? '🔴 🔴' : now < 2200 ? '🟡 🟡' : '🟢 ¡YA!', 400); return; }
-    let ix = g.input.x; const kk = g.keys || {}; if (kk.ArrowLeft) ix = -1; if (kk.ArrowRight) ix = 1;
-    const nr = XS.trackNearest(m.x, m.z, m.near); m.near = nr.i; const off = nr.d > T.width / 2 + 0.2;
+  tick(dt, now, m) { const g = G(), T = XS.TRACK; if (!g.hold) holdBtns([['l', '◀'], ['r', '▶'], ['gas', '⚡<br>ACELERAR', 'gas']]);
+    if (m.st === 3) return; if (now < 2500) { if (now > 600) flash(now < 1500 ? '🔴 🔴' : now < 2200 ? '🟡 🟡' : '🟢 ¡YA!', 400); return; }
+    const kk = g.keys || {}, h = g.hold, ix = ((h.r || kk.ArrowRight || kk.d) ? 1 : 0) - ((h.l || kk.ArrowLeft || kk.a) ? 1 : 0), gas = h.gas || kk.ArrowUp || kk.w || kk[' '];
     const boost = T.boosts.some(f => Math.hypot(XS.trackAt(f * T.len).x - m.x, XS.trackAt(f * T.len).z - m.z) < 1.1); if (boost && now > (m.boostT || 0)) { m.boostT = now + 1200; X('item'); }
-    const vmax = now < (m.boostT || 0) ? 12.5 : off ? 4 : 9.4; m.kv += (vmax - m.kv) * Math.min(1, dt * (m.kv < vmax ? 1.2 : 3));
-    m.kdir -= ix * 2.4 * dt * Math.min(1, m.kv / 4); m.x += Math.sin(m.kdir) * m.kv * dt; m.z += Math.cos(m.kdir) * m.kv * dt; m.ry = m.kdir; m.mv = 1;
+    // acelerar: hay que mantener el botón; si lo sueltas, el kart frena solo
+    const vmax = now < (m.boostT || 0) ? 12.5 : gas ? 9.4 : 0; m.kv += (vmax - m.kv) * Math.min(1, dt * (m.kv < vmax ? 1.3 : gas ? 3 : 1.6));
+    m.kdir -= ix * 2.5 * dt * Math.min(1, 0.35 + m.kv / 5); m.x += Math.sin(m.kdir) * m.kv * dt; m.z += Math.cos(m.kdir) * m.kv * dt; m.ry = m.kdir; m.mv = m.kv > 0.3 ? 1 : 0;
+    // la pista tiene bordes: no se puede salir; al chocar rebota hacia adentro y pierde velocidad
+    const nr = XS.trackNearest(m.x, m.z, m.near); m.near = nr.i; const lim = T.width / 2 - 0.45;
+    if (nr.d > lim) { const c = XS.trackAt(nr.s), dx = m.x - c.x, dz = m.z - c.z, d = Math.hypot(dx, dz) || 1; m.x = c.x + dx / d * lim; m.z = c.z + dz / d * lim;
+      m.kv *= Math.pow(0.25, dt * 4); let fwd = c.dir; if (Math.abs(L.wrap(fwd - m.kdir)) > Math.PI / 2) fwd += Math.PI; m.kdir += L.wrap(fwd - m.kdir) * Math.min(1, dt * 6);
+      if (now - (m.bumpT || 0) > 400) { m.bumpT = now; X('hit'); if (navigator.vibrate) navigator.vibrate(30); } }
     // avance acumulado (vueltas): sumar diferencia de posición sobre la pista
     let ds = nr.s - (m.lastS ?? nr.s); if (ds < -T.len / 2) ds += T.len; if (ds > T.len / 2) ds -= T.len; m.lastS = nr.s; m.s += ds;
     m.sc = Math.max(1, Math.floor(Math.max(0, m.s) / T.len) + 1);
     if (m.s >= T.len * T.laps) { m.st = 3; done(Math.round(now), '🏁 ¡Llegaste!'); } },
   camPos() { const g = G(), m = g.me; if (!m) { return [[0, 26, 18], [0, 0, 0]]; } const d = m.kdir || 0; return [[m.x - Math.sin(d) * 6, 3.6, m.z - Math.cos(d) * 6], [m.x + Math.sin(d) * 4, 0.6, m.z + Math.cos(d) * 4]]; },
-  hud() { const g = G(), m = g.me; return m ? `🏎️ Vuelta ${Math.min(XS.TRACK.laps, m.sc || 1)} de ${XS.TRACK.laps} · Gira con el dedo` : '🏎️ Carrera'; },
+  hud() { const g = G(), m = g.me; return m ? `🏎️ Vuelta ${Math.min(XS.TRACK.laps, m.sc || 1)} de ${XS.TRACK.laps} · Mantén ⚡ y gira con ◀ ▶` : '🏎️ Carrera'; },
   final: () => { const m = G().me; return L.MISS + Math.round(Math.max(0, XS.TRACK.len * XS.TRACK.laps - m.s) * 100); },
 });
 

@@ -409,10 +409,15 @@ K.corredor = {
 };
 
 // ---------- Laberinto
+function haloTex() { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'), gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  gr.addColorStop(0, 'rgba(255,232,161,.3)'); gr.addColorStop(0.5, 'rgba(255,214,120,.14)'); gr.addColorStop(1, 'rgba(255,200,90,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; }
 K.laberinto = {
   ctrl: 'joy',
   build(sc) { const mz = L.maze(G.seed, G.p.big); sc.mz = mz; const dark = G.p.dark, hedge = G.p.big;
-    sc.scene.background = new THREE.Color(dark ? 0x05060f : 0x9be3ff); sc.scene.fog = dark ? new THREE.Fog(0x05060f, 4, 9) : null;
+    sc.scene.background = new THREE.Color(dark ? 0x05060f : 0x9be3ff); sc.scene.fog = null;
+    // oscuro: casi sin luz ambiente; el personaje lleva su propia luz (a quien solo mira se le deja ver más)
+    if (dark) sc.scene.children.filter(o => o.isLight).forEach(l => { l.intensity *= G.me ? 0.06 : 0.35; if (l.castShadow) l.castShadow = false; });
     const floor = mesh(new THREE.BoxGeometry(mz.n * mz.cell + 1, 0.4, mz.n * mz.cell + 1), mat(dark ? 0x343a40 : 0xe9ecef, { flatShading: false })); floor.position.y = -0.2; sc.scene.add(floor);
     const wm = mat(hedge ? 0x2b8a3e : dark ? 0x495057 : 0x845ef7), H = 1.1, T = 0.18;
     const wall = (x, z, w, d) => { const o = mesh(new THREE.BoxGeometry(w, H, d), wm); o.position.set(x, H / 2, z); sc.scene.add(o); };
@@ -421,11 +426,17 @@ K.laberinto = {
       if (w[2] && Math.floor(c / mz.n) === mz.n - 1) wall(cx, cz + h, mz.cell + T, T); if (w[1] && c % mz.n === mz.n - 1) wall(cx + h, cz, T, mz.cell + T); }
     const [ex, ez] = mz.center(mz.exit); const flag = mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.1, 20), glow(0x51cf66, 1)); flag.position.set(ex, 0.05, ez); sc.scene.add(flag);
     const f2 = sprite('🏁', '#fff', 0.8); f2.position.set(ex, 1.6, ez); sc.scene.add(f2);
-    if (dark) { sc.lamp = new THREE.PointLight(0xffe8a1, 40, 6, 1.5); sc.scene.add(sc.lamp); } },
+    if (dark && G.me) { sc.lamp = new THREE.PointLight(0xffe8a1, 45, 7.5, 1.2); sc.scene.add(sc.lamp);
+      const halo = new THREE.Mesh(new THREE.CircleGeometry(2.6, 40), new THREE.MeshBasicMaterial({ map: haloTex(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+      halo.rotation.x = -Math.PI / 2; halo.position.y = 0.03; sc.halo = halo; sc.scene.add(halo); } },
   move(m, dx, dz) { [m.x, m.z] = L.mazeMove(G.sc.mz, m.x, m.z, dx, dz); },
-  tick(dt, now, m) { if (m.st === 0 && G.sc.mz.cellAt(m.x, m.z) === G.sc.mz.exit) { m.st = 3; done(Math.round(now), '🏁 ¡Saliste!'); } if (G.sc.lamp) G.sc.lamp.position.set(m.x, 2, m.z); },
+  tick(dt, now, m) { if (m.st === 0 && G.sc.mz.cellAt(m.x, m.z) === G.sc.mz.exit) { m.st = 3; done(Math.round(now), '🏁 ¡Saliste!'); } const sc = G.sc; if (sc.lamp) { sc.lamp.position.set(m.x, 2.3, m.z); sc.halo.position.x = m.x; sc.halo.position.z = m.z; sc.lamp.intensity = 45 + Math.sin(now / 160) * 4;
+      // viñeta: oscuro alrededor, círculo de luz sobre mi personaje
+      if (!sc.vig) { sc.vig = document.createElement('div'); sc.vig.style.cssText = 'position:absolute;inset:0;pointer-events:none;transition:none'; G.hud.prepend(sc.vig); }
+      const v = new THREE.Vector3(m.x, 0.6, m.z).project(sc.camera), px = (v.x + 1) / 2 * 100, py = (1 - v.y) / 2 * 100, r = Math.min(innerWidth, innerHeight) * 0.42;
+      sc.vig.style.background = `radial-gradient(circle ${r}px at ${px}% ${py}%, rgba(0,0,0,0) 0%, rgba(0,0,0,0) 55%, rgba(3,4,12,.75) 80%, rgba(3,4,12,.96) 100%)`; } },
   camPos() { const m = G.me || { x: 0, z: 0 }, f = Math.max(1, 0.62 / (innerWidth / innerHeight)); return [[m.x, 9 * f, m.z + 4.5 * f], [m.x, 0, m.z]]; },
-  hud: () => '🏁 Busca la bandera verde (abajo a la derecha)',
+  hud: () => G.p.dark ? '🔦 Tu luz te guía · busca la salida 🏁 (abajo a la derecha)' : '🏁 Busca la bandera verde (abajo a la derecha)',
   final: () => L.MISS + 1000 * G.sc.mz.path(Math.max(0, G.sc.mz.cellAt(G.me.x, G.me.z))).length,
 };
 
