@@ -399,7 +399,11 @@ function spawnChar(emoji, color, name) {
   const ring = mesh(new THREE.TorusGeometry(0.42, 0.06, 6, 24), new THREE.MeshBasicMaterial({ color }), { cast: false }); ring.rotation.x = Math.PI / 2; ring.position.y = 0.03; g.add(ring);
   const ch = { g, ring, model: null, mixer: null, walk: null,
     setWalking(on) { if (!ch.walk) return; if (on && ch.walk.paused) ch.walk.paused = false; if (!on && !ch.walk.paused) { ch.walk.paused = true; ch.walk.time = 0; ch.mixer.update(0); } },
-    update(dt) { if (ch.mixer) ch.mixer.update(dt * 1.6); } };
+    update(dt) { if (ch.mixer) ch.mixer.update(dt * 1.6); },
+    // gesto (festejo / enojo) con las animaciones extra del personaje
+    emote(name, loop = true) { const cid = ((window.FIESTA_CHARS || []).find(c => c.emoji === emoji) || {}).id; if (!cid) return;
+      loadFx(cid).then(fx => { if (!fx || !fx[name] || !ch.mixer) return; if (ch.walk) ch.walk.stop(); if (ch.act) ch.act.stop();
+        const a = ch.mixer.clipAction(fx[name]); a.reset(); a.setLoop(loop ? THREE.LoopRepeat : THREE.LoopOnce, loop ? Infinity : 1); a.clampWhenFinished = !loop; a.timeScale = 0.5; a.play(); ch.act = a; }); } };
   if (name) { const l = textSprite(name, { bg: color, stroke: null, h: 0.32, font: 800 }); l.position.y = CHAR_H + 0.4; g.add(l); ch.label = l; }
   attachModel(g, emoji, ph, (m, mixer, walk) => { ch.model = m; ch.mixer = mixer; ch.walk = walk; return true; });
   return ch;

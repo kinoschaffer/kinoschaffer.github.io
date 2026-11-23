@@ -135,6 +135,16 @@ body.b3d #app{max-width:none;padding:0}
 .readyrow .rd b{position:absolute;right:-6px;bottom:-6px;font-size:.95rem;filter:drop-shadow(0 1px 1px #000)}
 .readybtn{background:#51cf66!important;box-shadow:0 6px 0 #2b8a3e!important;color:#fff!important;animation:readyp 1.2s ease-in-out infinite}
 @keyframes readyp{0%,100%{filter:brightness(1)}50%{filter:brightness(1.18)}}
+.winbanner{position:fixed;left:12px;right:12px;top:calc(env(safe-area-inset-top) + 14px);z-index:8;text-align:center;pointer-events:none;animation:wbin .6s cubic-bezier(.2,1.5,.4,1)}
+.wb-title{font-family:'Luckiest Guy',cursive;font-size:2.5rem;color:#fcc419;-webkit-text-stroke:5px #1e0b3a;paint-order:stroke fill;text-shadow:0 6px 0 #1e0b3a;letter-spacing:.03em;line-height:1.1}
+.wb-me{font-family:'Luckiest Guy',cursive;font-size:1.2rem;color:#fff;-webkit-text-stroke:3px #1e0b3a;paint-order:stroke fill;animation:wbme .7s ease-in-out infinite alternate}
+.wb-people{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:8px}
+.wb-p{display:flex;flex-direction:column;align-items:center;gap:2px;animation:wbin .6s .25s both cubic-bezier(.2,1.5,.4,1)}
+.wb-p .av{width:62px;height:62px;border-radius:50%;border:4px solid var(--c);overflow:hidden;background:#fff;box-shadow:0 0 0 3px #1e0b3a,0 0 22px #fcc419}.wb-p .av img{width:100%;height:100%;object-fit:cover}
+.wb-p b{font-family:'Luckiest Guy',cursive;font-weight:400;font-size:1.15rem;color:#fff;-webkit-text-stroke:3px #1e0b3a;paint-order:stroke fill}
+.wb-score{display:inline-block;margin-top:6px;padding:3px 14px;border-radius:12px;background:#1e0b3acc;color:#fff;font-weight:800}
+@keyframes wbin{0%{transform:scale(.2) rotate(-8deg);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes wbme{from{transform:scale(1)}to{transform:scale(1.12)}}
 .intro-card .gif{display:block;margin:6px auto;max-height:26vh;max-width:70%;border-radius:12px;border:3px solid #fff;box-shadow:0 4px 12px #0006}
 .bigcount{position:fixed;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;background:radial-gradient(circle,rgba(30,11,58,.15),rgba(30,11,58,.65))}
 .bc-title{font-family:'Luckiest Guy',cursive;font-size:1.6rem;color:#fff;text-shadow:0 4px 0 #1e0b3a;letter-spacing:.05em;animation:slidein .5s ease-out;padding:0 14px;text-align:center}
@@ -691,7 +701,7 @@ function finishMinigame(){
   }
   m.ranking = arr; s.phase = 'mg-results'; broadcast();
   arr.forEach(e => { const pl = findP(e.id); if (e.prize > 0 && (e.rank === 0 || m.format !== 'ffa')) botSticker(pl, 'feliz', 0.4); else if (e.prize < 0 || (m.format === 'ffa' && e.rank === arr.length - 1)) botSticker(pl, Math.random() < 0.5 ? 'mal' : 'confundido', 0.3); });
-  setTimeout(() => { const r = H.mgResolve; H.mgResolve = null; if (r) r(); }, 7000);
+  setTimeout(() => { const r = H.mgResolve; H.mgResolve = null; if (r) r(); }, MG[s.mg.type].td ? 11500 : 7000); // primero la celebración del ganador
 }
 // Premios sorpresa: se eligen 3 al azar y se revelan uno por uno
 const BONUSES = [
@@ -794,10 +804,17 @@ function render(){
   if (ph === 'mg-intro') { key = 'intro' + S.mg.key + '|' + Object.keys(S.mg.votes || {}).length; const nv = Object.keys(S.mg.votes || {}).length; if (ui.lastVotes != null && nv > ui.lastVotes && ui.lastVotesKey === S.mg.key && window.SFX) SFX.play('ready'); ui.lastVotes = nv; ui.lastVotesKey = S.mg.key; }
   if (ph === 'mg-count') key = 'count' + S.countId;
   if (ph === 'mg-play') key = 'play' + S.mg.key;
+  // al terminar: unos segundos de celebración del ganador en 3D antes de la tabla
+  if (ph === 'mg-results' && S.mg && ui.scKey !== S.mg.key) { ui.scKey = S.mg.key; ui.scUntil = window.MG3D && MG3D.active ? Date.now() + 4800 : 0;
+    if (ui.scUntil) setTimeout(() => { ui.viewKey = null; render(); }, 4900); }
+  const showcase = ph === 'mg-results' && S.mg && ui.scUntil > Date.now() && window.MG3D && MG3D.active;
+  if (showcase) key = 'cel' + S.mg.key;
   if (key && key === ui.viewKey) return;
   if (ui.viewKey && ui.viewKey !== key && ui.mgCleanup) { ui.mgCleanup(); ui.mgCleanup = null; }
   ui.viewKey = key;
   const boardPhase = ['turn', 'rolling', 'moving', 'crown', 'event', 'fork', 'duel-pick', 'shop', 'bonus', 'end'].includes(ph);
+  if (showcase) { document.body.classList.add('b3d'); if (window.Board3D && Board3D.ok) Board3D.show(true);
+    const w = mgWinners(S.mg); MG3D.celebrate(w.ids, { tie: w.tie }); app.innerHTML = ic(viewShowcase(w)); return; }
   const mg3d = (ph === 'mg-intro' || ph === 'mg-play' || ph === 'mg-count') && S.mg && MG[S.mg.type].td && has3D() && !!window.MG3D;
   if (!mg3d && window.MG3D) MG3D.stop();
   const use3d = (boardPhase && has3D()) || mg3d;
@@ -1096,6 +1113,17 @@ function fmtScore(type, v){
     case 'balloon': return v === 0 ? '💥 explotó' : v + ' bombeos';
     default: return v + ' aciertos';
   }
+}
+function mgWinners(m){
+  if (m.teams && m.result) return m.result.winner === 'tie' ? { ids: [], tie: true } : { ids: m.teams[m.result.winner], team: m.result.winner };
+  return { ids: (m.ranking || []).filter(e => e.rank === 0 && e.v != null).map(e => e.id) };
+}
+function viewShowcase(w){
+  const m = S.mg, ps = w.ids.map(id => S.players.find(p => p.id === id)).filter(Boolean), mine = w.ids.includes(myId), e = (m.ranking || []).find(x => x.id === (w.ids[0]));
+  const title = w.tie ? '🤝 ¡EMPATE!' : m.teams && m.result ? (m.format === 'duel' ? '⚔️ ¡GANA EL DUELO!' : `🏆 ¡GANA EL EQUIPO ${w.team === 'A' ? 'AZUL' : 'ROJO'}!`) : ps.length > 1 ? '🏆 ¡GANAN!' : '🏆 ¡GANA!';
+  return `<div class="winbanner">${mine ? '<div class="wb-me">⭐ ¡ERES TÚ! ⭐</div>' : ''}<div class="wb-title">${title}</div>
+    <div class="wb-people">${ps.map(p => `<div class="wb-p" style="--c:${w.team ? (w.team === 'A' ? '#4dabf7' : '#ff6b6b') : p.color}"><span class="av">${avImg(p)}</span><b>${esc(p.name)}</b></div>`).join('')}</div>
+    ${e && !m.teams ? `<div class="wb-score">${fmtScore(m.type, e.v)}</div>` : ''}</div>`;
 }
 function viewMgResults(){
   const m = S.mg, medals = ['🥇', '🥈', '🥉', '4º', '5º', '6º', '7º', '8º'];

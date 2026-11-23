@@ -801,6 +801,44 @@ function setupControls() {
   G.keys = keys; G.cleanup = () => listeners.forEach(([el, ev, f, o]) => el.removeEventListener(ev, f, o));
 }
 
+
+/* ======================= Celebración del ganador ======================= */
+// Al terminar el minijuego: escenario con podio, cámara sobre el/los ganadores, festejo y confeti.
+function celebrate(winIds, { tie } = {}) {
+  if (!G || G.cel) return;
+  const scene = new THREE.Scene(); scene.background = new THREE.Color(0x24104d);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x3b1f7a, 1.4)); const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(3, 8, 6); sun.castShadow = true; scene.add(sun);
+  const stage = new THREE.Mesh(new THREE.CylinderGeometry(7, 7.4, 0.4, 48), new THREE.MeshStandardMaterial({ color: 0x5f3dc4, roughness: 0.6 })); stage.position.y = -0.2; stage.receiveShadow = true; scene.add(stage);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(7.05, 0.08, 8, 64), new THREE.MeshBasicMaterial({ color: 0xfcc419 })); rim.rotation.x = Math.PI / 2; rim.position.y = 0.01; scene.add(rim);
+  // rayos de luz detrás
+  const rays = new THREE.Group(); for (let k = 0; k < 14; k++) { const r = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 30), new THREE.MeshBasicMaterial({ color: k % 2 ? 0xfcc419 : 0xff922b, transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false }));
+    r.rotation.z = k / 14 * Math.PI * 2; r.position.y = 0; rays.add(r); } rays.position.set(0, 2.5, -6); scene.add(rays);
+  const win = winIds.map(id => G.chars[id] ? id : null).filter(Boolean), others = G.players.map(p => p.id).filter(id => !win.includes(id) && G.chars[id]);
+  const n = Math.max(1, win.length), podW = Math.max(2.2, n * 1.35 + 0.6);
+  if (win.length) { const pod = new THREE.Mesh(new THREE.BoxGeometry(podW, 0.7, 1.6), new THREE.MeshStandardMaterial({ color: 0xfcc419, metalness: 0.5, roughness: 0.3, emissive: 0x7a5200, emissiveIntensity: 0.3 })); pod.position.set(0, 0.35, 0); pod.castShadow = pod.receiveShadow = true; scene.add(pod);
+    const one = sprite('1', '#1e0b3a', 0.6); one.position.set(0, 0.36, 0.82); scene.add(one); }
+  const place = (id, x, y, z, sc) => { const ch = G.chars[id]; ch.g.position.set(x, y, z); ch.g.rotation.set(0, 0, 0); ch.g.scale.setScalar(sc); ch.g.visible = true; ch.g.children.forEach(o => { if (o.isSprite) o.visible = false; }); scene.add(ch.g); return ch; };
+  win.forEach((id, k) => { const ch = place(id, (k - (n - 1) / 2) * 1.35, 0.7, 0, 1.6); ch.emote('festejo'); });
+  others.forEach((id, k) => { const side = k % 2 ? 1 : -1, j = Math.floor(k / 2); const ch = place(id, side * (podW / 2 + 1 + j * 1.1), 0, -1.2 - j * 0.5, 1.15); ch.g.rotation.y = -side * 0.35; ch.emote(tie ? 'festejo' : 'enojo', !!tie); });
+  const cam = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 200); cam.position.set(0, 5, 12); cam.lookAt(0, 1.5, 0);
+  if (G.hud) G.hud.style.display = 'none'; if (G.arrow) G.arrow.visible = false;
+  G.oldScene = G.sc.scene; G.sc.scene = scene; G.parts = [];
+  G.cel = { scene, cam, rays, t: 0, n, conf: 0, win };
+}
+function celFrame(dt) {
+  const c = G.cel; c.t += dt; const cam = c.cam, asp = innerWidth / innerHeight; if (cam.aspect !== asp) { cam.aspect = asp; cam.fov = asp < 1 ? 58 : 46; cam.updateProjectionMatrix(); }
+  // la cámara se acerca a los ganadores
+  const hf = 2 * Math.atan(Math.tan(cam.fov * Math.PI / 360) * cam.aspect), need = (c.n * 1.35 + 1.6) / 2 / Math.tan(hf / 2), dist = Math.max(4.6, need * 1.1);
+  const k = 1 - Math.pow(1 - Math.min(1, c.t / 1.6), 3), sway = Math.sin(c.t * 0.7) * 0.6;
+  cam.position.set(sway * k, 5 - k * 2.6 + 0.4, 12 - (12 - dist) * k); cam.lookAt(0, 1.7, 0);
+  c.rays.rotation.z += dt * 0.25;
+  for (const id of G.players.map(p => p.id)) { const ch = G.chars[id]; if (ch) ch.update(dt); }
+  // confeti
+  c.conf -= dt; if (c.conf <= 0) { c.conf = 0.12; const x = (Math.random() - 0.5) * 6; burst(new THREE.Vector3(x, 5 + Math.random() * 2, -0.5 + Math.random()), [0xff6b6b, 0xfcc419, 0x51cf66, 0x4dabf7, 0xcc5de8][Math.floor(Math.random() * 5)], 6, 2.5, 0.12, 0.2); }
+  if (c.t < 0.05) for (let j = 0; j < 4; j++) burst(new THREE.Vector3((j - 1.5) * 1.5, 1.5, 0.5), 0xfcc419, 18, 6, 0.14, 1.6);
+  partsTick(dt);
+  return [c.scene, cam];
+}
 /* ======================= Ciclo de vida ======================= */
 function stOf(id) { return id === G.myId && G.me ? G.me.st : ((G.net[id] || [])[4] || 0); }
 function done(score, msg) { if (!G || G.finished || !G.me) return; G.finished = true; const d = G.done; setTimeout(() => d && d(score), 0); if (msg) flash(msg); }
@@ -841,7 +879,7 @@ function stop() {
   if (!G) return;
   const B = window.Board3D; if (B && B.ok) B.setOverlay(null);
   if (G.K && G.K.stopX) G.K.stopX(); if (window.SFX && SFX.tempo) SFX.tempo(1); if (G.hud) G.hud.remove(); if (G.cleanup) G.cleanup();
-  G.sc.scene.traverse(o => { if (o.geometry) o.geometry.dispose(); });
+  G.sc.scene.traverse(o => { if (o.geometry) o.geometry.dispose(); }); if (G.oldScene) G.oldScene.traverse(o => { if (o.geometry) o.geometry.dispose(); });
   G = null;
 }
 function net(msg) {
@@ -854,6 +892,7 @@ function net(msg) {
 /* ======================= Cuadro a cuadro ======================= */
 function frame(dt, t) {
   if (!G) return null;
+  if (G.cel) return celFrame(dt);
   if (performance.now() < (G.hitstopUntil || 0)) dt *= 0.08; // pausa de impacto
   const sc = G.sc, k = G.K, now = G.started ? performance.now() - G.t0 : 0, prev = G.now; G.now = now;
   const m = G.me;
@@ -983,5 +1022,5 @@ function placeCamera(dt, snap) {
 
 // API para registrar mecánicas desde otros archivos (mg3d2.js)
 const api = { shake, hitstop, burst, buzz, coinObj, THREE, L, mat, glow, mesh, canvasTex, sprite, PAL, TEAM_COL, PLAYER_COLS, addUnder, arenaCircle, arenaRect, sceneOf, flash, done, out, X, dashBtn, chaseBuild, aliveHud, refreshButtons, popFx, get G() { return G; } };
-window.MG3D = { prepare, start, stop, net, register(kind, def) { K[kind] = def; }, api, get ok() { return !!(window.Board3D && window.Board3D.ok); } };
+window.MG3D = { prepare, start, stop, net, celebrate, get active() { return !!G && !!G.started; }, register(kind, def) { K[kind] = def; }, api, get ok() { return !!(window.Board3D && window.Board3D.ok); } };
 window.dispatchEvent(new Event('mg3d-ready'));
