@@ -812,25 +812,59 @@ function frame(dt, t) {
     ch.g.visible = !(G.kind === 'tiro' || G.kind === 'bolos') && !(st === 1 && ch.g.position.y < -6);
     if (ch.label) ch.label.material.opacity = st === 1 ? 0.35 : 1;
   });
+  // que nadie se pierda: flecha sobre mí y nombres más grandes cuando la cámara está lejos
+  const lab = Math.max(1, (G.camDist || 12) / 12);
+  G.players.forEach(p => { const ch = G.chars[p.id]; if (!ch || !ch.label) return; ch.label.userData.base = ch.label.userData.base || ch.label.scale.clone(); const b = ch.label.userData.base; ch.label.scale.set(b.x * lab, b.y * lab, 1); ch.label.position.y = 1.75 + (lab - 1) * 0.5; });
+  const myCh = G.chars[G.myId];
+  if (myCh && G.me && G.me.st !== 1) { if (!G.arrow) { G.arrow = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.55, 4), new THREE.MeshBasicMaterial({ color: 0xffd43b })); G.arrow.rotation.x = Math.PI; sc.scene.add(G.arrow); }
+    G.arrow.visible = !G.K.stage && !['tiro', 'bolos'].includes(G.kind); G.arrow.scale.setScalar(lab); G.arrow.position.copy(myCh.g.position); G.arrow.position.y += (myCh.baseScale || 1.3) * 1.35 + 1.1 * lab + Math.sin(t * 6) * 0.15; G.arrow.rotation.y += dt * 3; }
+  else if (G.arrow) G.arrow.visible = false;
+  if (G.started && G.me && G.me.st === 1 && !G.spectFlash) { G.spectFlash = true; setTimeout(() => flash('👀 Mirando el resto del juego', 1800), 1300); }
   for (let i = G.fx.length - 1; i >= 0; i--) { const f = G.fx[i]; f.t += dt; f.o.position.y += dt; f.o.material.opacity = 1 - f.t; if (f.t > 1) { sc.scene.remove(f.o); G.fx.splice(i, 1); } }
   placeCamera(dt, false);
   return [sc.scene, sc.camera];
 }
+// Tamaño de cada arena (mitad del ancho) para la vista panorámica
+const ARENA_R = { piso: 6.5, monedas: 7.2, barra: 7.2, bolas: 6.5, meteoros: 7.2, cazador: 7.6, zombi: 7.6, papa: 6.6, corona: 7.2, canon: 8, pintar: 6.6, saltarin: 6.6,
+  sumo: 6.6, colina: 7.6, arco: 6.8, agua: 7.6, futbol: 8.2, voley: 7, gigante: 7.6, portero: 6.5, laberinto: 9, escondite: 7.8, karts: 14 };
+const stOfP = id => id === G.myId && G.me ? G.me.st : ((G.net[id] || [])[4] || 0);
+// Encuadra a todos los jugadores vivos (o toda la arena si all=true) usando la dirección de cámara de la mecánica
+function fitCam(all) {
+  const sc = G.sc, cam = sc.camera, k = G.K, R = ARENA_R[G.kind] || 7.5;
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity, n = 0;
+  if (!all) G.players.forEach(p => { const ch = G.chars[p.id]; if (!ch || stOfP(p.id) === 1) return; const q = ch.g.position; x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); z0 = Math.min(z0, q.z); z1 = Math.max(z1, q.z); n++; });
+  if (all || n === 0) { x0 = -R; x1 = R; z0 = -R; z1 = R; }
+  const m = all ? 0.6 : 1.8, half = all ? R : 3.6; // margen y tamaño mínimo
+  let cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, W = Math.max(half * 2, x1 - x0 + m * 2), D = Math.max(half * 2, z1 - z0 + m * 2);
+  if (!all) { cx = Math.max(-R, Math.min(R, cx)); cz = Math.max(-R, Math.min(R, cz)); }
+  const base = k.cam && k.look ? [k.cam[0] - k.look[0], k.cam[1] - k.look[1], k.cam[2] - k.look[2]] : [0, 10.5, 7.5], bl = Math.hypot(...base), dir = base.map(v => v / bl);
+  const vf = cam.fov * Math.PI / 180, hf = 2 * Math.atan(Math.tan(vf / 2) * cam.aspect);
+  const tilt = Math.max(0.35, dir[1]); // con cámara inclinada, la profundidad se ve más corta
+  const dist = Math.max(all ? 8 : 9, (W / 2) / Math.tan(hf / 2) * 1.14, (D / 2) * tilt / Math.tan(vf / 2) * 1.3);
+  return [[cx + dir[0] * dist, dir[1] * dist, cz + dir[2] * dist], [cx, 0, cz + 0.3]];
+}
 function placeCamera(dt, snap) {
   const sc = G.sc, cam = sc.camera, asp = innerWidth / innerHeight, k = G.K;
   if (cam.aspect !== asp) { cam.aspect = asp; cam.fov = asp < 1 ? 58 : 46; cam.updateProjectionMatrix(); }
-  let P, Lk; const fit = Math.min(1.7, Math.max(1, 0.6 / asp));
-  const me = G.chars[G.myId], alive = G.me && G.me.st !== 1, mx = me && alive ? me.g.position.x : 0, mz = me && alive ? me.g.position.z : 0;
+  let P, Lk;
+  // ¿estoy mirando? (no juego, me eliminaron o ya terminé y no sigo en la arena)
+  const spectate = !G.me || G.me.st === 1 || (G.finished && G.me.st === 3)
+    || ['futbol', 'voley', 'arco', 'portero', 'pintar', 'saltarin'].includes(G.kind) // aquí hay que ver toda la cancha
+    || (G.kind === 'canon' && G.sc.gunner === G.myId);
+  const leader = () => { let best = null, bz = Infinity; G.players.forEach(p => { const ch = G.chars[p.id]; if (ch && ch.g.position.z < bz) { bz = ch.g.position.z; best = ch; } }); return best; };
   const custom = k.camPos ? k.camPos() : null;
-  if (custom) [P, Lk] = custom;
-  else if (k.follow) { const z = me ? me.g.position.z : 0, x = me ? me.g.position.x : 0; P = [x + 1.1, 4.3, z + 6.8]; Lk = [x - 0.2, 0.8, z - 5]; }
+  if (spectate && ARENA_R[G.kind] && (custom || !k.stage) && !k.follow && !k.follow2 && !['escalada', 'relevos'].includes(G.kind)) [P, Lk] = fitCam(true);
+  else if (spectate && G.kind === 'escalada') { let top = null; G.players.forEach(p => { const ch = G.chars[p.id]; if (ch && stOfP(p.id) !== 1 && (!top || ch.g.position.y > top.g.position.y)) top = ch; }); const q = top ? top.g.position : new THREE.Vector3(0, 2, 0); P = [q.x * 0.3, q.y + 6, q.z + 11]; Lk = [q.x * 0.5, q.y + 0.5, q.z * 0.5]; }
+  else if (custom) [P, Lk] = custom;
+  else if (k.follow) { const me = spectate ? leader() : G.chars[G.myId]; const z = me ? me.g.position.z : 0, x = me ? me.g.position.x : 0; P = [x + 1.1, 4.3, z + 6.8]; Lk = [x - 0.2, 0.8, z - 5]; }
   else if (k.follow2) { const z = G.me ? G.me.z : -L.runnerDist(G.now, G.p), x = G.sc.x0 || 0; P = [x, 3.6, z + 6]; Lk = [x, 0.6, z - 6]; }
   else if (k.stage) { const wide = Math.min(1.5, Math.max(1, 0.62 / asp)); P = [k.cam[0], k.cam[1] * wide, k.cam[2] * wide]; Lk = k.look; }
-  else { const fx = { piso: 0.6, monedas: 0.6, barra: 0.5, bolas: 0.85 }[G.kind] || 0.5; P = [k.cam[0] + mx * fx, k.cam[1] * fit, k.cam[2] * fit + mz * 0.35]; Lk = [k.look[0] + mx * fx, k.look[1], k.look[2] + mz * 0.35]; }
-  const kk = snap ? 1 : 1 - Math.exp(-dt * 5);
+  else [P, Lk] = fitCam(false);
+  const kk = snap ? 1 : 1 - Math.exp(-dt * 3.5);
   cam.position.x += (P[0] - cam.position.x) * kk; cam.position.y += (P[1] - cam.position.y) * kk; cam.position.z += (P[2] - cam.position.z) * kk;
   G.lookAt = G.lookAt || new THREE.Vector3(...Lk); G.lookAt.x += (Lk[0] - G.lookAt.x) * kk; G.lookAt.y += (Lk[1] - G.lookAt.y) * kk; G.lookAt.z += (Lk[2] - G.lookAt.z) * kk;
   cam.lookAt(G.lookAt);
+  G.camDist = cam.position.distanceTo(G.lookAt);
 }
 
 // API para registrar mecánicas desde otros archivos (mg3d2.js)

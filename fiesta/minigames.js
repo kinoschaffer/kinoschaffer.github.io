@@ -476,6 +476,7 @@
         if (now > 2000) net.counts[ctx.holder] = (net.counts[ctx.holder] || 0) + Math.round(dt * 1000);
         net.x.holder = ctx.holder;
       }
+      ctx.seenOut = ctx.seenOut || {}; for (const id of ctx.players) { const a = net.pos[id]; if (a && a[4] === 1 && ctx.seenOut[id] == null && !ctx.bots[id]) ctx.seenOut[id] = Math.round(now); }
       const XK = X2.kinds[kind];
       if (XK && XK.step) XK.step(ctx, dt, now, net, out, HLP, { posOf, alive, finish: (b, v, st) => finish(b, v, st) });
       // ---- bots

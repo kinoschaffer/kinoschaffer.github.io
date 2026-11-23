@@ -596,6 +596,7 @@ function finishMinigame(){
   clearInterval(H.mgLoop);
   if (MG[s.mg.type].td && H.mgCtx) for (const id of Object.keys(H.mgCtx.bots)) if (!(id in s.mg.scores)) s.mg.scores[id] = MGL.host.final(H.mgCtx, id, H.mgNet);
   if (H.mgCtx) MGL.host.override(H.mgCtx, s.mg.scores, H.mgNet);
+  if (H.mgCtx && H.mgCtx.seenOut) for (const id of s.mg.players) if (!(id in s.mg.scores) && H.mgCtx.seenOut[id] != null) s.mg.scores[id] = H.mgCtx.seenOut[id];
   const m = s.mg, lower = MG[m.type].lower;
   const arr = m.players.map(id => ({id, v: id in m.scores ? m.scores[id] : null}));
   arr.sort((a, b) => a.v === null ? 1 : b.v === null ? -1 : lower ? a.v - b.v : b.v - a.v);
