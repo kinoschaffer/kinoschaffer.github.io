@@ -627,15 +627,15 @@ async function chooseFork(p, opts, stepsLeft){
 
 async function crownStop(p){
   const s = H.state;
-  if (p.coins < CROWN_COST) { s.msg = `${p.name} no tiene ${CROWN_COST} 🪙 para la corona 👑`; broadcast(); await sleep(T(900)); s.phase = 'moving'; return; }
+  if (p.coins < CROWN_COST) { s.msg = `${p.name} no tiene ${CROWN_COST} 🪙 para la corona 👑`; broadcast(); await sleep(T(1600)); s.phase = 'moving'; return; }
   s.phase = 'crown'; s.msg = `¿${p.name} compra la corona por ${CROWN_COST} 🪙?`; broadcast();
   const buy = await new Promise(res => { H.crownResolve = res;
-    if (p.bot) setTimeout(() => res(p.lvl !== 'facil' || Math.random() < 0.6), 600);
+    if (p.bot) setTimeout(() => res(p.lvl !== 'facil' || Math.random() < 0.6), 1300);
     else setTimeout(() => res(true), p.connected ? 20000 : 1500); });
   H.crownResolve = null;
   if (buy) { p.coins -= CROWN_COST; p.crowns++; s.msg = `👑 ¡${p.name} consigue una corona! La corona se mueve…`; s.crown = randSpot(s.crown, s.players); botSticker(p, 'feliz', 0.6); s.players.filter(x => x !== p).forEach(x => botSticker(x, 'furioso', 0.15)); }
   else s.msg = `${p.name} deja pasar la corona`;
-  s.phase = 'moving'; broadcast(); await sleep(T(buy ? 1300 : 500));
+  s.phase = 'moving'; broadcast(); await sleep(T(1900));
 }
 
 async function landOn(p){
@@ -1115,7 +1115,7 @@ function boardAction(){
     ${s.shop.offer.map(i => `<button class="sec" data-act="buy" data-v="${i}" ${ITEMS[i].price > meP().coins ? 'disabled' : ''} style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;text-align:left"><span>${ITEMS[i].icon} <b>${ITEMS[i].name}</b><br><small style="font-weight:600">${ITEMS[i].desc}</small></span><span>${ITEMS[i].price} 🪙</span></button>`).join('')}
     <button class="no" data-act="buy" data-v="">No comprar nada</button>`;
   if (s.phase === 'shop') return `<div class="wait">${esc(c.name)} está mirando la tienda… 🛒</div>`;
-  if (s.phase === 'crown' && myTurn) return `<div class="row"><button data-act="buy">👑 Comprar (${CROWN_COST} 🪙)</button><button class="no" data-act="nobuy">No, gracias</button></div>`;
+  if (s.phase === 'crown' && myTurn) return `<div class="row"><button data-act="crownbuy">👑 Comprar (${CROWN_COST} 🪙)</button><button class="no" data-act="crownno">No, gracias</button></div>`;
   if (s.phase === 'turn') return `<div class="wait">Esperando a que ${esc(c.name)} tire el dado…</div>`;
   if (s.phase === 'fork' && myTurn && s.fork) {
     const g = graph(), here = g.nodes[c.pos], from = g.nodes[(c.dir < 0 ? here.next : here.prev)[0]] || here;
@@ -1428,7 +1428,7 @@ document.addEventListener('click', async e => {
   else if (act === 'view') { ui.cam = Board3D.toggleView(); b.textContent = ui.cam === 'overview' ? '🎥' : '🗺️'; }
   else if (act === 'start') send({t:'start'});
   else if (act === 'roll') { b.disabled = true; myRoll(); }
-  else if (act === 'buy' || act === 'nobuy') { b.parentNode.querySelectorAll('button').forEach(x => x.disabled = true); send({t:'crown', buy: act === 'buy'}); }
+  else if (act === 'crownbuy' || act === 'crownno') { b.parentNode.querySelectorAll('button').forEach(x => x.disabled = true); send({t:'crown', buy: act === 'crownbuy'}); }
   else if (act === 'again') send({t:'again'});
   else if (act === 'reconnect') { setBanner('Reconectando…'); startClient(ui.code); }
 });
