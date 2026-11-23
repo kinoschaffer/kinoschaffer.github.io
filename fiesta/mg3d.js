@@ -710,7 +710,9 @@ css.textContent = `#mgui{position:fixed;inset:0;z-index:7;pointer-events:none;fo
 #mgui .mg-btns button{pointer-events:auto;width:96px;height:96px;border-radius:50%;border:0;font:900 1.1rem system-ui;color:#1e0b3a;background:#fcc419;box-shadow:0 5px 0 #b8860b;touch-action:none;margin:0}
 #mgui .mg-btns.wide{justify-content:center}#mgui .mg-btns.wide button{border-radius:20px;height:84px;font-size:1.8rem}
 #mgui .mg-btns.race{justify-content:space-between}#mgui .mg-btns.race3 button{width:30%!important}#mgui .mg-btns.race button{width:44%;height:110px;border-radius:24px;font-size:2rem}
-#mgui .mg-btns button.on{transform:translateY(4px);box-shadow:0 1px 0 #b8860b}#mgui .mg-btns button:disabled{opacity:1}
+#mgui .mg-btns button{border:3px solid #1e0b3a;background:linear-gradient(180deg,#ffe066,#fab005);box-shadow:inset 0 -5px 0 rgba(0,0,0,.16),inset 0 3px 0 rgba(255,255,255,.65),0 5px 0 #1e0b3a}
+#mgui .mg-btns button.on{transform:translateY(4px);box-shadow:inset 0 -3px 0 rgba(0,0,0,.16),0 1px 0 #1e0b3a}
+#mgui .mg-sub span{border:2px solid rgba(255,244,214,.7);box-shadow:0 0 0 2px #1e0b3a}#mgui .mg-btns button:disabled{opacity:1}
 #mgui .hint{position:absolute;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 130px);text-align:center;font-weight:700;opacity:.85;text-shadow:0 2px 4px #000;padding:0 12px}`;
 document.head.appendChild(css);
 

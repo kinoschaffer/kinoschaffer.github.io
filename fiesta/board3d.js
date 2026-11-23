@@ -191,9 +191,15 @@ const ICON_TEX = {};
 function iconTex(type) {
   if (ICON_TEX[type]) return ICON_TEX[type];
   const label = { B: '+3', R: '−3', E: '?', S: 'SALIDA', V: '⇄', D: '⚔', T: '🛒' }[type];
+  const col = new THREE.Color(TILE_COL[type]), hex = c => '#' + c.getHexString(), light = col.clone().lerp(new THREE.Color(0xffffff), 0.35), dark = col.clone().multiplyScalar(0.72);
   const t = canvasTex(256, 256, (g) => {
-    g.font = `900 ${type === 'S' ? 58 : type === 'D' || type === 'T' ? 110 : 130}px 'Luckiest Guy', system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.lineWidth = 16; g.strokeStyle = 'rgba(0,0,0,.35)'; g.strokeText(label, 128, 136); g.fillStyle = '#fff'; g.fillText(label, 128, 136);
+    // cara de la casilla: degradado con brillo, anillo blanco interior y el ícono con contorno
+    const gr = g.createRadialGradient(100, 90, 10, 128, 128, 128); gr.addColorStop(0, hex(light)); gr.addColorStop(0.75, hex(col)); gr.addColorStop(1, hex(dark));
+    g.beginPath(); g.arc(128, 128, 127, 0, Math.PI * 2); g.fillStyle = gr; g.fill();
+    g.beginPath(); g.arc(128, 128, 104, 0, Math.PI * 2); g.lineWidth = 9; g.strokeStyle = 'rgba(255,255,255,.85)'; g.stroke();
+    g.beginPath(); g.ellipse(92, 70, 52, 26, -0.5, 0, Math.PI * 2); g.fillStyle = 'rgba(255,255,255,.22)'; g.fill();
+    g.font = `400 ${type === 'S' ? 52 : type === 'D' || type === 'T' ? 104 : 120}px 'Luckiest Guy', system-ui, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+    g.lineWidth = 20; g.strokeStyle = '#1e0b3a'; g.strokeText(label, 128, 140); g.fillStyle = '#fff'; g.fillText(label, 128, 140);
   });
   t.userData.shared = true; return ICON_TEX[type] = t;
 }
@@ -275,9 +281,10 @@ function buildWorld(theme, board) {
   tileTop = [];
   G.nodes.forEach((n, i) => {
     const p = tiles[i], type = n.type; const g = new THREE.Group(); g.position.copy(p);
-    const top = mesh(new THREE.CylinderGeometry(0.98, 1.02, 0.3, 30), mat(TILE_COL[type], { flatShading: false, roughness: 0.45 }), { recv: true }); top.position.y = 0.15;
-    const rim = mesh(new THREE.CylinderGeometry(1.12, 1.16, 0.2, 30), n.next.length > 1 ? mat(0xffd43b, { flatShading: false }) : rimM, { recv: true }); rim.position.y = 0.04;
-    const icon = new THREE.Mesh(new THREE.PlaneGeometry(1.45, 1.45), new THREE.MeshBasicMaterial({ map: iconTex(type), transparent: true, depthWrite: false }));
+    const top = mesh(new THREE.CylinderGeometry(0.98, 1.02, 0.3, 36), mat(new THREE.Color(TILE_COL[type]).multiplyScalar(0.7).getHex(), { flatShading: false, roughness: 0.45 }), { recv: true }); top.position.y = 0.15;
+    const rim = mesh(new THREE.CylinderGeometry(1.14, 1.2, 0.22, 36), n.next.length > 1 ? mat(0xffd43b, { flatShading: false }) : mat(0xfff4d6, { flatShading: false, roughness: 0.5 }), { recv: true }); rim.position.y = 0.05;
+    const base = mesh(new THREE.CylinderGeometry(1.21, 1.24, 0.08, 36), mat(0x1e0b3a, { flatShading: false }), { recv: true }); base.position.y = -0.04; g.add(base);
+    const icon = new THREE.Mesh(new THREE.CircleGeometry(0.98, 36), new THREE.MeshBasicMaterial({ map: iconTex(type), transparent: true, depthWrite: false }));
     icon.rotation.x = -Math.PI / 2; icon.position.y = 0.31;
     const next = tiles[n.next[0]]; icon.rotation.z = Math.atan2(next.x - p.x, next.z - p.z) + Math.PI;
     g.add(top, rim, icon);

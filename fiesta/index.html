@@ -168,11 +168,78 @@ body.flashgo::after{content:'';position:fixed;inset:0;background:#fff;z-index:20
 #banner{position:fixed;left:0;right:0;top:0;z-index:50;background:#b91c1c;color:#fff;text-align:center;padding:10px;font-weight:700;display:none}
 #banner button{width:auto;padding:6px 14px;margin:0 0 0 8px;font-size:.95rem}
 .podium{font-size:3.5rem;text-align:center}
+
+#trans{position:fixed;inset:0;z-index:40;pointer-events:none;display:none;overflow:hidden}
+#trans.in,#trans.out{display:block;pointer-events:auto}
+#trans .tp{position:absolute;top:-20%;bottom:-20%;left:-30%;right:-30%;transform:translateX(130%) skewX(-14deg)}#trans .tp.a{z-index:2}#trans .tt{z-index:3}
+#trans .tp.a{background:repeating-linear-gradient(90deg,#fcc419 0 38px,#ff922b 38px 76px);border-left:10px solid #1e0b3a}
+#trans .tp.b{background:repeating-linear-gradient(90deg,#7048e8 0 30px,#845ef7 30px 60px);border-left:10px solid #1e0b3a}
+#trans.in .tp.b{animation:trin .42s cubic-bezier(.6,0,.4,1) forwards}#trans.in .tp.a{animation:trin .42s .08s cubic-bezier(.6,0,.4,1) forwards}
+#trans.out .tp.a{animation:trout .5s cubic-bezier(.6,0,.4,1) forwards}#trans.out .tp.b{transform:translateX(0) skewX(-14deg);animation:trout .5s .08s cubic-bezier(.6,0,.4,1) forwards}
+@keyframes trin{from{transform:translateX(130%) skewX(-14deg)}to{transform:translateX(0) skewX(-14deg)}}
+@keyframes trout{from{transform:translateX(0) skewX(-14deg)}to{transform:translateX(-140%) skewX(-14deg)}}
+#trans .tt{position:absolute;left:0;right:0;top:44%;text-align:center;font-family:'Luckiest Guy',cursive;font-size:2.8rem;color:#fff;-webkit-text-stroke:7px #1e0b3a;paint-order:stroke fill;text-shadow:0 7px 0 #1e0b3a;opacity:0;padding:0 10px}
+#trans.in .tt{animation:trtt .5s .25s cubic-bezier(.2,1.6,.4,1) forwards}#trans.out .tt{opacity:1;animation:trtto .3s forwards}
+@keyframes trtt{from{transform:scale(2.4) rotate(-10deg);opacity:0}to{transform:scale(1) rotate(-3deg);opacity:1}}
+@keyframes trtto{to{transform:scale(.6);opacity:0}}
+.prize.bump .pz{display:inline-block;animation:pzb .18s}@keyframes pzb{50%{transform:scale(1.35)}}
+.tot{font-weight:800;font-size:.85rem;color:#ffe8a3;transition:transform .2s}.tot.done{animation:totd .4s}@keyframes totd{50%{transform:scale(1.3)}}
+.rank{position:relative}.rank.star{border-color:#fcc419;box-shadow:inset 0 3px 0 rgba(255,255,255,.2),0 4px 0 #1e0b3a,0 0 18px #fcc419}
+.flycoin{position:absolute;right:18px;top:50%;width:22px;height:22px;margin-top:-11px;pointer-events:none;animation:fly .55s ease-in forwards}
+@keyframes fly{0%{transform:translate(0,0) scale(1.2)}60%{transform:translate(-120px,-26px) scale(1)}100%{transform:translate(-190px,4px) scale(.5);opacity:0}}
+.flycoin.lose{animation:flyl .55s ease-in forwards}@keyframes flyl{0%{transform:translate(-190px,4px) scale(.6)}100%{transform:translate(0,30px) scale(.4);opacity:0}}
+/* ================= Estilo fiesta: marcos gruesos, cintas, botones con relieve ================= */
+:root{--ink:#1e0b3a;--cream:#fff4d6;--panel1:#5532a8;--panel2:#3a1b78;--dots:radial-gradient(rgba(255,255,255,.07) 2px,transparent 2.6px)}
+body{background:#2a0f5c}
+body::before{content:'';position:fixed;inset:-50%;z-index:-1;pointer-events:none;
+  background:repeating-linear-gradient(135deg,rgba(255,255,255,.035) 0 26px,transparent 26px 52px),radial-gradient(circle at 50% 20%,#6b35c9,#2a0f5c 60%,#170634);
+  animation:bgmove 18s linear infinite}
+@keyframes bgmove{to{transform:translate(74px,74px)}}
+body.b3d::before{display:none}
+h1{color:#fcc419;-webkit-text-stroke:6px var(--ink);paint-order:stroke fill;text-shadow:0 6px 0 var(--ink);font-size:2.6rem}
+h2{display:table;margin:10px auto 14px;padding:6px 22px 3px;color:#fff;background:linear-gradient(#ff8787,#e03131);border:3px solid var(--ink);border-radius:12px;
+  box-shadow:inset 0 3px 0 rgba(255,255,255,.35),0 5px 0 var(--ink);transform:rotate(-2deg);-webkit-text-stroke:3px var(--ink);paint-order:stroke fill;font-size:1.35rem}
+.mgname{color:#fcc419;-webkit-text-stroke:5px var(--ink);paint-order:stroke fill;text-shadow:0 5px 0 var(--ink)}
+.card,.glass,.labitem{background:var(--dots) 0 0/18px 18px,linear-gradient(180deg,var(--panel1),var(--panel2));border:4px solid var(--cream);border-radius:22px;
+  box-shadow:0 0 0 3px var(--ink),0 8px 0 3px var(--ink),inset 0 3px 0 rgba(255,255,255,.18)}
+.card{margin-bottom:20px}
+.glass{backdrop-filter:none;-webkit-backdrop-filter:none;background:var(--dots) 0 0/18px 18px,linear-gradient(180deg,rgba(85,50,168,.96),rgba(58,27,120,.96))}
+.labitem{border-width:3px;border-radius:18px;box-shadow:0 0 0 3px var(--ink),0 5px 0 3px var(--ink);margin-bottom:6px}
+.pl,.rank{background:linear-gradient(180deg,#6a43c4,#4a259a);border:3px solid var(--ink);border-radius:16px;box-shadow:inset 0 3px 0 rgba(255,255,255,.2),0 4px 0 var(--ink)}
+.pl.cur{outline:none;border-color:#fcc419;box-shadow:inset 0 3px 0 rgba(255,255,255,.2),0 4px 0 var(--ink),0 0 0 3px #fcc419}
+.pill,.hud .pill{background:linear-gradient(180deg,#6a43c4,#3a1b78);border:3px solid var(--cream);box-shadow:0 0 0 2px var(--ink),0 4px 0 2px var(--ink);padding:5px 12px}
+.mini div{background:linear-gradient(180deg,#6a43c4,#3a1b78);border:2px solid var(--ink);box-shadow:0 2px 0 var(--ink)}
+.mini div.cur{outline:none;border-color:#fcc419}
+input{background:var(--cream);color:var(--ink);border:3px solid var(--ink);border-radius:14px;box-shadow:inset 0 3px 0 rgba(0,0,0,.12),0 3px 0 var(--ink);font-weight:700}
+input::placeholder{color:#9c8bbd}
+input:focus{border-color:#e03131}
+#labnote{background:var(--cream);color:var(--ink);border:3px solid var(--ink)}
+label{color:#ffe8a3;text-shadow:0 2px 0 var(--ink)}
+button{color:var(--ink);background:linear-gradient(180deg,#ffe066,#fab005);border:3px solid var(--ink);border-radius:18px;
+  box-shadow:inset 0 -5px 0 rgba(0,0,0,.16),inset 0 3px 0 rgba(255,255,255,.65),0 5px 0 var(--ink);font-weight:800;transition:transform .06s}
+button:active{transform:translateY(4px);box-shadow:inset 0 -3px 0 rgba(0,0,0,.16),inset 0 3px 0 rgba(255,255,255,.65),0 1px 0 var(--ink)}
+button.sec{color:#fff;background:linear-gradient(180deg,#a685ff,#7048e8);text-shadow:0 2px 0 rgba(30,11,58,.6);box-shadow:inset 0 -5px 0 rgba(0,0,0,.18),inset 0 3px 0 rgba(255,255,255,.35),0 5px 0 var(--ink)}
+button.no{color:#fff;background:linear-gradient(180deg,#adb5bd,#6c757d);box-shadow:inset 0 -5px 0 rgba(0,0,0,.18),inset 0 3px 0 rgba(255,255,255,.35),0 5px 0 var(--ink)}
+button.big{font-family:'Luckiest Guy',cursive;font-weight:400;letter-spacing:.04em;font-size:1.45rem}
+.readybtn{background:linear-gradient(180deg,#8ce99a,#2f9e44)!important;color:#fff!important;-webkit-text-stroke:3px var(--ink);paint-order:stroke fill;box-shadow:inset 0 -5px 0 rgba(0,0,0,.18),inset 0 3px 0 rgba(255,255,255,.5),0 5px 0 var(--ink)!important}
+.chars button,.emojis button{background:linear-gradient(180deg,#6a43c4,#3a1b78);border:3px solid var(--ink);box-shadow:0 4px 0 var(--ink);color:#fff}
+.chars button.sel,.emojis button.sel{border-color:#fcc419;background:linear-gradient(180deg,#ffe066,#fab005);color:var(--ink)}
+.chips button{border-width:2px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.16),0 3px 0 var(--ink)}
+.labstars button{background:rgba(0,0,0,.25);border:2px solid var(--ink);box-shadow:0 3px 0 var(--ink)}
+.labstars button.on{background:linear-gradient(180deg,#ffe066,#fab005);color:#fff;-webkit-text-stroke:2px var(--ink)}
+.note{color:#e5dbff}
+.tag{background:#e03131;border:2px solid var(--ink);color:#fff}
+.intro-card .gif{border:4px solid var(--cream);box-shadow:0 0 0 3px var(--ink),0 6px 0 3px var(--ink)}
+.rank .prize{font-family:'Luckiest Guy',cursive;font-weight:400;font-size:1.25rem;color:#fcc419;-webkit-text-stroke:3px var(--ink);paint-order:stroke fill}
+#stkTray{background:var(--dots) 0 0/18px 18px,linear-gradient(180deg,var(--panel1),var(--panel2));border:4px solid var(--cream);box-shadow:0 0 0 3px var(--ink),0 6px 0 3px var(--ink)}
+#stkBtn{border:3px solid var(--ink);box-shadow:0 4px 0 var(--ink)}
+.viewbtn{border:3px solid var(--ink)}
+.hud-bottom{border-radius:24px}
 </style>
 </head>
 <body>
 <div id="banner"></div>
-<button id="labExit">✖ Salir de la prueba</button><button id="stkBtn" title="Stickers">😊</button><div id="stkTray"></div><div id="stkShow"></div>
+<div id="trans"><div class="tp a"></div><div class="tp b"></div><div class="tt"></div></div><button id="labExit">✖ Salir de la prueba</button><button id="stkBtn" title="Stickers">😊</button><div id="stkTray"></div><div id="stkShow"></div>
 <div id="app"></div>
 <script type="importmap">{"imports":{"three":"./lib/three.module.min.js"}}</script>
 <script src="lib/peerjs.min.js"></script>
@@ -797,7 +864,7 @@ function render(){
   try { stickerUI(); } catch(e){}
   const app = $('#app');
   const lx = $('#labExit'); if (lx) lx.style.display = S && S.lab && S.phase !== 'mg-results' ? 'block' : 'none';
-  if (!S) { ui.viewKey = null; app.innerHTML = ui.screen === 'connecting' ? viewConnecting() : ui.screen === 'lab' ? ic(viewLab()) : viewHome(); if (ui.screen === 'lab') afterLab(); return; }
+  if (!S) { ui.viewKey = null; ui.grp = null; app.innerHTML = ui.screen === 'connecting' ? viewConnecting() : ui.screen === 'lab' ? ic(viewLab()) : viewHome(); if (ui.screen === 'lab') afterLab(); return; }
   const ph = S.phase;
   // Vistas que no deben reconstruirse en cada actualización
   let key = null;
@@ -809,6 +876,14 @@ function render(){
     if (ui.scUntil) setTimeout(() => { ui.viewKey = null; render(); }, 4900); }
   const showcase = ph === 'mg-results' && S.mg && ui.scUntil > Date.now() && window.MG3D && MG3D.active;
   if (showcase) key = 'cel' + S.mg.key;
+  else if (ph === 'mg-results' && S.mg && !S.lab) key = 'res' + S.mg.key;
+  // transición con barrido entre el tablero y los minijuegos
+  const grp = ph === 'lobby' ? 'lobby' : ph.startsWith('mg-') ? 'mg' : ph === 'end' ? 'end' : 'board';
+  if (ui.grp && grp !== ui.grp && !S.lab && ui.grp !== 'lobby' || (ui.grp === 'lobby' && grp === 'board')) {
+    if (!ui.transBusy) { const label = grp === 'mg' ? '🎮 ¡MINIJUEGO!' : grp === 'end' ? '🏆 ¡FIN DE LA PARTIDA!' : ui.grp === 'lobby' ? '🎲 ¡A JUGAR!' : '🗺️ ¡AL TABLERO!';
+      ui.transBusy = true; transition(label, () => { ui.grp = grp; ui.transBusy = false; ui.viewKey = null; render(); }); }
+    return; }
+  ui.grp = grp;
   if (key && key === ui.viewKey) return;
   if (ui.viewKey && ui.viewKey !== key && ui.mgCleanup) { ui.mgCleanup(); ui.mgCleanup = null; }
   ui.viewKey = key;
@@ -829,7 +904,7 @@ function render(){
       MG3D.start({ send, practice: S.mg.practice, done: v => { if (sent) return; sent = true; send({t:'score', key:S.mg.key, v}); } }); }
     else { app.innerHTML = '<div class="mg" id="mg"></div>'; runMinigame(); }
   }
-  else if (ph === 'mg-results') app.innerHTML = ic(viewMgResults());
+  else if (ph === 'mg-results') { app.innerHTML = ic(viewMgResults()); if (!S.lab) runPrizeCount(); }
   else if (ph === 'end') { app.innerHTML = ic(viewEnd()); }
   else if (ph === 'bonus') app.innerHTML = ic(viewBonus());
   else { app.innerHTML = ic(use3d ? viewBoard3D() : viewBoard()); afterBoard(); }
@@ -1125,6 +1200,22 @@ function viewShowcase(w){
     <div class="wb-people">${ps.map(p => `<div class="wb-p" style="--c:${w.team ? (w.team === 'A' ? '#4dabf7' : '#ff6b6b') : p.color}"><span class="av">${avImg(p)}</span><b>${esc(p.name)}</b></div>`).join('')}</div>
     ${e && !m.teams ? `<div class="wb-score">${fmtScore(m.type, e.v)}</div>` : ''}</div>`;
 }
+// barrido de pantalla: entra, se arma la pantalla nueva por debajo, y sale
+function transition(label, mid){
+  const t = $('#trans'); t.querySelector('.tt').textContent = label; t.className = 'in'; if (window.SFX) SFX.play('whoosh');
+  setTimeout(() => { mid(); setTimeout(() => { t.className = 'out'; setTimeout(() => { if (t.className === 'out') t.className = ''; }, 600); }, 380); }, 520);
+}
+// premios del minijuego: las monedas se suman de a una
+function runPrizeCount(){
+  const rows = [...document.querySelectorAll('.rank')], timers = [];
+  rows.forEach((row, r) => { const pz = row.querySelector('.pz'), tv = row.querySelector('.tv'); if (!pz) return; const v = +pz.dataset.v, me = pz.dataset.me === '1', from = tv ? +tv.dataset.from : 0, n = Math.abs(v), sg = Math.sign(v);
+    let k = 0; const start = setTimeout(() => { if (!n) return; const it = setInterval(() => { k++; pz.textContent = (sg < 0 ? '−' : '+') + k; if (tv) tv.textContent = from + sg * k;
+        pz.parentElement.classList.remove('bump'); void pz.offsetWidth; pz.parentElement.classList.add('bump');
+        if (tv) { const c = document.createElement('img'); c.src = 'img/coin.webp'; c.className = 'flycoin' + (sg < 0 ? ' lose' : ''); row.appendChild(c); setTimeout(() => c.remove(), 600); }
+        if (window.SFX) SFX.play(me ? 'coin' : (k % 2 ? 'tap' : 'pop'));
+        if (k >= n) { clearInterval(it); if (tv) tv.parentElement.classList.add('done'); if (r === 0 && sg > 0) row.classList.add('star'); } }, me ? 110 : 85); timers.push(it); }, 300 + r * 420); timers.push(start); });
+  ui.mgCleanup = () => timers.forEach(t => { clearTimeout(t); clearInterval(t); });
+}
 function viewMgResults(){
   const m = S.mg, medals = ['🥇', '🥈', '🥉', '4º', '5º', '6º', '7º', '8º'];
   let head = '';
@@ -1137,8 +1228,8 @@ function viewMgResults(){
   return `<div class="mg"><div class="mgname">${MG[m.type].icon} Resultados</div>${head}
     ${m.ranking.map(e => { const p = S.players.find(x => x.id === e.id);
       return `<div class="rank"><div class="pos">${medals[e.rank]}</div><div class="av" style="width:44px;height:44px;border:3px solid ${p.color};border-radius:50%">${avImg(p)}</div>
-      <div style="flex:1"><b>${esc(p.name)}</b><div class="note" style="text-align:left">${fmtScore(m.type, e.v)}</div></div>
-      <div class="prize">${e.prize >= 0 ? '+' : ''}${e.prize} 🪙</div></div>`; }).join('')}
+      <div style="flex:1"><b>${esc(p.name)}</b><div class="note" style="text-align:left">${fmtScore(m.type, e.v)}</div>${S.lab ? '' : `<div class="tot">🪙 <b class="tv" data-from="${p.coins - e.prize}" data-to="${p.coins}">${p.coins - e.prize}</b></div>`}</div>
+      <div class="prize"><span class="pz" data-v="${e.prize}" data-me="${e.id === myId ? 1 : 0}">${S.lab ? (e.prize >= 0 ? '+' : '') + e.prize : (e.prize < 0 ? '−0' : '+0')}</span> 🪙</div></div>`; }).join('')}
     ${S.lab ? labReviewCard(m.type) : `<div class="note">${m.format === 'duel' ? 'Volviendo al tablero…' : S.round >= S.maxRounds ? 'Calculando ganador…' : 'Siguiente ronda en un momento…'}</div>`}</div>`;
 }
 function bonusCard(b, big){
