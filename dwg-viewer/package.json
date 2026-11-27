@@ -1,0 +1,13 @@
+{
+  "name": "dwg-visor",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Visor de planos DWG/DXF para Android con zoom vectorial sin pérdida",
+  "license": "GPL-3.0",
+  "scripts": {
+    "vendor": "node scripts/vendor.mjs"
+  },
+  "dependencies": {
+    "@mlightcad/libredwg-web": "0.9.4"
+  }
+}

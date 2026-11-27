@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#16181d">
+<title>DWG Visor</title>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<!-- Pantalla de inicio -->
+<section id="home" class="screen">
+  <header class="home-head">
+    <div class="logo">
+      <svg viewBox="0 0 48 48" width="40" height="40" aria-hidden="true"><rect x="4" y="4" width="40" height="40" rx="10" fill="#2563eb"/><path d="M13 34 L24 13 L35 34 Z M18 30 h12" fill="none" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/><circle cx="24" cy="25" r="3.2" fill="none" stroke="#fff" stroke-width="2.2"/></svg>
+    </div>
+    <div>
+      <h1>DWG Visor</h1>
+      <p class="sub">Planos DWG y DXF con zoom vectorial sin límite</p>
+    </div>
+  </header>
+  <div class="home-actions">
+    <button id="btnOpen" class="primary big">
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 6a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+      Abrir archivo DWG / DXF
+    </button>
+    <button id="btnSample" class="ghost big">Abrir plano de ejemplo</button>
+  </div>
+  <h2 class="section-title" id="recentTitle">Recientes</h2>
+  <ul id="recentList" class="recent"></ul>
+  <p id="recentEmpty" class="empty">Los archivos que abras aparecerán aquí.</p>
+  <input type="file" id="fileInput" accept=".dwg,.dxf,application/acad,image/vnd.dwg,application/dxf" hidden>
+</section>
+
+<!-- Visor -->
+<section id="viewer" class="screen hidden">
+  <canvas id="cv"></canvas>
+  <header class="topbar">
+    <button class="icon" id="btnBack" aria-label="Volver">
+      <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="title"><span id="fileName">—</span><small id="fileInfo"></small></div>
+    <button class="icon" id="btnInfo" aria-label="Información">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 11v6M12 7.5v.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+    </button>
+  </header>
+
+  <div id="zoomChip" class="chip">×1</div>
+  <div id="coordChip" class="chip coord hidden"></div>
+
+  <div id="measurePanel" class="measure hidden">
+    <div class="mhead"><b id="mTitle">Distancia</b><span class="hint" id="mHint">Toca dos puntos</span></div>
+    <div id="mResult" class="mresult"></div>
+    <div class="mbtns">
+      <button id="mUndo" class="ghost sm">Deshacer</button>
+      <button id="mClear" class="ghost sm">Nueva</button>
+      <label class="snap"><input type="checkbox" id="mSnap" checked> Imán</label>
+      <button id="mClose" class="primary sm">Listo</button>
+    </div>
+  </div>
+
+  <nav class="toolbar">
+    <button id="tFit"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Ajustar</span></button>
+    <button id="tLayers"><svg viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Capas</span></button>
+    <button id="tDist"><svg viewBox="0 0 24 24"><path d="M3 17L17 3l4 4L7 21z M7 13l2 2M10 10l2 2M13 7l2 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span>Medir</span></button>
+    <button id="tArea"><svg viewBox="0 0 24 24"><path d="M4 18L7 5l11 3 2 10z" fill="currentColor" fill-opacity=".2" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Área</span></button>
+    <button id="tCoord"><svg viewBox="0 0 24 24"><path d="M12 2v6M12 16v6M2 12h6M16 12h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/></svg><span>Coord.</span></button>
+    <button id="tBg"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18z" fill="currentColor"/><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/></svg><span>Fondo</span></button>
+  </nav>
+
+  <!-- Hoja de capas -->
+  <div id="layersSheet" class="sheet hidden">
+    <div class="sheet-head">
+      <b>Capas</b>
+      <div>
+        <button class="ghost sm" id="lAll">Todas</button>
+        <button class="ghost sm" id="lNone">Ninguna</button>
+        <button class="icon" id="lClose" aria-label="Cerrar"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
+      </div>
+    </div>
+    <ul id="layerList" class="layers"></ul>
+  </div>
+
+  <!-- Hoja de información -->
+  <div id="infoSheet" class="sheet hidden">
+    <div class="sheet-head">
+      <b>Información del plano</b>
+      <button class="icon" id="iClose" aria-label="Cerrar"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="opts">
+      <label><input type="checkbox" id="oLw"> Mostrar grosores de línea</label>
+    </div>
+    <div id="infoBody" class="info"></div>
+  </div>
+</section>
+
+<div id="loading" class="loading hidden">
+  <div class="spinner"></div>
+  <p id="loadingText">Cargando…</p>
+</div>
+<div id="toast" class="toast hidden"></div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
