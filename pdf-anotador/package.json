@@ -1,0 +1,12 @@
+{
+  "name": "pdf-anotador",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Visor y anotador de planos PDF para Android con zoom sin pérdida",
+  "license": "Apache-2.0",
+  "scripts": { "vendor": "node scripts/vendor.mjs" },
+  "dependencies": {
+    "pdfjs-dist": "6.4.299",
+    "pdf-lib": "1.17.1"
+  }
+}
