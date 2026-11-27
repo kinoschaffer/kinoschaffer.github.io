@@ -1,5 +1,5 @@
 import { Viewer, openPdf } from './viewer.js';
-import { COLORS, newId, drawAnnots, drawAnnot, hitDist, simplify, exportPdf, PT_MM, lengthLabel, fmtNum } from './annot.js';
+import { COLORS, newId, drawAnnot, hitDist, simplify, exportPdf, PT_MM, fmtNum, snapshot, restore, translate, handles, dragHandle } from './annot.js';
 import * as store from './store.js';
 
 const $ = (id) => document.getElementById(id);
@@ -12,6 +12,7 @@ const TOP = 52, BOTTOM = 64; // alturas de barras (px CSS)
 const state = {
   pdf: null, bytes: null, name: '', key: '', pageIndex: 0,
   annots: {}, calib: null,
+  layers: {}, active: {}, sel: null,
   undo: [], redo: [],
   tool: 'pan', color: 0, width: 2,
   draft: null, area: null, loupe: null,
@@ -72,6 +73,14 @@ async function openBytes(buf, name, uri) {
     const saved = await store.load(state.key);
     state.annots = (saved && saved.annots) || {};
     state.calib = (saved && saved.calib) || null;
+    state.layers = (saved && saved.layers) || {};
+    state.active = (saved && saved.active) || {};
+    state.sel = null;
+    // anotaciones antiguas sin capa -> primera capa de su página
+    for (const [pi, list] of Object.entries(state.annots)) {
+      const ls = getLayers(+pi);
+      for (const a of list || []) if (!a.layer || !ls.some((l) => l.id === a.layer)) a.layer = ls[0].id;
+    }
     state.undo = []; state.redo = [];
     state.pageIndex = Math.min((saved && saved.page) || 0, pdf.numPages - 1);
     $('fileName').textContent = name;
@@ -129,7 +138,11 @@ async function gotoPage(i, fit) {
   const pdf = state.pdf;
   if (!pdf || i < 0 || i >= pdf.numPages) return;
   cancelDrafts();
+  state.sel = null;
   state.pageIndex = i;
+  updateSelBar();
+  if (!$('layersSheet').classList.contains('hidden')) renderLayers();
+  updateLayerChip();
   $('pageNav').classList.toggle('hidden', pdf.numPages < 2);
   $('pLabel').textContent = `${i + 1} / ${pdf.numPages}`;
   $('fileInfo').textContent = `Página ${i + 1} de ${pdf.numPages}${state.calib ? ' · escala ' + state.calib.label : ''}`;
@@ -165,11 +178,40 @@ function persist() {
   clearTimeout(persistTimer);
   persistTimer = setTimeout(() => {
     if (!state.key) return;
-    store.save(state.key, { annots: state.annots, calib: state.calib, name: state.name, page: state.pageIndex, t: Date.now() });
+    store.save(state.key, { annots: state.annots, calib: state.calib, layers: state.layers, active: state.active, name: state.name, page: state.pageIndex, t: Date.now() });
   }, 300);
 }
 
+// ---------------------------------------------------------------- capas (por página)
+let layerSeq = 1;
+const newLayerId = () => 'c' + Date.now().toString(36) + (layerSeq++);
+function getLayers(pi = state.pageIndex) {
+  let ls = state.layers[pi];
+  if (!ls || !ls.length) ls = state.layers[pi] = [{ id: 'base', name: 'Capa 1', visible: true }];
+  return ls;
+}
+function activeLayer(pi = state.pageIndex) {
+  const ls = getLayers(pi);
+  return ls.find((l) => l.id === state.active[pi]) || ls[ls.length - 1];
+}
+function layerVisible(pi, id) {
+  const l = getLayers(pi).find((x) => x.id === id);
+  return !l || l.visible;
+}
+const visibleAnnots = (pi = state.pageIndex) => (state.annots[pi] || []).filter((a) => layerVisible(pi, a.layer));
+function updateLayerChip() {
+  if (!state.pdf) return;
+  const ls = getLayers();
+  const chip = $('layerChip');
+  const show = ls.length > 1 && !['pan', 'select'].includes(state.tool);
+  chip.textContent = 'Capa: ' + activeLayer().name;
+  chip.classList.toggle('hidden', !show);
+}
+
 function addAnnot(a) {
+  const L = activeLayer();
+  if (!a.layer) a.layer = L.id;
+  if (!L.visible) { L.visible = true; toast('Capa «' + L.name + '» visible de nuevo'); }
   const list = pageList();
   list.push(a);
   state.undo.push({ op: 'add', page: state.pageIndex, a });
@@ -188,7 +230,22 @@ function removeAnnot(a) {
 function changed() {
   persist();
   updateUndo();
+  updateSelBar();
+  updateLayerChip();
+  if (!$('layersSheet').classList.contains('hidden')) renderLayers();
   V.requestDraw();
+}
+const deep = (o) => JSON.parse(JSON.stringify(o));
+// operación de página completa (capas): guarda el antes y el después
+function pageOp(mutate) {
+  const pi = state.pageIndex;
+  const before = deep({ annots: state.annots[pi] || [], layers: getLayers(pi), active: state.active[pi] || null });
+  mutate();
+  const after = deep({ annots: state.annots[pi] || [], layers: getLayers(pi), active: state.active[pi] || null });
+  state.undo.push({ op: 'page', page: pi, before, after });
+  state.redo = [];
+  state.sel = null;
+  changed();
 }
 function updateUndo() {
   $('btnUndo').disabled = !state.undo.length;
@@ -200,18 +257,24 @@ function applyOp(op, inverse) {
   const list = state.annots[op.page] || (state.annots[op.page] = []);
   const add = (op.op === 'add') !== inverse;
   if (op.op === 'calib') { state.calib = inverse ? op.before : op.after; refreshInfo(); return; }
+  if (op.op === 'edit') { restore(op.a, inverse ? op.before : op.after); return; }
+  if (op.op === 'page') {
+    const snap = deep(inverse ? op.before : op.after);
+    state.annots[op.page] = snap.annots; state.layers[op.page] = snap.layers; state.active[op.page] = snap.active;
+    return;
+  }
   if (add) { if (op.op === 'del') list.splice(Math.min(op.i, list.length), 0, op.a); else list.push(op.a); }
   else { const i = list.indexOf(op.a); if (i >= 0) list.splice(i, 1); }
 }
 async function undo() {
   const op = state.undo.pop(); if (!op) return;
   if (op.page !== undefined && op.page !== state.pageIndex) await gotoPage(op.page, false);
-  applyOp(op, true); state.redo.push(op); changed();
+  state.sel = null; applyOp(op, true); state.redo.push(op); changed();
 }
 async function redo() {
   const op = state.redo.pop(); if (!op) return;
   if (op.page !== undefined && op.page !== state.pageIndex) await gotoPage(op.page, false);
-  applyOp(op, false); state.undo.push(op); changed();
+  state.sel = null; applyOp(op, false); state.undo.push(op); changed();
 }
 $('btnUndo').addEventListener('click', undo);
 $('btnRedo').addEventListener('click', redo);
@@ -220,6 +283,7 @@ $('btnRedo').addEventListener('click', redo);
 const WIDTH_PX = { ink: [0, 1.5, 3, 6], hl: [0, 10, 18, 28], shape: [0, 1.5, 3, 5], text: [0, 14, 20, 30] };
 const HINTS = {
   pan: '',
+  select: 'Toca una anotación para seleccionarla · arrástrala para moverla · usa los círculos para cambiar su forma',
   ink: 'Dibuja con un dedo · dos dedos para mover y ampliar',
   hl: 'Resalta con un dedo · dos dedos para mover y ampliar',
   line: 'Arrastra para trazar una línea', arrow: 'Arrastra para trazar una flecha',
@@ -232,9 +296,10 @@ const HINTS = {
 
 function setTool(t) {
   cancelDrafts();
+  if (t !== 'select') state.sel = null;
   state.tool = t;
-  for (const b of $('toolbar').children) b.classList.toggle('on', b.dataset.tool === t);
-  const showProps = !['pan', 'erase', 'calib'].includes(t);
+  for (const b of $('toolbar').children) if (b.dataset.tool) b.classList.toggle('on', b.dataset.tool === t);
+  const showProps = !['pan', 'erase', 'calib', 'select'].includes(t);
   $('props').classList.toggle('hidden', !showProps);
   let h = HINTS[t] || '';
   if ((t === 'dist' || t === 'area') && !state.calib) h += ' · sin escala: medidas en papel (mm). Usa «Escala» para calibrar';
@@ -242,10 +307,13 @@ function setTool(t) {
   $('hint').textContent = h;
   $('hint').classList.toggle('hidden', !h);
   $('areaBar').classList.add('hidden');
+  updateSelBar();
+  updateLayerChip();
   V.requestDraw();
 }
 for (const b of $('toolbar').children) {
   b.addEventListener('click', () => {
+    if (b.dataset.action === 'layers') { openLayers(); return; }
     if (b.dataset.tool === 'calib') { openCalib(null); return; }
     setTool(state.tool === b.dataset.tool && b.dataset.tool !== 'pan' ? 'pan' : b.dataset.tool);
   });
@@ -257,10 +325,17 @@ function buildProps() {
     const b = document.createElement('button');
     b.style.background = col;
     b.setAttribute('aria-label', 'Color ' + (i + 1));
-    b.addEventListener('click', () => { state.color = i; syncProps(); });
+    b.addEventListener('click', () => { state.color = i; syncProps(); editSel((a) => { a.color = col; }); });
     c.appendChild(b);
   });
-  for (const b of document.querySelectorAll('.widths button')) b.addEventListener('click', () => { state.width = +b.dataset.w; syncProps(); });
+  for (const b of document.querySelectorAll('.widths button')) b.addEventListener('click', () => {
+    state.width = +b.dataset.w; syncProps();
+    editSel((a) => {
+      if (a.type === 'text') a.size = WIDTH_PX.text[state.width] * dpr() / V.view.s;
+      else if (a.type === 'dist' || a.type === 'area') a.w = [0, 0.8, 1.5, 3][state.width] * dpr() / V.view.s;
+      else a.w = widthPt(a.type === 'ink' || a.type === 'hl' ? a.type : 'shape');
+    });
+  });
   syncProps();
 }
 function syncProps() {
@@ -284,8 +359,18 @@ function cancelDrafts() {
 
 // ---------------------------------------------------------------- dibujo
 V.overlay = (ctx) => {
-  const list = state.annots[state.pageIndex];
-  if (list && list.length) drawAnnots(ctx, list, V.view, dpr(), state.calib);
+  const sel = state.sel;
+  for (const a of visibleAnnots()) drawAnnot(ctx, a, V.view, dpr(), state.calib, a === sel);
+  if (sel && state.tool === 'select') {
+    const d = dpr();
+    for (const h of handles(sel, V.ctx)) {
+      const [x, y] = V.toScreen(h.x, h.y);
+      ctx.beginPath(); ctx.arc(x, y, 8 * d, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff'; ctx.fill();
+      ctx.lineWidth = 2.5 * d; ctx.strokeStyle = '#0ea5e9'; ctx.stroke();
+      if (h.scale) { ctx.beginPath(); ctx.moveTo(x - 3 * d, y - 3 * d); ctx.lineTo(x + 3 * d, y + 3 * d); ctx.stroke(); }
+    }
+  }
   if (state.draft) drawAnnot(ctx, state.draft, V.view, dpr(), state.calib);
   if (state.area) {
     drawAnnot(ctx, { ...state.area, open: true }, V.view, dpr(), state.calib);
@@ -345,6 +430,7 @@ canvas.addEventListener('pointerdown', (e) => {
   if (ptrs.size === 2) {
     // segundo dedo: cancelar lo que se empezaba a dibujar y pasar a pellizco
     if (g && g.type === 'draw') state.draft = null;
+    if (g && (g.type === 'move' || g.type === 'handle') && state.sel) restore(state.sel, g.orig);
     state.loupe = null;
     startPinch();
     V.requestDraw();
@@ -354,6 +440,7 @@ canvas.addEventListener('pointerdown', (e) => {
   const t = state.tool;
   const [dx, dy] = V.toDoc(x, y);
   g = { type: 'tap', id: e.pointerId, sx: x, sy: y, x, y, t: performance.now(), moved: false };
+  if (t === 'select') { selectDown(x, y); return; }
   if (t === 'pan' || t === 'text') { g.type = 'pan'; return; }
   if (t === 'erase') { g.type = 'erase'; eraseAt(x, y); return; }
   if (t === 'area') { g.type = 'areaTap'; state.loupe = [x, y]; V.requestDraw(); return; }
@@ -390,6 +477,13 @@ canvas.addEventListener('pointermove', (e) => {
   if (!g.moved && Math.hypot(x - g.sx, y - g.sy) > 8 * dpr()) g.moved = true;
   if (g.type === 'pan') {
     if (g.moved) { V.panBy(ddx, ddy); }
+  } else if (g.type === 'move' || g.type === 'handle') {
+    if (g.moved) {
+      const [dx, dy] = V.toDoc(x, y);
+      if (g.type === 'move') translate(state.sel, g.orig, dx - g.dx0, dy - g.dy0);
+      else { dragHandle(state.sel, g.orig, g.h, dx, dy, V.ctx); state.loupe = [x, y]; }
+      V.requestDraw();
+    }
   } else if (g.type === 'erase') {
     eraseAt(x, y);
   } else if (g.type === 'areaTap') {
@@ -431,11 +525,33 @@ function endPointer(e) {
     return;
   }
   if (gg.type === 'areaTap') { areaTap(x, y); return; }
+  if (gg.type === 'move' || gg.type === 'handle') {
+    if (gg.moved && state.sel) {
+      const after = snapshot(state.sel);
+      if (JSON.stringify(after) !== JSON.stringify(gg.orig)) {
+        state.undo.push({ op: 'edit', page: state.pageIndex, a: state.sel, before: gg.orig, after });
+        state.redo = [];
+        changed();
+      }
+    } else if (quick && gg.type === 'handle') {
+      // toque sin arrastrar sobre un tirador: seleccionar lo que haya debajo
+      const hit = hitTop(x, y);
+      if (hit && hit !== state.sel) { state.sel = hit; updateSelBar(); }
+    } else if (quick && gg.wasSelected && state.sel && state.sel.type === 'text') editText();
+    V.requestDraw();
+    return;
+  }
   if (gg.type === 'draw' && state.draft) finishDraft();
   V.requestDraw();
 }
 canvas.addEventListener('pointerup', endPointer);
-canvas.addEventListener('pointercancel', (e) => { ptrs.delete(e.pointerId); if (!ptrs.size) { g = null; state.draft = null; state.loupe = null; V.requestDraw(); } });
+canvas.addEventListener('pointercancel', (e) => {
+  ptrs.delete(e.pointerId);
+  if (!ptrs.size) {
+    if (g && (g.type === 'move' || g.type === 'handle') && state.sel) restore(state.sel, g.orig);
+    g = null; state.draft = null; state.loupe = null; V.requestDraw();
+  }
+});
 
 canvas.addEventListener('wheel', (e) => {
   e.preventDefault();
@@ -479,8 +595,8 @@ function finishDraft() {
 }
 
 function eraseAt(x, y) {
-  const list = state.annots[state.pageIndex];
-  if (!list || !list.length) return;
+  const list = visibleAnnots();
+  if (!list.length) return;
   const [dx, dy] = V.toDoc(x, y);
   const tol = 14 * dpr() / V.view.s;
   const ctx = V.ctx;
@@ -519,22 +635,211 @@ $('aUndo').addEventListener('click', () => {
   V.requestDraw();
 });
 
-// ---------------------------------------------------------------- texto
-let textPos = null;
-function openText(x, y) {
-  textPos = V.toDoc(x, y);
-  $('tInput').value = '';
-  $('dlgText').classList.remove('hidden');
-  setTimeout(() => $('tInput').focus(), 50);
+// ---------------------------------------------------------------- diálogo genérico
+// ask({title, text, value, input, list:[{label, value, on}], ok}) -> Promise(valor | null)
+let askResolve = null;
+function ask(o) {
+  if (askResolve) askResolve(null);
+  $('askTitle').textContent = o.title || '';
+  $('askText').textContent = o.text || '';
+  $('askText').classList.toggle('hidden', !o.text);
+  const inp = $('askInput');
+  inp.classList.toggle('hidden', !o.input);
+  inp.value = o.value || '';
+  inp.rows = o.rows || 2;
+  const list = $('askList');
+  list.innerHTML = '';
+  list.classList.toggle('hidden', !o.list);
+  $('askOk').classList.toggle('hidden', !!o.list);
+  $('askOk').textContent = o.ok || 'Aceptar';
+  $('askOk').classList.toggle('danger-btn', !!o.danger);
+  $('dlgAsk').classList.remove('hidden');
+  return new Promise((res) => {
+    askResolve = res;
+    for (const it of o.list || []) {
+      const b = document.createElement('button');
+      b.textContent = it.label;
+      if (it.on) b.classList.add('on');
+      b.addEventListener('click', () => closeAsk(it.value));
+      list.appendChild(b);
+    }
+    if (o.input) setTimeout(() => { inp.focus(); inp.select(); }, 50);
+  });
 }
-function closeText() { $('dlgText').classList.add('hidden'); $('tInput').blur(); }
-$('tCancel').addEventListener('click', closeText);
-$('tOk').addEventListener('click', () => {
-  const txt = $('tInput').value.replace(/\s+$/, '');
-  closeText();
-  if (!txt || !textPos) return;
+function closeAsk(v) {
+  $('dlgAsk').classList.add('hidden');
+  $('askInput').blur();
+  const r = askResolve; askResolve = null;
+  if (r) r(v);
+}
+$('askCancel').addEventListener('click', () => closeAsk(null));
+$('askOk').addEventListener('click', () => closeAsk($('askInput').classList.contains('hidden') ? true : $('askInput').value));
+
+// ---------------------------------------------------------------- texto
+async function openText(x, y) {
+  const pos = V.toDoc(x, y);
+  const v = await ask({ title: 'Texto', input: true, rows: 3, value: '', ok: 'Añadir' });
+  const txt = (v || '').replace(/\s+$/, '');
+  if (!txt) return;
   const size = WIDTH_PX.text[state.width] * dpr() / V.view.s;
-  addAnnot({ id: newId(), type: 'text', color: COLORS[state.color], w: 0, size, text: txt, pts: [textPos[0], textPos[1]] });
+  addAnnot({ id: newId(), type: 'text', color: COLORS[state.color], w: 0, size, text: txt, pts: [pos[0], pos[1]] });
+}
+
+// ---------------------------------------------------------------- edición
+function hitTop(x, y) {
+  const [dx, dy] = V.toDoc(x, y);
+  const tol = 14 * dpr() / V.view.s;
+  const list = visibleAnnots();
+  // la más cercana al dedo; a igual distancia, la seleccionada o la de encima
+  let best = null, bd = tol;
+  for (let i = list.length - 1; i >= 0; i--) {
+    const d = Math.max(0, hitDist(list[i], dx, dy, V.ctx));
+    const bonus = list[i] === state.sel ? tol * 0.15 : 0;
+    if (d - bonus < bd) { bd = d - bonus; best = list[i]; }
+  }
+  return best;
+}
+function selectDown(x, y) {
+  const sel = state.sel;
+  const [dx, dy] = V.toDoc(x, y);
+  if (sel) {
+    const hs = handles(sel, V.ctx);
+    let best = -1, bd = 24 * dpr();
+    hs.forEach((h, i) => { const [hx, hy] = V.toScreen(h.x, h.y); const d = Math.hypot(hx - x, hy - y); if (d < bd) { bd = d; best = i; } });
+    if (best >= 0) { g.type = 'handle'; g.h = best; g.orig = snapshot(sel); state.loupe = null; return; }
+  }
+  const hit = hitTop(x, y);
+  if (hit) {
+    g.wasSelected = hit === sel;
+    state.sel = hit;
+    g.type = 'move'; g.orig = snapshot(hit); g.dx0 = dx; g.dy0 = dy;
+    updateSelBar();
+    V.requestDraw();
+    return;
+  }
+  state.sel = null;
+  updateSelBar();
+  g.type = 'pan';
+  V.requestDraw();
+}
+// aplica un cambio a la selección con deshacer
+function editSel(fn) {
+  const a = state.sel;
+  if (!a || state.tool !== 'select') return;
+  const before = snapshot(a);
+  fn(a);
+  const after = snapshot(a);
+  if (JSON.stringify(before) === JSON.stringify(after)) return;
+  state.undo.push({ op: 'edit', page: state.pageIndex, a, before, after });
+  state.redo = [];
+  changed();
+}
+function updateSelBar() {
+  const a = state.tool === 'select' ? state.sel : null;
+  $('selBar').classList.toggle('hidden', !a);
+  if (state.tool === 'select') $('props').classList.toggle('hidden', !a);
+  if (!a) return;
+  $('sText').classList.toggle('hidden', a.type !== 'text');
+  const L = getLayers().find((l) => l.id === a.layer);
+  $('sLayerName').textContent = L ? L.name : '—';
+  const ci = COLORS.indexOf(a.color);
+  if (ci >= 0) { state.color = ci; [...$('colors').children].forEach((b, i) => b.classList.toggle('on', i === ci)); }
+}
+async function editText() {
+  const a = state.sel;
+  if (!a || a.type !== 'text') return;
+  const v = await ask({ title: 'Editar texto', input: true, rows: 3, value: a.text, ok: 'Guardar' });
+  if (v == null) return;
+  const txt = v.replace(/\s+$/, '');
+  if (!txt) { removeAnnot(a); state.sel = null; changed(); return; }
+  editSel((x) => { x.text = txt; });
+}
+$('sText').addEventListener('click', editText);
+$('sDel').addEventListener('click', () => { const a = state.sel; if (!a) return; state.sel = null; removeAnnot(a); });
+$('sDup').addEventListener('click', () => {
+  const a = state.sel; if (!a) return;
+  const off = 16 * dpr() / V.view.s;
+  const c = JSON.parse(JSON.stringify(a));
+  c.id = newId();
+  c.pts = c.pts.map((v) => v + off);
+  pageList().push(c);
+  state.undo.push({ op: 'add', page: state.pageIndex, a: c });
+  state.redo = [];
+  state.sel = c;
+  changed();
+});
+$('sLayer').addEventListener('click', async () => {
+  const a = state.sel; if (!a) return;
+  const v = await ask({ title: 'Mover a la capa', list: getLayers().map((l) => ({ label: l.name + (l.visible ? '' : ' (oculta)'), value: l.id, on: l.id === a.layer })) });
+  if (v == null || v === a.layer) return;
+  const L = getLayers().find((l) => l.id === v);
+  editSel((x) => { x.layer = v; });
+  if (L && !L.visible) { state.sel = null; toast('Movida a «' + L.name + '», que está oculta'); changed(); }
+});
+
+// ---------------------------------------------------------------- panel de capas
+const EYE = '<svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>';
+const EYE_OFF = '<svg viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6 0 10 7 10 7a17 17 0 0 1-3.2 3.9M6.6 6.6C3.8 8.4 2 12 2 12s4 7 10 7a9.7 9.7 0 0 0 5.4-1.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+const PEN = '<svg viewBox="0 0 24 24"><path d="M4 20l4-1L19 8l-3-3L5 16z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
+const BIN = '<svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>';
+function openLayers() {
+  const el = $('layersSheet');
+  if (!el.classList.contains('hidden')) { el.classList.add('hidden'); return; }
+  renderLayers();
+  el.classList.remove('hidden');
+}
+function renderLayers() {
+  const pi = state.pageIndex;
+  $('lTitle').textContent = state.pdf && state.pdf.numPages > 1 ? `Capas · página ${pi + 1}` : 'Capas';
+  const ul = $('layerList');
+  ul.innerHTML = '';
+  const act = activeLayer();
+  const list = state.annots[pi] || [];
+  const ls = getLayers();
+  for (const l of [...ls].reverse()) {
+    const n = list.filter((a) => a.layer === l.id).length;
+    const li = document.createElement('li');
+    li.classList.toggle('active', l === act);
+    li.innerHTML = `<span class="radio"></span><span class="ln">${esc(l.name)}</span><span class="cnt">${n}</span>
+      <button class="eye ${l.visible ? '' : 'off'}" aria-label="Mostrar u ocultar">${l.visible ? EYE : EYE_OFF}</button>
+      <button class="act ren" aria-label="Renombrar">${PEN}</button>
+      <button class="act del" aria-label="Borrar capa">${BIN}</button>`;
+    li.addEventListener('click', async (e) => {
+      if (e.target.closest('.eye')) {
+        pageOp(() => { const L = getLayers().find((x) => x.id === l.id); L.visible = !L.visible; });
+        return;
+      }
+      if (e.target.closest('.ren')) {
+        const v = await ask({ title: 'Nombre de la capa', input: true, value: l.name, ok: 'Guardar' });
+        if (v && v.trim()) pageOp(() => { getLayers().find((x) => x.id === l.id).name = v.trim(); });
+        return;
+      }
+      if (e.target.closest('.del')) {
+        if (ls.length === 1) { toast('Cada página necesita al menos una capa'); return; }
+        const ok = await ask({ title: 'Borrar capa', text: n ? `Se borrarán también sus ${n} anotaciones.` : '¿Borrar la capa vacía?', ok: 'Borrar', danger: true });
+        if (!ok) return;
+        pageOp(() => {
+          state.layers[pi] = getLayers().filter((x) => x.id !== l.id);
+          state.annots[pi] = (state.annots[pi] || []).filter((a) => a.layer !== l.id);
+          if (state.active[pi] === l.id) delete state.active[pi];
+        });
+        return;
+      }
+      state.active[pi] = l.id;
+      if (!l.visible) pageOp(() => { getLayers().find((x) => x.id === l.id).visible = true; });
+      persist(); renderLayers(); updateLayerChip();
+    });
+    ul.appendChild(li);
+  }
+}
+$('lClose').addEventListener('click', () => $('layersSheet').classList.add('hidden'));
+$('lAdd').addEventListener('click', async () => {
+  const ls = getLayers();
+  const v = await ask({ title: 'Nueva capa', input: true, value: 'Capa ' + (ls.length + 1), ok: 'Crear' });
+  if (!v || !v.trim()) return;
+  const id = newLayerId();
+  pageOp(() => { getLayers().push({ id, name: v.trim(), visible: true }); state.active[state.pageIndex] = id; });
+  toast('Ahora dibujas en «' + v.trim() + '»');
 });
 
 // ---------------------------------------------------------------- escala
@@ -599,29 +904,56 @@ $('cOk').addEventListener('click', () => {
 });
 
 // ---------------------------------------------------------------- guardar
-$('btnSave').addEventListener('click', async () => {
+$('btnSave').addEventListener('click', () => {
   if (!state.pdf) return;
   if (!countAnnots()) { toast('No hay anotaciones que guardar'); return; }
+  const box = $('exList');
+  box.innerHTML = '';
+  const pages = Object.keys(state.annots).map(Number).filter((pi) => (state.annots[pi] || []).length).sort((x, y) => x - y);
+  for (const pi of pages) {
+    if (state.pdf.numPages > 1) { const h = document.createElement('h4'); h.textContent = 'Página ' + (pi + 1); box.appendChild(h); }
+    for (const l of getLayers(pi)) {
+      const n = state.annots[pi].filter((a) => a.layer === l.id).length;
+      if (!n) continue;
+      const lab = document.createElement('label');
+      lab.className = 'check';
+      lab.innerHTML = `<input type="checkbox" data-page="${pi}" data-layer="${esc(l.id)}" ${l.visible ? 'checked' : ''}> <span>${esc(l.name)} <span class="muted">· ${n}</span></span>`;
+      box.appendChild(lab);
+    }
+  }
+  $('dlgExport').classList.remove('hidden');
+});
+$('exCancel').addEventListener('click', () => $('dlgExport').classList.add('hidden'));
+$('exOk').addEventListener('click', async () => {
+  const chosen = new Set();
+  for (const c of $('exList').querySelectorAll('input[type=checkbox]')) if (c.checked) chosen.add(c.dataset.page + '|' + c.dataset.layer);
+  if (!chosen.size) { toast('Marca al menos una capa'); return; }
+  const ocg = $('exOcg').checked;
+  $('dlgExport').classList.add('hidden');
   loading(true, 'Generando PDF anotado…');
   try {
-    const out = await exportPdf(state.bytes, state.pdf, state.annots, state.calib);
+    const layers = {};
+    for (const pi of Object.keys(state.annots)) layers[pi] = getLayers(+pi);
+    const out = await exportPdf(state.bytes, state.pdf, state.annots, state.calib, {
+      include: (pi, lid) => chosen.has(pi + '|' + lid), layers, ocg,
+    });
     const name = state.name.replace(/\.pdf$/i, '') + ' (anotado).pdf';
     if (Native && Native.saveBegin) {
       Native.saveBegin(name);
       const CH = 3 * 256 * 1024;
       for (let i = 0; i < out.length; i += CH) {
-        let s = '';
+        let str = '';
         const part = out.subarray(i, i + CH);
-        for (let j = 0; j < part.length; j += 8192) s += String.fromCharCode.apply(null, part.subarray(j, j + 8192));
-        Native.saveChunk(btoa(s));
+        for (let j = 0; j < part.length; j += 8192) str += String.fromCharCode.apply(null, part.subarray(j, j + 8192));
+        Native.saveChunk(btoa(str));
       }
       Native.saveEnd();
       loading(false);
     } else {
       const url = URL.createObjectURL(new Blob([out], { type: 'application/pdf' }));
-      const a = document.createElement('a');
-      a.href = url; a.download = name;
-      document.body.appendChild(a); a.click(); a.remove();
+      const el = document.createElement('a');
+      el.href = url; el.download = name;
+      document.body.appendChild(el); el.click(); el.remove();
       setTimeout(() => URL.revokeObjectURL(url), 10000);
       loading(false);
       toast('PDF descargado');
@@ -638,7 +970,10 @@ $('btnBack').addEventListener('click', goHome);
 function goHome() { cancelDrafts(); persist(); showScreen('home'); }
 window.onBack = () => {
   if (!$('loading').classList.contains('hidden')) return true;
-  if (!$('dlgText').classList.contains('hidden')) { closeText(); return true; }
+  if (!$('dlgAsk').classList.contains('hidden')) { closeAsk(null); return true; }
+  if (!$('dlgExport').classList.contains('hidden')) { $('dlgExport').classList.add('hidden'); return true; }
+  if (!$('layersSheet').classList.contains('hidden')) { $('layersSheet').classList.add('hidden'); return true; }
+  if (state.sel) { state.sel = null; updateSelBar(); V.requestDraw(); return true; }
   if (!$('dlgCalib').classList.contains('hidden')) { closeCalib(); return true; }
   if (state.area || state.draft) { cancelDrafts(); V.requestDraw(); return true; }
   if (!$('viewer').classList.contains('hidden')) {

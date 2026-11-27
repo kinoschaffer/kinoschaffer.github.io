@@ -11,12 +11,19 @@ APK lista para instalar: [`dist/Planos-PDF.apk`](dist/Planos-PDF.apk) (Android 7
   ampliación (en un A1, un texto de 0,8 pt ocupa la pantalla entera).
 - **Anotaciones vectoriales**: lápiz, marcador fosforito, línea, flecha, rectángulo, elipse,
   nube de revisión y texto. Tienen 6 colores y 3 grosores, y se pueden borrar, deshacer y rehacer.
+- **Edición de anotaciones** (herramienta «Editar»): toca una anotación para seleccionarla.
+  Puedes arrastrarla para moverla, usar los círculos para cambiar su forma o tamaño, y cambiar su
+  color o grosor. Su barra permite editar el texto, pasarla a otra capa, duplicarla o borrarla.
+  Todo se puede deshacer.
+- **Capas por página**: cada página tiene sus propias capas. Se pueden crear, renombrar, mostrar u
+  ocultar y borrar. Las anotaciones nuevas van a la capa activa.
 - **Medición**: distancias y áreas, en milímetros de papel o en metros reales tras fijar la escala
   (1:50, 1:100…) o calibrar con una cota del plano. Una lupa ayuda a colocar los puntos.
 - **Guardado automático**: las anotaciones se guardan solas en el teléfono y vuelven a aparecer al
   abrir el mismo PDF.
-- **Exportar PDF anotado**: genera un PDF nuevo con las anotaciones dibujadas como vectores,
-  que se ve igual en cualquier lector. Funciona también con páginas giradas o recortadas.
+- **Exportar PDF anotado**: eliges qué capas incluir, y opcionalmente se guardan como **capas
+  del PDF**, que se pueden encender y apagar en Acrobat, Foxit y otros lectores. Las
+  anotaciones se dibujan como vectores y funcionan también en páginas giradas o recortadas.
 - PDF de varias páginas, "Abrir con…" desde otras apps y lista de recientes.
 
 ## Estructura

@@ -56,6 +56,14 @@
     </div>
   </div>
 
+  <div id="selBar" class="selbar hidden">
+    <button id="sText" class="ghost sm">Editar texto</button>
+    <button id="sLayer" class="ghost sm">Capa: <b id="sLayerName"></b></button>
+    <button id="sDup" class="ghost sm">Duplicar</button>
+    <button id="sDel" class="ghost sm danger">Borrar</button>
+  </div>
+  <div id="layerChip" class="layerchip hidden"></div>
+
   <div id="areaBar" class="areabar hidden">
     <button id="aUndo" class="ghost sm">Quitar punto</button>
     <button id="aDone" class="primary sm">Cerrar área</button>
@@ -63,6 +71,8 @@
 
   <nav class="toolbar" id="toolbar">
     <button data-tool="pan" class="on"><svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>Mover</span></button>
+    <button data-tool="select"><svg viewBox="0 0 24 24"><path d="M5 3l14 8-6 1.5L10 19z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span>Editar</span></button>
+    <button data-action="layers"><svg viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg><span>Capas</span></button>
     <button data-tool="ink"><svg viewBox="0 0 24 24"><path d="M4 20l4-1L19 8l-3-3L5 16z M14 7l3 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span>Lápiz</span></button>
     <button data-tool="hl"><svg viewBox="0 0 24 24"><path d="M4 20h7M9 16l-2 2M8 15l7-11 4 3-7 11z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M3 21h9" stroke="#facc15" stroke-width="3"/></svg><span>Marcador</span></button>
     <button data-tool="line"><svg viewBox="0 0 24 24"><path d="M5 19L19 5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>Línea</span></button>
@@ -77,14 +87,41 @@
     <button data-tool="erase"><svg viewBox="0 0 24 24"><path d="M16 4l5 5-10 10H6l-3-3z M9 9l6 6 M6 19h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span>Borrar</span></button>
   </nav>
 
+  <!-- capas de la página -->
+  <div id="layersSheet" class="sheet hidden">
+    <div class="sheet-head">
+      <b id="lTitle">Capas</b>
+      <div>
+        <button class="primary sm" id="lAdd">+ Nueva</button>
+        <button class="icon" id="lClose" aria-label="Cerrar"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
+      </div>
+    </div>
+    <p class="muted sheet-note">Toca una capa para dibujar en ella. El ojo la muestra u oculta. Cada página tiene sus propias capas.</p>
+    <ul id="layerList" class="layers"></ul>
+  </div>
+
   <!-- diálogos -->
-  <div id="dlgText" class="dialog hidden">
+  <div id="dlgAsk" class="dialog hidden">
     <div class="card">
-      <b>Texto</b>
-      <textarea id="tInput" rows="3" placeholder="Escribe la nota…"></textarea>
+      <b id="askTitle"></b>
+      <p class="muted" id="askText"></p>
+      <textarea id="askInput" rows="2"></textarea>
+      <div id="askList" class="picklist"></div>
       <div class="row">
-        <button class="ghost sm" id="tCancel">Cancelar</button>
-        <button class="primary sm" id="tOk">Añadir</button>
+        <button class="ghost sm" id="askCancel">Cancelar</button>
+        <button class="primary sm" id="askOk">Aceptar</button>
+      </div>
+    </div>
+  </div>
+  <div id="dlgExport" class="dialog hidden">
+    <div class="card">
+      <b>Guardar PDF anotado</b>
+      <p class="muted">Elige qué capas se incluyen en el PDF.</p>
+      <div id="exList" class="exlist"></div>
+      <label class="check"><input type="checkbox" id="exOcg" checked> Guardar como capas del PDF (se pueden encender y apagar en Acrobat, Foxit, etc.)</label>
+      <div class="row">
+        <button class="ghost sm" id="exCancel">Cancelar</button>
+        <button class="primary sm" id="exOk">Guardar</button>
       </div>
     </div>
   </div>

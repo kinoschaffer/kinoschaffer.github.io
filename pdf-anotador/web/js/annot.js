@@ -289,22 +289,97 @@ export function simplify(p, tol) {
   return out;
 }
 
+// ------------------------------------------------------------------ edición
+const clone = (o) => JSON.parse(JSON.stringify(o));
+export function snapshot(a) {
+  return clone({ pts: a.pts, w: a.w, size: a.size, color: a.color, text: a.text, layer: a.layer });
+}
+export function restore(a, snap) {
+  Object.assign(a, clone(snap));
+}
+
+export function translate(a, orig, dx, dy) {
+  const p = orig.pts;
+  a.pts = p.map((v, i) => v + (i % 2 ? dy : dx));
+}
+
+// Tiradores de edición: [{x, y}] en coordenadas de página
+export function handles(a, ctx) {
+  const p = a.pts;
+  switch (a.type) {
+    case 'line': case 'arrow': case 'dist':
+      return [{ x: p[0], y: p[1] }, { x: p[2], y: p[3] }];
+    case 'rect': case 'ellipse': case 'cloud':
+      return [{ x: p[0], y: p[1] }, { x: p[2], y: p[1] }, { x: p[2], y: p[3] }, { x: p[0], y: p[3] }];
+    case 'area': {
+      const out = [];
+      for (let i = 0; i < p.length; i += 2) out.push({ x: p[i], y: p[i + 1] });
+      return out;
+    }
+    default: {
+      const b = bbox(a, ctx);
+      return [{ x: b[2], y: b[3], scale: true }];
+    }
+  }
+}
+
+// Mueve el tirador i al punto (x, y), partiendo del estado original
+export function dragHandle(a, orig, i, x, y, ctx) {
+  const p = orig.pts.slice();
+  switch (a.type) {
+    case 'line': case 'arrow': case 'dist':
+      p[2 * i] = x; p[2 * i + 1] = y; a.pts = p; return;
+    case 'rect': case 'ellipse': case 'cloud': {
+      const ix = i === 0 || i === 3 ? 0 : 2, iy = i === 0 || i === 1 ? 1 : 3;
+      p[ix] = x; p[iy] = y; a.pts = p; return;
+    }
+    case 'area':
+      p[2 * i] = x; p[2 * i + 1] = y; a.pts = p; return;
+    default: {
+      // escala uniforme respecto a la esquina superior izquierda
+      const tmp = { ...a, ...orig };
+      const b = bbox(tmp, ctx);
+      const w = Math.max(b[2] - b[0], 1e-9), h = Math.max(b[3] - b[1], 1e-9);
+      let k = ((x - b[0]) / w + (y - b[1]) / h) / 2;
+      k = Math.max(0.05, Math.min(50, k));
+      a.pts = p.map((v, j) => (j % 2 ? b[1] + (v - b[1]) * k : b[0] + (v - b[0]) * k));
+      if (a.type === 'text') a.size = orig.size * k;
+      else a.w = orig.w * k;
+    }
+  }
+}
+
 // ------------------------------------------------------------------ exportar
-// Dibuja las anotaciones dentro del PDF (como contenido vectorial de la página).
-export async function exportPdf(bytes, pdfjsDoc, annotsByPage, calib) {
+// Dibuja las anotaciones dentro del PDF como contenido vectorial de la página.
+// opts.include(pageIndex, layerId) -> boolean   capas a incluir
+// opts.layers {pageIndex: [{id, name}]}         nombres de capa
+// opts.ocg                                      crear capas PDF (Optional Content)
+export async function exportPdf(bytes, pdfjsDoc, annotsByPage, calib, opts = {}) {
   const lib = await import('../vendor/pdf-lib/pdf-lib.esm.min.js');
-  const { PDFDocument, StandardFonts, rgb, degrees, LineCapStyle } = lib;
+  const { PDFDocument, StandardFonts, rgb, degrees, LineCapStyle, PDFName, PDFDict, PDFArray, PDFHexString, PDFOperator, PDFOperatorNames, pushGraphicsState, popGraphicsState } = lib;
   const doc = await PDFDocument.load(bytes, { ignoreEncryption: true, updateMetadata: false });
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const fontB = await doc.embedFont(StandardFonts.HelveticaBold);
   const pages = doc.getPages();
+  const ctxPdf = doc.context;
+  const include = opts.include || (() => true);
+  const multiPage = Object.keys(annotsByPage).filter((k) => (annotsByPage[k] || []).length).length > 1;
+  const newOcgs = [];
   const col = (h) => { const n = parseInt(h.slice(1), 16); return rgb(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255); };
   const safe = (f, t) => { let o = ''; for (const ch of t) { try { f.encodeText(ch); o += ch; } catch (e) { o += '?'; } } return o; };
 
-  for (const [pi, list] of Object.entries(annotsByPage)) {
-    if (!list || !list.length) continue;
+  for (const [pi, all] of Object.entries(annotsByPage)) {
     const page = pages[+pi];
-    if (!page) continue;
+    if (!page || !all || !all.length) continue;
+    const list = all.filter((a) => include(+pi, a.layer));
+    if (!list.length) continue;
+    // proteger el estado gráfico del contenido original (q ... Q)
+    page.node.normalize();
+    const startRef = ctxPdf.register(page.createContentStream(pushGraphicsState()));
+    const endRef = ctxPdf.register(page.createContentStream(popGraphicsState()));
+    page.node.wrapContentStreams(startRef, endRef);
+    page.getContentStream(false);
+
     const pjPage = await pdfjsDoc.getPage(+pi + 1);
     const vp = pjPage.getViewport({ scale: 1 });
     const U = (x, y) => vp.convertToPdfPoint(x, y); // D -> espacio de usuario PDF
@@ -313,16 +388,48 @@ export async function exportPdf(bytes, pdfjsDoc, annotsByPage, calib) {
       for (let i = 0; i < pts.length; i += 2) { const [ux, uy] = U(pts[i], pts[i + 1]); d += (i ? 'L' : 'M') + ux.toFixed(3) + ' ' + (-uy).toFixed(3) + ' '; }
       return d + (close ? 'Z' : '');
     };
-    // ángulo del eje x de la pantalla en espacio de usuario (páginas giradas)
     const o = U(0, 0), ex = U(1, 0);
     const rot = Math.atan2(ex[1] - o[1], ex[0] - o[0]) * 180 / Math.PI;
     const stroke = (d, a, extra = {}) => page.drawSvgPath(d, { x: 0, y: 0, borderColor: col(a.color), borderWidth: a.w, borderOpacity: a.type === 'hl' ? 0.35 : 1, borderLineCap: a.type === 'hl' ? LineCapStyle.Butt : LineCapStyle.Round, ...extra });
     const fill = (d, a, op = 1) => page.drawSvgPath(d, { x: 0, y: 0, color: col(a.color), opacity: op, borderWidth: 0 });
-    const text = (t, x, y, size, color, f = font, angleDeg = 0) => {
+    const text = (t, x, y, size, color) => {
       const [ux, uy] = U(x, y);
-      page.drawText(safe(f, t), { x: ux, y: uy, size, font: f, color: col(color), rotate: degrees(rot + angleDeg) });
+      page.drawText(safe(font, t), { x: ux, y: uy, size, font, color: col(color), rotate: degrees(rot) });
     };
+
+    // agrupar por capa, en el orden de las capas de la página
+    const layerList = (opts.layers && opts.layers[pi]) || [];
+    const order = layerList.map((l) => l.id);
+    const groups = new Map();
     for (const a of list) {
+      const k = a.layer || '';
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k).push(a);
+    }
+    const keys = [...groups.keys()].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+    let props = null;
+    let ocN = 0;
+    for (const key of keys) {
+      let tag = null;
+      if (opts.ocg) {
+        const L = layerList.find((l) => l.id === key);
+        const lname = (L ? L.name : 'Anotaciones') + (multiPage ? ` (pág. ${+pi + 1})` : '');
+        const ref = ctxPdf.register(ctxPdf.obj({ Type: 'OCG', Name: PDFHexString.fromText(lname) }));
+        newOcgs.push(ref);
+        if (!props) {
+          const res = page.node.Resources();
+          props = res.lookupMaybe(PDFName.of('Properties'), PDFDict);
+          if (!props) { props = ctxPdf.obj({}); res.set(PDFName.of('Properties'), props); }
+        }
+        tag = 'AnotOC' + (++ocN);
+        props.set(PDFName.of(tag), ref);
+        page.pushOperators(PDFOperator.of(PDFOperatorNames.BeginMarkedContentSequence, [PDFName.of('OC'), PDFName.of(tag)]));
+      }
+      for (const a of groups.get(key)) drawOne(a);
+      if (tag) page.pushOperators(PDFOperator.of(PDFOperatorNames.EndMarkedContent));
+    }
+
+    function drawOne(a) {
       const p = a.pts;
       switch (a.type) {
         case 'ink': case 'hl': stroke(path(p.length === 2 ? [p[0], p[1], p[0] + 0.01, p[1]] : p, false), a); break;
@@ -333,7 +440,7 @@ export async function exportPdf(bytes, pdfjsDoc, annotsByPage, calib) {
           fill(path([p[2], p[3], p[2] - sz * Math.cos(ang - 0.4), p[3] - sz * Math.sin(ang - 0.4), p[2] - sz * Math.cos(ang + 0.4), p[3] - sz * Math.sin(ang + 0.4)], true), a);
           break;
         }
-        case 'rect': stroke(path([p[0], p[1], p[2], p[1], p[2], p[3], p[0], p[3]], true), a, { borderLineCap: LineCapStyle.Round }); break;
+        case 'rect': stroke(path([p[0], p[1], p[2], p[1], p[2], p[3], p[0], p[3]], true), a); break;
         case 'ellipse': {
           const cx = (p[0] + p[2]) / 2, cy = (p[1] + p[3]) / 2, rx = Math.abs(p[2] - p[0]) / 2, ry = Math.abs(p[3] - p[1]) / 2;
           const pts = [];
@@ -374,6 +481,23 @@ export async function exportPdf(bytes, pdfjsDoc, annotsByPage, calib) {
         }
       }
     }
+  }
+
+  // registrar las capas en el catálogo (conservando las que ya tuviera el PDF)
+  if (newOcgs.length) {
+    const cat = doc.catalog;
+    let ocp = cat.lookupMaybe(PDFName.of('OCProperties'), PDFDict);
+    if (!ocp) { ocp = ctxPdf.obj({ OCGs: [], D: { Order: [], ON: [] } }); cat.set(PDFName.of('OCProperties'), ocp); }
+    let ocgs = ocp.lookupMaybe(PDFName.of('OCGs'), PDFArray);
+    if (!ocgs) { ocgs = ctxPdf.obj([]); ocp.set(PDFName.of('OCGs'), ocgs); }
+    let D = ocp.lookupMaybe(PDFName.of('D'), PDFDict);
+    if (!D) { D = ctxPdf.obj({}); ocp.set(PDFName.of('D'), D); }
+    let ord = D.lookupMaybe(PDFName.of('Order'), PDFArray);
+    if (!ord) { ord = ctxPdf.obj([]); D.set(PDFName.of('Order'), ord); }
+    let on = D.lookupMaybe(PDFName.of('ON'), PDFArray);
+    const baseState = D.lookupMaybe(PDFName.of('BaseState'), PDFName);
+    if (!on && baseState && baseState.asString() === '/OFF') { on = ctxPdf.obj([]); D.set(PDFName.of('ON'), on); }
+    for (const r of newOcgs) { ocgs.push(r); ord.push(r); if (on) on.push(r); }
   }
   return doc.save();
 }
